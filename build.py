@@ -1,6 +1,16 @@
 """Build the Pages artifact from public quotes only. Requires Windows Python."""
 import gzip,json,os,shutil,sys,urllib.request,urllib.error
 from pathlib import Path
+if '--offline' in sys.argv:
+    # The Cloudflare Linux builder deploys saved snapshots; the Windows job fetches reports.
+    saved_root=Path(__file__).resolve().parent
+    saved_public=saved_root/'dist'
+    saved_public.mkdir(exist_ok=True)
+    for source,target in [('seed.json.gz','market-data.json.gz'),('institutional-seed.json','institutional-data.json'),('ownership-seed.json','ownership-data.json'),('index.html','index.html'),('app.js','app.js'),('style.css','style.css')]:
+        shutil.copy2(saved_root/source,saved_public/target)
+    (saved_public/'market-data.json').unlink(missing_ok=True)
+    print('Protected site built from saved official snapshots.')
+    sys.exit(0)
 import market_data as m
 root=Path(__file__).resolve().parent
 m.PUBLIC.mkdir(exist_ok=True)
