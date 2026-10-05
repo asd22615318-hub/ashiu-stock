@@ -24,3 +24,5 @@
 #rows .tag,#rows td:last-child small{color:#ffdf60}
 
 .detail{position:relative}.detail-close{position:absolute;right:12px;top:12px;width:36px;height:36px;border-radius:50%;font-size:26px;line-height:1;background:#243248;color:#fff;border:1px solid #56647a;cursor:pointer}.detail-close:hover,.detail-close:focus-visible{background:#453060;outline:2px solid #ffdf60}.detail-head{padding-right:36px}.workspace:has(>.detail[hidden]){grid-template-columns:250px minmax(0,1fr)}
+
+.detail-cost{margin-top:14px;padding:12px;border:1px solid #514331;border-radius:10px;background:#292336}.detail-cost p{margin:0 0 6px;font-size:13px}.detail-cost strong{color:#ffdf60;white-space:nowrap}.detail-cost small{font-size:11px;color:#b5adbd;line-height:1.7}.detail-cost a{color:#ffdf60}

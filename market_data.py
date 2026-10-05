@@ -4,6 +4,7 @@ import concurrent.futures
 import datetime as dt
 import functools
 import http.server
+import http.client
 import json
 import math
 import os
@@ -47,7 +48,10 @@ def get_json(url):
     for attempt in range(3):
         try:
             with urllib.request.urlopen(request, timeout=35) as response:
-                return json.load(response)
+                try:body=response.read()
+                except http.client.IncompleteRead as error:body=error.partial
+                # Only accept a syntactically complete JSON response; truncated JSON retries.
+                return json.loads(body)
         except Exception:
             if attempt==2:raise
             time.sleep(2*(attempt+1))
