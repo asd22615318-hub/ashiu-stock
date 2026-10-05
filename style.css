@@ -14,3 +14,5 @@
 .institutional-table{min-width:300px;font-size:12px}.institutional-table td,.institutional-table th{padding:8px 5px}.institutional-table td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}#institutional-detail a{color:var(--mint)}
 
 .stock-score{display:block;width:fit-content;margin:6px 0;padding:2px 7px;border-radius:4px;background:#143b35;color:#72e0c8;font-size:12px}.stock-score.partial-score{background:#352b1c;color:#f6c875}
+
+.stock-score,.stock-score.partial-score{color:#ffdf60}
