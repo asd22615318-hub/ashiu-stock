@@ -16,6 +16,8 @@ if site and '--offline' not in sys.argv:
         if e.code!=404:raise
 m.SNAPSHOT.write_bytes(seed)
 if '--offline' not in sys.argv:m.update()
+import ownership_data
+ownership_data.update(root,m.PUBLIC,site,'--offline' in sys.argv)
 data=m.read_snapshot();data.pop('history_backfill',None)
 for name in ['index.html','style.css','app.js']:shutil.copy2(root/name,m.PUBLIC/name)
 with gzip.GzipFile(filename=str(m.PUBLIC/'market-data.json.gz'),mode='wb',mtime=0) as f:
