@@ -1,0 +1,6 @@
+dist/
+.market-cache/
+.snapshot.lock
+__pycache__/
+*.tmp
+.env*
