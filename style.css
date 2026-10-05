@@ -22,3 +22,5 @@
 .ownership-tabs[hidden]{display:none}
 
 #rows .tag,#rows td:last-child small{color:#ffdf60}
+
+.detail{position:relative}.detail-close{position:absolute;right:12px;top:12px;width:36px;height:36px;border-radius:50%;font-size:26px;line-height:1;background:#243248;color:#fff;border:1px solid #56647a;cursor:pointer}.detail-close:hover,.detail-close:focus-visible{background:#453060;outline:2px solid #ffdf60}.detail-head{padding-right:36px}.workspace:has(>.detail[hidden]){grid-template-columns:250px minmax(0,1fr)}

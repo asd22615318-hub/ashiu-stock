@@ -36,6 +36,7 @@ def snapshot_lock():
             finally:handle.seek(0);msvcrt.locking(handle.fileno(),msvcrt.LK_UNLCK,1)
 URLS = {
  'listed': 'https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL',
+ 'listed_daily': 'https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?type=ALLBUT0999&response=json',
  'otc': 'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes',
  'listed_names': 'https://openapi.twse.com.tw/v1/opendata/t187ap03_L',
  'otc_names': 'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O',
@@ -43,8 +44,13 @@ URLS = {
 
 def get_json(url):
     request = urllib.request.Request(url, headers={'User-Agent':'AshiuPatternScreener/1.0','Accept':'application/json'})
-    with urllib.request.urlopen(request, timeout=35) as response:
-        return json.load(response)
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=35) as response:
+                return json.load(response)
+        except Exception:
+            if attempt==2:raise
+            time.sleep(2*(attempt+1))
 
 def number(value):
     try:
@@ -88,12 +94,34 @@ def get_industries():
     atomic_json(CACHE/'industries.json',result)
     return result
 
+def listed_daily_rows(payload):
+    if payload.get('stat')!='OK':raise ValueError('TWSE daily report unavailable')
+    quote_date=date_iso(payload.get('date'))
+    table=next((t for t in payload.get('tables',[]) if '證券代號' in t.get('fields',[])),None)
+    if not table:raise ValueError('TWSE daily report missing price table')
+    rows=[]
+    for values in table.get('data',[]):
+        r=dict(zip(table['fields'],values))
+        change=number(r.get('漲跌價差'))
+        if change is not None and '-' in r.get('漲跌(+/-)',''):change=-change
+        rows.append({'Date':quote_date,'Code':r['證券代號'],'Name':r['證券名稱'],
+            'TradeVolume':r['成交股數'],'OpeningPrice':r['開盤價'],
+            'HighestPrice':r['最高價'],'LowestPrice':r['最低價'],'ClosingPrice':r['收盤價'],'Change':change})
+    if len(rows)<100:raise ValueError('TWSE daily report incomplete')
+    return rows
+
+
 def update():
     with snapshot_lock():
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
             futures={k:pool.submit(get_json,u) for k,u in URLS.items()}
             data={k:f.result() for k,f in futures.items()}
+        data['listed_daily']=listed_daily_rows(data['listed_daily'])
         if not all(isinstance(v,list) and v for v in data.values()):raise ValueError('Official source returned an empty or invalid response; previous snapshot kept.')
+        listed_api_date=max(date_iso(r['Date']) for r in data['listed'])
+        listed_daily_date=max(date_iso(r['Date']) for r in data['listed_daily'])
+        listed_source='listed_daily' if listed_daily_date>listed_api_date else 'listed'
+        data['listed']=data[listed_source]
         listed={str(r['公司代號']).strip() for r in data['listed_names']}
         otc={str(r['SecuritiesCompanyCode']).strip() for r in data['otc_names']}
         previous=read_snapshot()
@@ -117,16 +145,18 @@ def update():
                 if change is not None and b['close'] is not None and b['close']-change>0:b['quote_change_pct']=100*change/(b['close']-change)
                 if not valid_bar(b):continue
                 prior=old.get(code,{})
+                if prior.get('bars') and prior['bars'][-1]['date']>b['date']:
+                    stocks.append(prior);count+=1;continue
                 merged={v['date']:v for v in prior.get('bars',[]) if v['date']<=b['date']}
                 # Latest official quote takes precedence over cached historical data.
                 merged[b['date']]=b
                 bars=[merged[k] for k in sorted(merged)][-520:]
-                stocks.append({'code':code,'name':str(r['Name'] if is_listed else r['CompanyName']).strip(),'market':market,'bars':bars,'source':source,'industry':industries.get(code,'未分類')})
+                stocks.append({'code':code,'name':str(r['Name'] if is_listed else r['CompanyName']).strip(),'market':market,'bars':bars,'source':listed_source if is_listed else source,'industry':industries.get(code,'未分類')})
                 count+=1
             if count<50:raise ValueError('Too few valid official stock rows; previous snapshot kept.')
             counts[market]=count
         now=dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).isoformat(timespec='seconds')
-        result={'source':'TWSE / TPEx OpenAPI','updated_at':now,'sources':URLS,'counts':counts,'stocks':stocks}
+        result={'source':'TWSE daily closing report / TWSE and TPEx OpenAPI','updated_at':now,'sources':URLS,'counts':counts,'stocks':stocks}
         if previous.get('history_backfill'):
             result['history_backfill']=previous['history_backfill']
             result['history_backfill']['history_ready']=sum(len(s['bars'])>=361 for s in stocks)
