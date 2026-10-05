@@ -16,6 +16,8 @@ if site and '--offline' not in sys.argv:
         if e.code!=404:raise
 m.SNAPSHOT.write_bytes(seed)
 if '--offline' not in sys.argv:m.update()
+import institutional_data
+institutional_data.update(root,m.PUBLIC,'--offline' in sys.argv)
 import ownership_data
 ownership_data.update(root,m.PUBLIC,site,'--offline' in sys.argv)
 data=m.read_snapshot();data.pop('history_backfill',None)

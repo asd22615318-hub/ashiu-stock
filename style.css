@@ -10,3 +10,5 @@
 .chart-legend .ma10{background:#ff9f60}.detail{scroll-margin-top:18px}
 
 .ownership{border:1px solid var(--line);background:var(--panel);border-radius:9px;margin:24px 0}.ownership-tabs{display:flex;gap:10px;padding:0 20px 12px}.ownership-tabs .active{background:#6733b7;border-color:#b59bff}.ownership-note,#ownership-status{padding:8px 20px;font-size:12px}.ownership a{color:var(--mint)}.ownership tbody tr{cursor:pointer}.ownership .panel-title{padding:20px}
+
+.institutional-table{min-width:300px;font-size:12px}.institutional-table td,.institutional-table th{padding:8px 5px}.institutional-table td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}#institutional-detail a{color:var(--mint)}
