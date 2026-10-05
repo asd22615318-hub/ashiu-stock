@@ -6,11 +6,12 @@ URL='https://openapi.tdcc.com.tw/v1/opendata/1-5'
 def aggregate(rows,source):
     weeks={}
     for date,code,level,count,shares,percent in rows:
-        if int(level) not in (12,13,14,15):continue
+        if int(level) not in (*range(1,10),12,13,14,15):continue
         code=code.strip()
         date=f'{date[:4]}-{date[4:6]}-{date[6:8]}'
-        stock=weeks.setdefault(date,{}).setdefault(code,{'400':0,'1000':0})
-        stock['400']+=float(percent)
+        stock=weeks.setdefault(date,{}).setdefault(code,{'400':0,'1000':0,'small':0})
+        if int(level)>=12:stock['400']+=float(percent)
+        if int(level)<=9:stock['small']+=float(percent)
         if int(level)==15:stock['1000']+=float(percent)
     return [{'date':date,'source':source,'stocks':{c:{k:round(v,2) for k,v in s.items()} for c,s in stocks.items()}} for date,stocks in weeks.items()]
 
