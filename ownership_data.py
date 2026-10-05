@@ -1,5 +1,5 @@
 """Weekly aggregate TDCC holdings; preserve snapshots for weekly comparisons."""
-import csv,json,urllib.request,time
+import json,urllib.request,urllib.error,time
 from pathlib import Path
 
 URL='https://openapi.tdcc.com.tw/v1/opendata/1-5'
@@ -21,7 +21,9 @@ def update(root,public,site='',offline=False):
             try:
                 with urllib.request.urlopen(site+'/ownership-data.json',timeout=40) as r:prior=json.load(r)
                 data['weeks']+=prior['weeks']
-            except Exception as e:print('Ownership previous snapshot unavailable:',type(e).__name__)
+            except urllib.error.HTTPError as e:
+                if e.code!=404:raise
+                print('Initial ownership deployment: seed used')
         for attempt in range(3):
             try:
                 with urllib.request.urlopen(URL,timeout=45) as r:rows=json.load(r)
