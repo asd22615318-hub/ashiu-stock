@@ -31,6 +31,8 @@ jobs:
           if ($LASTEXITCODE -eq 1) {
             git commit -m 'Update official market snapshots'
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            git pull --rebase origin main
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             git push origin HEAD:main
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           } elseif ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
