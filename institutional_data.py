@@ -44,6 +44,8 @@ def update(root,public,offline=False):
         for code,d in stocks.items():
             history=[r['stocks'][code] for r in reports if code in r['stocks']]
             d['history_dates']=[h['date'] for h in history[:5]]
+            d['daily_history']=[{k:h[k] for k in ['date','foreign','trust','dealer','total']} for h in history]
+            d['five_day_total']=sum(h['total'] for h in history[:5]) if len(reports)>=5 and all(code in r['stocks'] for r in reports[:5]) else None
             d['five_day_ex_foreign']=sum(h['trust']['net']+h['dealer']['net'] for h in history[:5]) if len(reports)>=5 and all(code in r['stocks'] for r in reports[:5]) else None
             prior=history[5:10]
             d['previous_five_day_ex_foreign']=sum(h['trust']['net']+h['dealer']['net'] for h in prior) if len(reports)==10 and all(code in r['stocks'] for r in reports) else None

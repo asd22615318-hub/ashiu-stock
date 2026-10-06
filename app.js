@@ -46,14 +46,27 @@ function render(){const p=params();if(!validParams(p)){$('message').textContent=
  $('rows').innerHTML=filtered.map(s=>`<tr data-code="${esc(s.code)}" class="${s.code===selected?'selected':''}"><td><button aria-label="查看 ${esc(s.name)} 詳情"><strong>${esc(s.code)} ${esc(s.name)}</strong>${chipMetrics(s.code)}${s.score===null?`<span class="stock-score partial-score">均線已符合 ${s.known} / 15 · 待判定 ${s.missing} 項</span>`:`<span class="stock-score">均線分數 ${s.score} / 15</span>`}<small>${esc(s.industry||'未分類')}<br>${esc(s.market)} · ${s.rank?(mode==='live'?'已補歷史排名 #':'均線排名 #')+s.rank:'待補歷史'}<br>${esc(s.t.date)}</small></button></td><td class="numeric"><strong>${fmt(s.t.close)}</strong><span class="candle-badge ${s.t.close>s.t.open?'up':s.t.close<s.t.open?'down':'flat'}">${candleType(s.t)}</span><small class="${s.change>=0?'up':'down'}">${s.change===null?'漲跌資料缺漏':s.change===0?'平盤 0.00%':(s.change>0?'+':'')+fmt(s.change)+'%'}</small></td><td>${TYPES.filter(([k])=>s.signals[k]).map(([k,name])=>`<span class="tag ${k==='panther'?'amber':''}">${name.replace('候選','')}</span>`).join('')||(s.bars.length<21?'<small>待補歷史日線</small>':'<small>暫無型態</small>')}</td></tr>`).join('');
  $('empty').hidden=filtered.length!==0;$('detail').hidden=detailClosed||!selected;
  document.querySelectorAll('#rows tr').forEach(row=>{row.addEventListener('click',()=>{detailClosed=false;detailTrigger=row.querySelector('button');selected=row.dataset.code;render();detailTrigger=document.querySelector('#rows tr[data-code="'+selected+'"] button');$('detail').scrollIntoView({behavior:'smooth',block:'start'});});});if(selected)showDetail(filtered.find(s=>s.code===selected));}
+const INCLUDE_FOREIGN=true;
+function institutionalFlow(code,days=5){
+ const d=mode==='live'?institutional?.stocks[code]:null,s=records.find(s=>s.code===code);
+ const dates=institutional?.report_dates?.slice(0,days)||[];
+ if(!d||!s||dates.length!==days||!d.daily_history)return null;
+ let net=0,volume=0;
+ for(const date of dates){const h=d.daily_history.find(h=>h.date===date),bar=s.bars.find(b=>b.date===date);
+  if(!h||!bar||!Number.isFinite(bar.volume)||bar.volume<0)return null;
+  const n=INCLUDE_FOREIGN?h.total:h.trust.net+h.dealer.net;
+  if(!Number.isFinite(n))return null;net+=n;volume+=bar.volume;
+ }
+ return volume>0?{net,volume,percent:net/volume*100,dates}:null;
+}
 function chipMetrics(code,weekDate=''){
- const d=mode==='live'?institutional?.stocks[code]:null,percent=d?.five_day_change_pct;
+ const d=mode==='live'?institutional?.stocks[code]:null,flow=institutionalFlow(code),percent=flow?.percent;
  const weeks=mode==='live'?ownership?.weeks||[]:[],i=weekDate?weeks.findIndex(w=>w.date===weekDate):weeks.length-1,w=weeks[i],prior=weeks[i-1];
  const current=w?.stocks[code]?.['400'],old=prior?.stocks[code]?.['400'];
  const delta=Number.isFinite(current)&&Number.isFinite(old)?Math.round((current-old)*100)/100:null;
  const value=(v,unit)=>v==null?'—':(v>0?'+':'')+fmt(v)+unit;
  const color=v=>v==null?'chip-missing':v>0?'chip-positive':v<0?'chip-negative':'chip-neutral';
- const reason=!d?'法人日報未載入或缺漏':d.previous_five_day_ex_foreign==null?'10 個交易日資料未齊':d.previous_five_day_ex_foreign<=0?'前 5 日淨買超為零或負值，無法比較百分比':'投信＋自營商：近 5 日淨買超相較前 5 日的變化率；不含外陸資。法人資料日 '+d.date;
+ const reason=!flow?'近 5 個交易日法人日報或同期成交量未齊':'近 5 日'+(INCLUDE_FOREIGN?'三大法人（含外資及陸資）':'投信＋自營商')+'淨買賣超 ÷ 同期成交量 × 100%；'+flow.dates.at(-1)+' → '+flow.dates[0];
  return `<span class="stock-chip-metrics" data-chip-code="${esc(code)}" data-chip-week="${esc(weekDate)}"><span title="${esc(reason)}">法人 5 日 <b class="${color(percent)}">${value(percent,'%')}</b></span><span title="400 張以上大戶持股比例變化；${w&&prior?esc(prior.date)+' → '+esc(w.date):'週資料未齊'}">大戶週增 <b class="${color(delta)}">${value(delta,' pp')}</b></span></span>`;
 }
 function refreshChipMetrics(){document.querySelectorAll('[data-chip-code]').forEach(el=>{el.outerHTML=chipMetrics(el.dataset.chipCode,el.dataset.chipWeek);});}
@@ -112,8 +125,10 @@ function renderInstitutional(s){
  const signed=v=>(v>0?'+':'')+fmt(v)+' 張';
  let html;
  if(d){
-  html=`<p class="institutional-date">日資料：${esc(d.date)}</p>${d.date!==s.t.date?'<p>法人與股價資料日期不同，請分別核對。</p>':''}<div class="institutional-metrics"><div class="institutional-row"><span>外資</span><strong class="institutional-unavailable">未提供純外資</strong></div>${[['trust','投信'],['dealer','自營商']].map(([k,n])=>`<div class="institutional-row"><span>${n}</span><strong class="institutional-net ${d[k].net>0?'net-positive':d[k].net<0?'net-negative':'net-zero'}">${signed(d[k].net)}</strong></div>`).join('')}</div>`;
-  html+=`<p class="institutional-summary">近 5 日投信＋自營商合計：${d.five_day_ex_foreign!=null?`<strong class="${d.five_day_ex_foreign>0?'net-positive':d.five_day_ex_foreign<0?'net-negative':'net-zero'}">${signed(d.five_day_ex_foreign)}</strong>`:'歷史日報未齊，暫不顯示。'}。資料來源：TWSE／TPEX 官方日報。</p><p class="institutional-note">數字為當日買進減賣出的淨買賣超。官方外資欄包含陸資，依目前設定不顯示合併數字。</p>`;
+  const categories=INCLUDE_FOREIGN?[['foreign','外資及陸資'],['trust','投信'],['dealer','自營商']]:[['trust','投信'],['dealer','自營商']];
+  html=`<p class="institutional-date">日資料：${esc(d.date)}</p>${d.date!==s.t.date?'<p>法人與股價資料日期不同，請分別核對。</p>':''}<div class="institutional-metrics">${INCLUDE_FOREIGN?'':'<div class="institutional-row"><span>外資</span><strong class="institutional-unavailable">未提供純外資</strong></div>'}${categories.map(([k,n])=>`<div class="institutional-row"><span>${n}</span><strong class="institutional-net ${d[k].net>0?'net-positive':d[k].net<0?'net-negative':'net-zero'}">${signed(d[k].net)}</strong></div>`).join('')}</div>`;
+  const five=institutionalFlow(s.code),three=institutionalFlow(s.code,3),scope=INCLUDE_FOREIGN?'三大法人':'投信＋自營商';
+  html+=`<p class="institutional-summary">近 5 日${scope}合計：${five?`<strong class="${five.net>0?'net-positive':five.net<0?'net-negative':'net-zero'}">${signed(five.net)}</strong>`:'歷史日報或成交量未齊'}。</p><p>法人進出：3 日 ${three?(three.percent>0?'+':'')+fmt(three.percent)+'%':'—'} · 5 日 ${five?(five.percent>0?'+':'')+fmt(five.percent)+'%':'—'}</p><p class="institutional-note">法人%＝同期${scope}淨買賣超 ÷ 成交量 × 100%。${INCLUDE_FOREIGN?'官方外資欄含陸資；自營商含自行買賣及避險。':'依目前設定排除外資及陸資合併數據。'}<br>資料來源：<a href="https://www.twse.com.tw/zh/trading/foreign/t86.html" target="_blank" rel="noopener">TWSE</a>／<a href="https://www.tpex.org.tw/zh-tw/mainboard/trading/major-institutional/detail/day.html" target="_blank" rel="noopener">TPEX 官方日報</a>。當日數字為買進減賣出的淨買賣超。</p>`;
  }else html=`<p>${mode!=='live'?'請載入官方行情查看法人資料。':institutionalError?'法人資料未載入：'+esc(institutionalError):institutional?'此股無官方法人紀錄；缺漏不視為 0。':'正在載入官方法人資料…'}</p>`;
  $('institutional-detail').innerHTML=html;
 }
@@ -135,10 +150,10 @@ function renderPeers(s){
  const switches=memberships.map(g=>`<button class="peer-group ${g===group?'active':''}" data-group="${esc(g.theme+'／'+g.sub)}" aria-pressed="${g===group}">${esc(g.theme+'／'+g.sub)}</button>`).join('');
  if(mode!=='live'||(!group&&(!s.industry||s.industry==='未分類'))){$('stock-peers').textContent='尚無可用產業分類，無法列出同族群個股。';return;}
  const peers=analyses.filter(x=>x.code!==s.code&&(group?group.codes.includes(x.code):x.industry===s.industry)&&x.t.volume>500).sort((a,b)=>(b.score??-1)-(a.score??-1)||a.code.localeCompare(b.code));
- $('stock-peers').innerHTML=`<div class="peer-group-tabs">${switches}</div><p>${esc(groupName)} · ${peers.length} 檔 · 成交量大於 500 張</p><p class="peer-note">${group?'族群依提供清單分類；股票名稱以行情代號為準。':'清單未涵蓋，採官方產業分類。'}<br>近 5 日淨買超僅含投信＋自營商，不含外陸資。</p><div class="peers-list">${peers.map((x,i)=>{
+ $('stock-peers').innerHTML=`<div class="peer-group-tabs">${switches}</div><p>${esc(groupName)} · ${peers.length} 檔 · 成交量大於 500 張</p><p class="peer-note">${group?'族群依提供清單分類；股票名稱以行情代號為準。':'清單未涵蓋，採官方產業分類。'}<br>法人%採同期淨買賣超 ÷ 成交量；大戶週增採400張以上持股比的百分點變化。</p><div class="peers-list">${peers.map((x,i)=>{
  const d=institutional?.stocks[x.code];
  const rank=x.score===null?'待齊':peers.findIndex(z=>z.score===x.score)+1;
- return `<button class="peer-stock" data-code="${esc(x.code)}"><span class="peer-rank">${rank}</span><span><strong>${esc(x.code)} ${esc(x.name)}</strong>${chipMetrics(x.code)}<span class="stock-score">${x.score===null?'均線已符合 '+x.known+' / 15 · 待判定 '+x.missing+' 項':'均線分數 '+x.score+' / 15'}</span><small>近 5 日淨買超：${d?.five_day_ex_foreign==null?'資料不足':fmt(d.five_day_ex_foreign)+' 張'}${d&&d.date!==x.t.date?'<br>法人 '+esc(d.date)+'／股價 '+esc(x.t.date):''}</small></span></button>`;
+ return `<button class="peer-stock" data-code="${esc(x.code)}"><span class="peer-rank">${rank}</span><span><strong>${esc(x.code)} ${esc(x.name)}</strong>${chipMetrics(x.code)}<span class="stock-score">${x.score===null?'均線已符合 '+x.known+' / 15 · 待判定 '+x.missing+' 項':'均線分數 '+x.score+' / 15'}</span><small>近 5 日淨買超：${institutionalFlow(x.code)==null?'資料不足':fmt(institutionalFlow(x.code).net)+' 張'}${d&&d.date!==x.t.date?'<br>法人 '+esc(d.date)+'／股價 '+esc(x.t.date):''}</small></span></button>`;
  }).join('')||'<p>沒有其他符合成交量條件的同族群個股。</p>'}</div>`;
  document.querySelectorAll('.peer-group').forEach(button=>button.onclick=()=>{peerGroupKey=button.dataset.group;renderPeers(s);});
  document.querySelectorAll('.peer-stock').forEach(button=>button.onclick=()=>{const target=analyses.find(x=>x.code===button.dataset.code);if(!target)return;selected=target.code;detailClosed=false;showDetail(target);$('detail').scrollIntoView({behavior:'smooth',block:'start'});});
