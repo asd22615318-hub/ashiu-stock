@@ -177,3 +177,9 @@ function renderPeers(s){
  document.querySelectorAll('.peer-group').forEach(button=>button.onclick=()=>{peerGroupKey=button.dataset.group;renderPeers(s);});
  document.querySelectorAll('.peer-stock').forEach(button=>button.onclick=()=>{const target=analyses.find(x=>x.code===button.dataset.code);if(!target)return;selected=target.code;detailClosed=false;showDetail(target);$('detail').scrollIntoView({behavior:'smooth',block:'start'});});
 }
+
+const backToTop=document.getElementById('back-to-top');
+function updateBackToTop(){backToTop.hidden=window.scrollY<300;}
+window.addEventListener('scroll',updateBackToTop,{passive:true});
+backToTop.addEventListener('click',()=>{window.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});});
+updateBackToTop();
