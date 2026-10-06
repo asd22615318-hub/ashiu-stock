@@ -186,3 +186,5 @@ updateBackToTop();
 
 const ownershipToggle=document.getElementById('ownership-toggle');
 ownershipToggle.addEventListener('click',()=>{const content=document.getElementById('ownership-content');const expanded=ownershipToggle.getAttribute('aria-expanded')!=='true';content.hidden=!expanded;ownershipToggle.setAttribute('aria-expanded',String(expanded));ownershipToggle.textContent=expanded?'收合排行榜 ▴':'展開排行榜 ▾';});
+
+for(const [toggleId,contentId,openLabel,closeLabel] of [['filters-toggle','filters-content','展開 ▾','收合 ▴'],['results-toggle','results-content','展開清單 ▾','收合清單 ▴']]){const toggle=document.getElementById(toggleId);toggle.addEventListener('click',()=>{const expanded=toggle.getAttribute('aria-expanded')!=='true';document.getElementById(contentId).hidden=!expanded;toggle.setAttribute('aria-expanded',String(expanded));toggle.textContent=expanded?closeLabel:openLabel;});}
