@@ -133,7 +133,7 @@ function renderInstitutional(s){
 }
 if(typeof document!=='undefined')init();
 
-$('detail-close').onclick=()=>{detailClosed=true;$('detail').hidden=true;if(detailTrigger?.isConnected){detailTrigger.focus();detailTrigger.scrollIntoView({block:'center'});}else{document.querySelector('.results').scrollIntoView({block:'start'});}};
+$('detail-close').onclick=()=>{detailClosed=true;$('detail').hidden=true;if(detailTrigger?.isConnected&&detailTrigger.getClientRects().length){detailTrigger.focus();detailTrigger.scrollIntoView({block:'center'});}else{if($('selection-content').hidden)$('selection-toggle').click();$('selection-toggle').focus();document.querySelector('.selection-panel').scrollIntoView({block:'start',behavior:'smooth'});}};
 
 function renderStockHoldings(s){
  const weeks=ownership?.weeks||[],i=weeks.length-1,w=weeks[i],prior=weeks[i-1],d=w?.stocks[s.code],old=prior?.stocks[s.code];

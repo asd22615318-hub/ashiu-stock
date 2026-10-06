@@ -61,3 +61,5 @@
 .daily-plot{overflow-x:auto}@media(max-width:760px){.daily-chart-card #chart .daily-plot svg{min-width:650px}.daily-plot{scrollbar-color:#aaa #fff}}
 
 .daily-defense-values{font-size:12px;line-height:1.8;margin-bottom:8px}
+
+.workspace>.detail{position:relative}.detail-close{position:absolute;top:14px;right:14px;width:auto;min-width:82px;min-height:44px;padding:8px 12px;font-size:16px;z-index:2;border:1px solid #d6ab55;background:#493009;color:#ffe7a5}.detail-head{padding-right:116px}.workspace:has(>.detail[hidden]){grid-template-columns:1fr}
