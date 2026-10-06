@@ -44,3 +44,5 @@
 .reg-futures{display:inline-block;padding:2px 6px;border-radius:5px;font-size:11px;font-weight:700;line-height:1.7;background:#214565;color:#b9e5ff;border:1px solid #5181a3}
 
 .back-to-top{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:calc(18px + env(safe-area-inset-bottom));z-index:1000;display:flex;align-items:center;gap:7px;padding:12px 16px;border:1px solid #ba9140;border-radius:999px;background:#493009;color:#ffe08b;font-weight:700;box-shadow:0 4px 18px #0006;cursor:pointer}.back-to-top[hidden]{display:none}.back-to-top:hover{background:#634210}.back-to-top:focus-visible{outline:3px solid #ffe08b;outline-offset:3px}.back-to-top span:first-child{font-size:22px;line-height:1}
+
+.ownership-disclosure{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px}.ownership-disclosure h2{margin:0;font-size:20px}.ownership-disclosure button{flex-shrink:0;min-height:44px}#ownership-content[hidden]{display:none}@media(max-width:480px){.ownership-disclosure{padding:14px 12px;gap:8px}.ownership-disclosure h2{font-size:17px}.ownership-disclosure button{padding:9px 10px;font-size:13px}}
