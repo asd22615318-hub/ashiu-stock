@@ -148,9 +148,10 @@ function renderPeers(s){
  const group=memberships.find(g=>g.theme+'／'+g.sub===peerGroupKey)||memberships[0];
  const groupName=group?group.theme+'／'+group.sub:s.industry;
  const switches=memberships.map(g=>`<button class="peer-group ${g===group?'active':''}" data-group="${esc(g.theme+'／'+g.sub)}" aria-pressed="${g===group}">${esc(g.theme+'／'+g.sub)}</button>`).join('');
- if(mode!=='live'||!group){$('stock-peers').textContent=mode!=='live'?'請載入官方行情查看圖片分類成員。':'尚未提供族群分類；只顯示你提供的分類圖片成員。';return;}
- const peers=(group?group.codes.filter(code=>code!==s.code).map(code=>analyses.find(x=>x.code===code)||{code,name:group.names?.[code]||code,score:null,unavailable:true}):analyses.filter(x=>x.code!==s.code&&x.industry===s.industry)).sort((a,b)=>(b.score??-1)-(a.score??-1)||a.code.localeCompare(b.code));
- $('stock-peers').innerHTML=`<div class="peer-group-tabs">${switches}</div><p>${esc(groupName)} · 其他 ${peers.length} 檔 · 全部族群成員</p><p class="peer-note">${group?'族群依提供清單分類；股票名稱以行情代號為準。':'清單未涵蓋，採官方產業分類。'}<br>同族群不限制成交量或均線分數；主選股清單仍維持成交量大於500張。<br>法人%採同期淨買賣超 ÷ 成交量；大戶週增採400張以上持股比的百分點變化。</p><div class="peers-list">${peers.map((x,i)=>{
+ if(mode!=='live'||(!group&&(!s.industry||s.industry==='未分類'))){$('stock-peers').textContent=mode!=='live'?'請載入官方行情查看族群成員。':'尚無圖片分類或官方產業資料，無法列出相關股。';return;}
+ const rankedPeers=(group?group.codes.filter(code=>code!==s.code).map(code=>analyses.find(x=>x.code===code)||{code,name:group.names?.[code]||code,score:null,unavailable:true}):analyses.filter(x=>x.code!==s.code&&x.industry===s.industry)).sort((a,b)=>(b.score??-1)-(a.score??-1)||a.code.localeCompare(b.code));
+ const peers=group?rankedPeers:rankedPeers.slice(0,5);
+ $('stock-peers').innerHTML=`<div class="peer-group-tabs">${switches}</div><p>${esc(groupName)} · 其他 ${peers.length} 檔 · 均線分數排序</p><p class="peer-note">${group?'族群依提供清單分類；股票名稱以行情代號為準。':'圖片未涵蓋，採官方產業分類，相關股最多5檔。'}<br>同族群不限制成交量或均線分數；主選股清單仍維持成交量大於500張。<br>法人%採同期淨買賣超 ÷ 成交量；大戶週增採400張以上持股比的百分點變化。</p><div class="peers-list">${peers.map((x,i)=>{
  if(x.unavailable)return `<div class="peer-stock"><span><strong>${esc(x.code)} ${esc(x.name)}</strong><small>尚無行情資料 · 均線分數、法人及集保資料待齊</small></span></div>`;
  const d=institutional?.stocks[x.code];
  const rank=x.score===null?'待齊':peers.findIndex(z=>z.score===x.score)+1;
