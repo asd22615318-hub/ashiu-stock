@@ -48,3 +48,5 @@
 .ownership-disclosure{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px}.ownership-disclosure h2{margin:0;font-size:20px}.ownership-disclosure button{flex-shrink:0;min-height:44px}#ownership-content[hidden]{display:none}@media(max-width:480px){.ownership-disclosure{padding:14px 12px;gap:8px}.ownership-disclosure h2{font-size:17px}.ownership-disclosure button{padding:9px 10px;font-size:13px}}
 
 #filters-content[hidden],#results-content[hidden]{display:none}.filter-reset{display:flex;justify-content:flex-end;margin-bottom:12px}.filters,.results{align-self:start}.panel-title>button[aria-controls]{flex-shrink:0;min-height:44px}
+
+#search{width:100%;min-height:60px;padding:16px 14px;font-size:18px;line-height:1.5;border:2px solid #ffdf60;border-radius:10px;background:#211e14;color:#fff4c2;box-shadow:0 0 0 1px #ffdf6020}#search::placeholder{color:#c8b875;font-size:15px}#search:focus{border-color:#ffe986;outline:3px solid #ffdf6040;outline-offset:3px;box-shadow:0 0 14px #ffdf6026}
