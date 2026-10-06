@@ -148,12 +148,12 @@ function regulatoryBadges(code){
  const d=regulatory?.stocks[code],asof=regulatory?.as_of;
  const active=d?.disposals.filter(x=>x.start<=asof&&asof<=x.end)||[];
  const notice=d?.attention.filter(x=>x.date===regulatory.quote_date)||[];
- return `<span class="regulatory-badges" data-reg-code="${esc(code)}">${active.map(x=>`<span class="reg-disposal" title="處置期間 ${esc(x.start)}～${esc(x.end)}；狀態日 ${esc(asof)}">處置中 · ${x.minutes.length?x.minutes.join('／')+'分鐘撮合':'間隔待確認'}</span>`).join('')}${notice.length?`<span class="reg-attention" title="官方注意公告日 ${esc(notice[0].date)}">注意股 · ${esc(notice[0].date.slice(5))}</span>`:''}</span>`;
+ return `<span class="regulatory-badges" data-reg-code="${esc(code)}">${d?.futures?.length?`<span class="reg-futures" title="期交所股票期貨交易標的；${esc(asof)}；契約 ${esc(d.futures.join('／'))}">有股期</span>`:''}${active.map(x=>`<span class="reg-disposal" title="處置期間 ${esc(x.start)}～${esc(x.end)}；狀態日 ${esc(asof)}">處置中 · ${x.minutes.length?x.minutes.join('／')+'分鐘撮合':'間隔待確認'}</span>`).join('')}${notice.length?`<span class="reg-attention" title="官方注意公告日 ${esc(notice[0].date)}">注意股 · ${esc(notice[0].date.slice(5))}</span>`:''}</span>`;
 }
 function regulatoryDetail(code){
  if(!regulatory)return `<p>${regulatoryError?'監管公告未載入；狀態未知。':'正在載入注意及處置公告…'}</p>`;
  const active=regulatory.stocks[code]?.disposals.filter(x=>x.start<=regulatory.as_of&&regulatory.as_of<=x.end)||[];
- return `<p>監管狀態 · ${esc(regulatory.as_of)}</p>${regulatoryBadges(code)}${active.map(x=>`<p>處置期間 ${esc(x.start)}～${esc(x.end)} · <a href="${esc(x.source)}" target="_blank" rel="noopener">官方公告</a></p>`).join('')}<small>注意股依 ${esc(regulatory.quote_date)} 公告標示；處置依公告期間判定。資料來源 TWSE／TPEX。</small>`;
+ return `<p>監管狀態 · ${esc(regulatory.as_of)}</p>${regulatoryBadges(code)}${active.map(x=>`<p>處置期間 ${esc(x.start)}～${esc(x.end)} · <a href="${esc(x.source)}" target="_blank" rel="noopener">官方公告</a></p>`).join('')}<small>注意股依 ${esc(regulatory.quote_date)} 公告標示；處置依公告期間判定。資料來源 TWSE／TPEX。股期依 TAIFEX 股票期貨交易標的名單。</small>`;
 }
 async function loadRegulatory(){
  try{const r=await fetch('regulatory-data.json?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error('公告快照尚未建立');const data=await r.json();if(!data.stocks||!data.as_of)throw Error('公告格式錯誤');regulatory=data;}catch(e){regulatoryError=e.message;}

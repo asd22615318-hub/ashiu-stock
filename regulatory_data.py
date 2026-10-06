@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 TW_P='https://openapi.twse.com.tw/v1/announcement/punish'
 TP_P='https://www.tpex.org.tw/openapi/v1/tpex_disposal_information'
 TP_N='https://www.tpex.org.tw/openapi/v1/tpex_trading_warning_information'
+SSF='https://openapi.taifex.com.tw/v1/SSFLists'
 
 def iso(value):
     digits=re.sub(r'\D','',str(value))
@@ -29,8 +30,9 @@ def get(url):
 
 def update(root,public,quote_date):
     notice_url='https://www.twse.com.tw/rwd/zh/announcement/notice?response=json&startDate='+quote_date.replace('-','')+'&endDate='+quote_date.replace('-','')
-    urls=[TW_P,notice_url,TP_P,TP_N]
-    with ThreadPoolExecutor(max_workers=4) as pool:tw_p,tw_n,tp_p,tp_n=list(pool.map(get,urls))
+    urls=[TW_P,notice_url,TP_P,TP_N,SSF]
+    with ThreadPoolExecutor(max_workers=4) as pool:tw_p,tw_n,tp_p,tp_n,futures=list(pool.map(get,urls))
+    if not isinstance(futures,list) or len(futures)<50:raise ValueError('Incomplete TAIFEX stock futures list')
     if not all(isinstance(x,list) for x in [tw_p,tp_p,tp_n]) or tw_n.get('stat') not in ['OK','很抱歉，沒有符合條件的資料!']:raise ValueError('Invalid regulatory feeds')
     stocks={}
     def add(code,kind,value):
@@ -46,6 +48,10 @@ def update(root,public,quote_date):
             text=r.get(detailkey,'')
             add(r[codekey].strip(),'disposals',{'start':iso(parts[0]),'end':iso(parts[1]),'announcement_date':iso(r['Date']),'minutes':minutes(text),'detail':text,'source':source})
     now=datetime.now(timezone(timedelta(hours=8)))
+    for r in futures:
+        code=r.get('StockCode','').strip()
+        if re.fullmatch(r'\d{4}',code) and '普通股' in r.get('Type',''):
+            stocks.setdefault(code,{'attention':[],'disposals':[]}).setdefault('futures',[]).append(r['Contract'])
     data={'updated_at':now.isoformat(),'as_of':now.date().isoformat(),'quote_date':quote_date,'stocks':stocks,'sources':urls}
     target=public/'regulatory-data.json';temp=public/'regulatory-data.json.tmp'
     temp.write_text(json.dumps(data,ensure_ascii=False,separators=(',',':')),encoding='utf-8');os.replace(temp,target)
