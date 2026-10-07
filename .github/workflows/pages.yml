@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '50 8 * * *'
+    - cron: '40 10 * * *'
 permissions:
   contents: write
 concurrency:
@@ -10,6 +11,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   update:
+    if: github.event.schedule != '40 10 * * *'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
@@ -27,10 +29,37 @@ jobs:
           Copy-Item -LiteralPath dist/regulatory-data.json -Destination regulatory-seed.json
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add seed.json.gz institutional-seed.json ownership-seed.json regulatory-seed.json etf-seed.json
+          git add seed.json.gz institutional-seed.json ownership-seed.json regulatory-seed.json etf-seed.json prison-seed.json
           git diff --cached --quiet
           if ($LASTEXITCODE -eq 1) {
             git commit -m 'Update official market snapshots'
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            git pull --rebase origin main
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            git push origin HEAD:main
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } elseif ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          exit 0
+
+  disposal:
+    if: github.event.schedule == '40 10 * * *'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Refresh evening official disposal notices
+        run: python prison_data.py
+      - name: Save disposal snapshot
+        shell: pwsh
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add prison-seed.json
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 1) {
+            git commit -m 'Update official disposal snapshot'
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             git pull --rebase origin main
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
