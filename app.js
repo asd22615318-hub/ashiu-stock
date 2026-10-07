@@ -184,3 +184,5 @@ const ownershipToggle=document.getElementById('ownership-toggle');
 ownershipToggle.addEventListener('click',()=>{const content=document.getElementById('ownership-content');const expanded=ownershipToggle.getAttribute('aria-expanded')!=='true';content.hidden=!expanded;ownershipToggle.setAttribute('aria-expanded',String(expanded));ownershipToggle.textContent=expanded?'收合排行榜 ▴':'展開排行榜 ▾';});
 
 for(const [toggleId,contentId,openLabel,closeLabel] of [['selection-toggle','selection-content','展開選股介面 ▾','收合選股介面 ▴']]){const toggle=document.getElementById(toggleId);toggle.addEventListener('click',()=>{const expanded=toggle.getAttribute('aria-expanded')!=='true';document.getElementById(contentId).hidden=!expanded;toggle.setAttribute('aria-expanded',String(expanded));toggle.textContent=expanded?closeLabel:openLabel;});}
+
+$('observation-return').onclick=()=>{if(!$('selection-content').hidden)$('selection-toggle').click();$('selection-toggle').focus({preventScroll:true});document.querySelector('.selection-panel').scrollIntoView({block:'start',behavior:'smooth'});};
