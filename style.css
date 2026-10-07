@@ -71,3 +71,5 @@
 #rows .observation-stock-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap}#rows .observation-stock-heading .stock-score{display:inline-block;margin:0;padding:4px 9px;font-size:16px;font-weight:700;line-height:1.4;border:1px solid #9c8239;border-radius:7px}#rows .observation-stock-heading .partial-score{font-size:15px}
 
 .observation-return{display:flex;justify-content:flex-end;padding:8px 16px 14px}.observation-return button{font-size:13px;line-height:1.3;padding:7px 12px;border:1px solid #b69243;border-radius:8px;background:#30260d;color:#ffe08b;cursor:pointer;min-height:34px}.observation-return button:hover{background:#493009}.observation-return button:focus-visible{outline:2px solid #ffdf60;outline-offset:3px}
+
+#ownership-rows .ownership-stock-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap}#ownership-rows .ownership-stock-heading .stock-score{display:inline-block;margin:0;padding:4px 10px;font-size:18px;font-weight:800;line-height:1.4;border:1px solid #b69243;border-radius:7px}#ownership-rows .ownership-stock-heading .partial-score{font-size:16px}
