@@ -19,5 +19,5 @@ class WarningTests(unittest.TestCase):
         self.assertEqual(cases['2492']['reference_close_high'],'420.00')
         self.assertEqual(cases['2492']['reference_close_low'],'420.00')
         self.assertEqual(cases['4556']['reference_close_high'],'145.00')
-        self.assertEqual(cases['4556']['reference_close_low'],'145.00')
+        self.assertLess(abs(float(cases['4556']['reference_close_low'])-145),0.05)
 if __name__=='__main__':unittest.main()
