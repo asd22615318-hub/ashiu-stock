@@ -101,3 +101,5 @@ body.detail-modal-open{overflow:hidden}.detail-modal{width:min(1180px,calc(100vw
 
 /* Responsive daily chart: full width, 75% price and 25% volume. */
 .daily-chart-card #chart .daily-plot svg{min-width:0;width:100%;height:auto}.daily-plot{overflow:hidden}
+
+.ma20-analysis{width:260px;white-space:normal;line-height:1.7;font-size:13px}.ma20-analysis strong{color:#ffe08b;font-size:16px}.ma20-analysis>span{display:block;margin:7px 0;font-weight:600}.ma20-analysis small{margin-top:5px}.ma20-analysis .ma20-assumption{font-size:11px;color:#899bb0}
