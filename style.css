@@ -103,3 +103,6 @@ body.detail-modal-open{overflow:hidden}.detail-modal{width:min(1180px,calc(100vw
 .daily-chart-card #chart .daily-plot svg{min-width:0;width:100%;height:auto}.daily-plot{overflow:hidden}
 
 .ma20-analysis{width:260px;white-space:normal;line-height:1.7;font-size:13px}.ma20-analysis strong{color:#ffe08b;font-size:16px}.ma20-analysis>span{display:block;margin:7px 0;font-weight:600}.ma20-analysis small{margin-top:5px}.ma20-analysis .ma20-assumption{font-size:11px;color:#899bb0}
+
+/* Keep the pattern and deduction columns together, with concise analysis. */
+#results-content table{table-layout:fixed}#results-content th:nth-child(1){width:34%}#results-content th:nth-child(2){width:16%}#results-content th:nth-child(3){width:22%}#results-content th:nth-child(4){width:28%}#rows td:nth-child(3){white-space:normal;padding-right:6px}#rows td:nth-child(4){padding-left:6px}#rows .ma20-analysis{width:auto;min-width:165px;max-width:240px;font-size:14px;line-height:1.65}#rows .ma20-direction{font-size:20px;color:#ffe08b}#rows .ma20-deduction{font-weight:400;color:#e8ddc5;margin:5px 0}#rows .ma20-analysis small{font-size:12px;color:#aaa69b}#rows .ma20-outlook{font-weight:400;font-size:13px;color:#a9d6ed;margin:8px 0 0}@media(max-width:760px){#results-content table{min-width:780px}}
