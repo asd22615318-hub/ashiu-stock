@@ -1,6 +1,7 @@
 /* Relative sector activity from the site's existing official market, institutional and TDCC snapshots. */
 (() => {
   const originalRender = renderSectors;
+  let rankingOpen = true;
   const signed = (value, digits = 1) => value == null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(digits)}`;
   const valid = value => Number.isFinite(value);
   const average = values => values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -65,10 +66,11 @@
     }
     eligible.forEach(row => { row.score = average(['cashShare', 'cashRatio', 'instRatio', 'tdccDelta'].map(key => row[key + 'Rank'])); });
     eligible.sort((a, b) => b.score - a.score || b.cashShare - a.cashShare);
-    panel.innerHTML = `<div class="sector-capital-head"><div><h2>資金與籌碼族群排名</h2><p>盤後資料：成交值 ${esc(marketDate)} · 法人截至 ${esc(institutional.report_dates[0])} · 集保 ${esc(prior.date)} → ${esc(current.date)}</p></div><small>${eligible.length} 個資料足夠的族群</small></div>
+    panel.innerHTML = `<details class="sector-capital-details" ${rankingOpen ? 'open' : ''}><summary class="sector-capital-head"><div><h2>資金與籌碼族群排名</h2><p>盤後資料：成交值 ${esc(marketDate)} · 法人截至 ${esc(institutional.report_dates[0])} · 集保 ${esc(prior.date)} → ${esc(current.date)}</p></div><small>${eligible.length} 個資料足夠的族群</small></summary>
       <p class="sector-capital-note">綜合排名＝成交值占比、今日／前 5 日平均成交值、近 5 日法人淨買超占成交量、400 張以上持股比例週變化，四項族群名次百分位平均。成交值反映交易活躍度，不能解讀為資金淨流入；族群可重疊。</p>
       <div class="sector-capital-list">${eligible.map((row, index) => `<article class="sector-capital-row"><div class="sector-capital-title"><b>${index + 1}</b><strong>${esc(row.theme)}</strong><small>綜合 ${row.score.toFixed(0)} 分</small></div><div class="sector-capital-metrics"><span><small>今日成交值</small><strong>${fmt(row.cash, 1)} 億</strong></span><span><small>占市場成交值</small><strong>${fmt(row.cashShare, 1)}%</strong></span><span><small>成交值／前 5 日</small><strong>${fmt(row.cashRatio, 2)} 倍</strong></span><span><small>法人近 5 日</small><strong class="${row.instRatio >= 0 ? 'positive' : 'negative'}">${signed(row.instRatio, 2)}%</strong></span><span><small>大戶持股週變化</small><strong class="${row.tdccDelta >= 0 ? 'positive' : 'negative'}">${signed(row.tdccDelta, 2)} 百分點</strong></span></div><p>有效檔數：成交值 ${row.count}、法人 ${row.instCount}、集保 ${row.tdccCount}</p></article>`).join('') || '<p>目前沒有資料完整的族群可排名。</p>'}</div>
-      <p class="sector-capital-source">來源：<a href="https://www.twse.com.tw/zh/trading/foreign/t86.html" target="_blank" rel="noopener">證交所三大法人</a>、<a href="https://original-www.tdcc.com.tw/portal/zh/smWeb/qryStock" target="_blank" rel="noopener">集保戶股權分散表</a>；行情為本站載入的證交所及櫃買中心盤後資料。</p>`;
+      <p class="sector-capital-source">來源：<a href="https://www.twse.com.tw/zh/trading/foreign/t86.html" target="_blank" rel="noopener">證交所三大法人</a>、<a href="https://original-www.tdcc.com.tw/portal/zh/smWeb/qryStock" target="_blank" rel="noopener">集保戶股權分散表</a>；行情為本站載入的證交所及櫃買中心盤後資料。</p></details>`;
+    panel.querySelector('.sector-capital-details').addEventListener('toggle', event => { rankingOpen = event.target.open; });
   };
   renderSectors = function () { originalRender(); window.renderSectorFlow(); };
 })();
