@@ -109,7 +109,7 @@ def listed_daily_rows(payload):
         change=number(r.get('漲跌價差'))
         if change is not None and '-' in r.get('漲跌(+/-)',''):change=-change
         rows.append({'Date':quote_date,'Code':r['證券代號'],'Name':r['證券名稱'],
-            'TradeVolume':r['成交股數'],'OpeningPrice':r['開盤價'],
+            'TradeVolume':r['成交股數'],'TradeValue':r.get('成交金額'),'OpeningPrice':r['開盤價'],
             'HighestPrice':r['最高價'],'LowestPrice':r['最低價'],'ClosingPrice':r['收盤價'],'Change':change})
     if len(rows)<100:raise ValueError('TWSE daily report incomplete')
     return rows
@@ -145,6 +145,8 @@ def update():
                     b[key]=number(r[field] if is_listed else r[key.title()])
                 shares=number(r['TradeVolume'] if is_listed else r['TradingShares'])
                 b['volume']=shares/1000 if shares is not None else None
+                amount=number(r.get('TradeValue') if is_listed else r.get('TradingAmount'))
+                if amount is not None and amount>=0:b['amount']=amount
                 change=number(r.get('Change'))
                 if change is not None and b['close'] is not None and b['close']-change>0:b['quote_change_pct']=100*change/(b['close']-change)
                 if not valid_bar(b):continue
