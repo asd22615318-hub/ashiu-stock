@@ -27,18 +27,20 @@
         return { code, name: quote?.name || revenue?.name || code, quote, revenue };
       }).filter(stock => stock.revenue && (market === 'all' || stock.revenue.market === market));
       const values = members.map(stock => stock.revenue.yoy);
+      const monthlyValues = members.map(stock => stock.revenue.mom).filter(value => value != null);
       const positive = values.filter(value => value > 0).length;
       return { name, members, coverage: members.length, total: codes.size,
         avg: values.length ? average(values) : null,
+        avgMom: monthlyValues.length ? average(monthlyValues) : null,
         positiveShare: values.length ? positive / values.length * 100 : null };
     }).sort((a, b) => (b.avg ?? -Infinity) - (a.avg ?? -Infinity));
     const term = query.trim().toLowerCase();
     const visible = sectors.filter(sector => !term || sector.name.toLowerCase().includes(term)
       || sector.members.some(stock => `${stock.name} ${stock.code}`.toLowerCase().includes(term)));
-    const ranked = sectors.filter(sector => sector.coverage >= 3).slice(0, 3);
+    const ranked = sectors.filter(sector => sector.coverage >= 3).slice(0, 5);
     root.innerHTML = `<div class="sector-heading"><h1>營收成長雷達</h1><p>最新官方月報 ${esc(report?.month || '載入中')} · 族群按成員平均年增率排序</p></div>
       <div class="revenue-note">${report ? `涵蓋 ${Object.keys(report.stocks).length} 檔上市、上櫃公司；比較同一資料月份。族群平均採有公布成員的簡單平均，重複出現在細分族群的個股只計一次。` : esc(error || '正在讀取官方月營收…')}</div>
-      ${report ? `<div class="revenue-leaders"><h2>本期營收成長較強的族群</h2><div class="revenue-leader-grid">${ranked.map((sector, rank) => `<div><small>第 ${rank + 1} 名</small><strong>${esc(sector.name)}</strong><b>${percent(sector.avg)}</b><span>${sector.coverage} 家公布 · ${sector.positiveShare.toFixed(0)}% 年增為正</span></div>`).join('')}</div></div>` : ''}
+      ${report ? `<div class="revenue-leaders"><h2>營收成長前五名族群 <small>依平均年增率排序</small></h2><div class="revenue-leader-grid">${ranked.map((sector, rank) => `<div><small>第 ${rank + 1} 名</small><strong>${esc(sector.name)}</strong><span>平均年增 <b>${percent(sector.avg)}</b></span><span>平均月增 <b>${percent(sector.avgMom)}</b></span><span>${sector.coverage} 家公布 · ${sector.positiveShare.toFixed(0)}% 年增為正</span></div>`).join('')}</div></div>` : ''}
       <div class="revenue-toolbar"><button type="button" id="revenue-positive" class="${positiveOnly ? 'active' : ''}">${positiveOnly ? '只看年增為正' : '顯示全部已公布'}</button><label>市場 <select id="revenue-market"><option value="all">上市＋上櫃</option><option value="上市">上市</option><option value="上櫃">上櫃</option></select></label><label>搜尋 <input id="revenue-search" type="search" placeholder="族群、股號或名稱" value="${esc(query)}"></label></div>
       ${visible.map((sector, index) => {
         const stocks = sector.members.filter(stock => !positiveOnly || stock.revenue.yoy > 0)
