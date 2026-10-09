@@ -118,3 +118,5 @@ body.detail-modal-open{overflow:hidden}.detail-modal{width:min(1180px,calc(100vw
 
 /* Keep ownership headings and values on the same evenly spaced columns. */
 .ownership-table{width:960px;min-width:960px;table-layout:fixed}.ownership-rank-col{width:70px}.ownership-stock-col{width:230px}.ownership-metric-col{width:110px}.ownership-table th,.ownership-table td{width:auto;min-width:0;padding:16px 10px;vertical-align:middle;text-align:center}.ownership-table th:first-child,.ownership-table td:first-child{width:auto}.ownership-table th:nth-child(2),.ownership-table td:nth-child(2){width:auto;min-width:0;text-align:left}.ownership-table td:nth-child(4){min-width:0;white-space:normal}.ownership-table td button{white-space:normal;overflow-wrap:anywhere}.ownership-table .numeric{text-align:center}.ownership-table .stock-chip-metrics{flex-wrap:wrap}
+
+.ownership-table .ownership-dual small{color:inherit;font-size:12px;line-height:1.9;white-space:nowrap}
