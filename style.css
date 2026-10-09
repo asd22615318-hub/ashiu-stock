@@ -134,3 +134,5 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 .field .search-confirm-row{display:flex;float:none;gap:8px;align-items:stretch;margin-top:7px;width:100%}.field .search-confirm-row #search{flex:1;min-width:0;width:0;margin:0}.search-confirm{flex-shrink:0;border:1px solid #f1ca57;background:#f1ca57;color:#21170a;font-size:16px;font-weight:700;padding:10px 14px;border-radius:8px}
 
 .industry-label,#detail-industry{white-space:pre-line;overflow-wrap:anywhere}.ownership-table .industry-label{font-size:12px;line-height:1.6;text-align:left}
+
+.chipburst-info{margin:0 24px 20px;padding:20px;border:1px solid #705331;border-radius:12px;background:#1a1520}.chipburst-info h3{color:#ffe298;font-size:20px}.chipburst-info p{line-height:1.9;color:#d4c8d9}.chipburst-info .chipburst-pending{color:#ffe298}.chipburst-info small{color:#bcaec4}.ownership-modes{flex-wrap:wrap}
