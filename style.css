@@ -128,3 +128,5 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 .sector-stock{grid-template-columns:minmax(0,1fr) 48px 105px}.sector-stock>span{font-size:14px;font-weight:700;color:#ffe298}
 
 .sector-member .sector-stock{width:100%}.sector-business,.sector-tags{margin:3px 10px!important;font-size:12px!important}.sector-tags{color:#e1bd68}.pcb-chain{margin-top:20px;background:#fff;color:#292d30;border-radius:16px;padding:20px;text-align:center}.pcb-chain h3{color:#292d30}.pcb-chain>div,.pcb-chain-branches>span{background:#f4f5f5;border-radius:10px;padding:12px}.pcb-chain>div:nth-of-type(2){background:#eaf4f4}.pcb-chain small{display:block;color:#666;font-size:12px}.pcb-chain>b{display:block;color:#999}.pcb-chain-branches{display:flex;gap:10px;background:transparent!important;padding:0!important}.pcb-chain-branches>span{flex:1}.pcb-chain p{color:#777;font-size:12px}
+
+.pcb-chain .passive-chain-branches{display:grid;grid-template-columns:1fr 1fr;gap:10px;background:transparent;padding:0;text-align:left}.passive-chain-branches>span{border:1px solid #e2e4e5;border-radius:10px;padding:12px}
