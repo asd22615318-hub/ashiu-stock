@@ -39,13 +39,12 @@ function updatePriceRanges(){const select=$('price-range'),maximum=Math.max(1000
 function matchesPrice(price,range){if(range==='all')return true;const [low,high]=range.split(':').map(Number);return Number.isFinite(price)&&price>=low&&price<high;}
 function backtestReference(s){
  const prior=s.bars.slice(-3,-1);
- if(prior.length<2||prior.some(b=>!Number.isFinite(b.low)||!Number.isFinite(b.volume)||b.volume<=0))return '<small>前兩日資料不足</small>';
- const volume=prior.reduce((sum,b)=>sum+b.volume,0);
- const exact=prior.every(b=>Number.isFinite(b.amount)&&b.amount>0);
- const lows=`<span>前一日低點 ${fmt(prior[1].low)}</span><span>前二日低點 ${fmt(prior[0].low)}</span>`;
- if(!exact)return `<div class="backtest-reference"><strong>均價資料待補</strong>${lows}</div>`;
- const price=prior.reduce((sum,b)=>sum+b.amount,0)/(volume*1000);
- return `<div class="backtest-reference"><strong>${fmt(price)}</strong><small>前兩日成交量加權均價</small>${lows}</div>`;
+ if(prior.length<2)return '<small>前兩日資料不足</small>';
+ const day=(b,label)=>{
+  const hasPrice=Number.isFinite(b.amount)&&b.amount>0&&Number.isFinite(b.volume)&&b.volume>0;
+  return `<div class="backtest-day"><span>${label}${b.date?` · ${esc(b.date)}`:''}</span><strong>成交量加權均價 ${hasPrice?fmt(b.amount/(b.volume*1000)):'待補'}</strong><span>低點 ${Number.isFinite(b.low)?fmt(b.low):'待補'}</span></div>`;
+ };
+ return `<div class="backtest-reference">${day(prior[1],'前一交易日')}${day(prior[0],'前二交易日')}</div>`;
 }
 function reset(){document.querySelectorAll('.check input').forEach(x=>x.checked=false);$('search').value='';$('above-weekly20').checked=false;$('market').value='all';$('price-range').value='all';$('score').value=0;$('sort').value='score';render();}
 function render(){updatePriceRanges();const p=params();if(!validParams(p)){$('message').textContent='請輸入有效的門檻範圍，再更新篩選。';return;}$('message').textContent='';analyses=records.map(s=>analyze(s,p));
