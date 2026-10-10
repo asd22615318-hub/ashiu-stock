@@ -5,7 +5,8 @@
   const rows = (items) => items.map(([name, rule]) => `<div class="cb-rule-row"><strong>${name}</strong><span>${rule}</span></div>`).join('');
   root.innerHTML = `
     <div class="sector-heading"><h1>可轉債雷達</h1><p>CB 領先正股 · 觀察可轉債量價與正股的連動</p></div>
-    <div class="cb-data-status" role="status"><strong>規則已建立，行情資料尚未接入</strong><span>目前展示篩選與評分口徑，尚無可轉債即時或盤後排行；不以正股成交量代替 CB 成交量。</span></div>
+    <div class="cb-data-status" id="cb-data-status" role="status"><strong>正在載入集保可轉債月資料…</strong><span>每日 CB 行情與有效轉換價尚未接入，以下策略分數暫不計算。</span></div>
+    <section class="cb-panel" id="cb-data-panel" hidden><div class="cb-panel-heading"><div><span class="cb-kicker">官方資料</span><h2>可轉債保管月報</h2></div><small id="cb-data-period"></small></div><p class="cb-data-note">按本月底集保保管張數排序；月資料不代表今日成交量。發行張數為發行規模，並非剩餘流通張數。</p><label class="cb-search-label">搜尋代號或名稱 <input id="cb-data-search" type="search" placeholder="輸入可轉債或正股代號"></label><div class="cb-table-wrap"><table class="cb-table"><thead><tr><th>可轉債／正股</th><th>本月底保管</th><th>較前月</th><th>發行張數</th><th>集保戶數</th></tr></thead><tbody id="cb-data-rows"></tbody></table></div><p class="cb-data-note">資料來源：<a href="https://data.gov.tw/dataset/11462" target="_blank" rel="noopener">集保結算所可轉換公司債月分析表</a>。缺值以「—」表示。</p></section>
     <section class="cb-panel"><div class="cb-panel-heading"><div><span class="cb-kicker">候選條件</span><h2>CB 領先正股</h2></div><small>研究用初版門檻</small></div>
       <div class="cb-rule-grid">${rows([
         ['CB 20 日量比', '今日成交量 ÷ 前 20 個交易日均量 ≥ 3 倍'],
@@ -48,5 +49,29 @@
       </ul></section>
     </div>
     <p class="cb-method-note">轉換溢價率以「CB 價格 ÷ 轉換價值 − 1」計算；轉換價值須按該債券面額與當日有效轉換價換算。上列門檻為使用者提供的研究方向，並非已驗證的預測結果。</p>`;
+
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  const fmt = value => value == null ? '—' : Number(value).toLocaleString('zh-TW');
+  const status = root.querySelector('#cb-data-status');
+  const panel = root.querySelector('#cb-data-panel');
+  fetch('convertible-data.json?v=' + Date.now(), {cache:'no-store'})
+    .then(response => { if (!response.ok) throw Error('月資料尚未建立'); return response.json(); })
+    .then(data => {
+      if (!Array.isArray(data.bonds) || !data.bonds.length || !data.period) throw Error('月資料尚未取得');
+      const bonds = [...data.bonds].sort((a,b) => (b.custody ?? -1) - (a.custody ?? -1) || a.code.localeCompare(b.code));
+      status.innerHTML = `<strong>集保月報 ${esc(data.period)} · ${bonds.length} 檔可轉債</strong><span>已接入實際保管張數及月變化；每日 CB 價量與有效轉換價尚未接入，策略分數暫不計算。</span>`;
+      root.querySelector('#cb-data-period').textContent = data.period;
+      panel.hidden = false;
+      const search = root.querySelector('#cb-data-search');
+      const body = root.querySelector('#cb-data-rows');
+      const render = () => {
+        const term = search.value.trim().toLowerCase();
+        const shown = bonds.filter(bond => !term || `${bond.code} ${bond.name} ${bond.underlying_code}`.toLowerCase().includes(term));
+        body.innerHTML = shown.map(bond => `<tr><td><strong>${esc(bond.name)}</strong><small>${esc(bond.code)} · 正股 ${esc(bond.underlying_code || '—')}</small></td><td>${fmt(bond.custody)} 張</td><td class="${bond.change > 0 ? 'cb-up' : bond.change < 0 ? 'cb-down' : ''}">${bond.change == null ? '—' : `${bond.change > 0 ? '+' : ''}${fmt(bond.change)} 張`}</td><td>${fmt(bond.issued)} 張</td><td>${fmt(bond.holders)}</td></tr>`).join('') || '<tr><td colspan="5">沒有符合的可轉債。</td></tr>';
+      };
+      search.addEventListener('input', render);
+      render();
+    })
+    .catch(error => { status.innerHTML = `<strong>集保可轉債月資料暫時無法顯示</strong><span>${esc(error.message)}；研究規則仍可查看，未產生任何推估排行。</span>`; });
 })();
 
