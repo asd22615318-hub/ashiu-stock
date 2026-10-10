@@ -42,7 +42,7 @@
     root.innerHTML = `<div class="sector-heading"><h1>營收成長雷達</h1><p>最新官方月報 ${esc(report?.month || '載入中')} · 族群按成員平均年增率排序</p></div>
       <div class="revenue-note">${report ? `涵蓋 ${Object.keys(report.stocks).length} 檔上市、上櫃公司；比較同一資料月份。族群平均採有公布成員的簡單平均，重複出現在細分族群的個股只計一次。` : esc(error || '正在讀取官方月營收…')}</div>
       ${report ? `<details class="revenue-leaders" ${leadersOpen ? 'open' : ''}><summary>營收成長前五名族群 <small>依平均年增率排序</small></summary><div class="revenue-leader-grid">${ranked.map((sector, rank) => `<div><small>第 ${rank + 1} 名</small><strong>${esc(sector.name)}</strong><span>平均年增 <b>${percent(sector.avg)}</b></span><span>平均月增 <b>${percent(sector.avgMom)}</b></span><span>${sector.coverage} 家公布 · ${sector.positiveShare.toFixed(0)}% 年增為正</span></div>`).join('')}</div></details>` : ''}
-      <div class="revenue-toolbar"><button type="button" id="revenue-positive" class="${positiveOnly ? 'active' : ''}">${positiveOnly ? '只看年增為正' : '顯示全部已公布'}</button><label>市場 <select id="revenue-market"><option value="all">上市＋上櫃</option><option value="上市">上市</option><option value="上櫃">上櫃</option></select></label><label>搜尋 <input id="revenue-search" type="search" placeholder="族群、股號或名稱" value="${esc(query)}"></label></div>
+      <div class="revenue-toolbar"><button type="button" id="revenue-positive" class="${positiveOnly ? 'active' : ''}">${positiveOnly ? '只看年增為正' : '顯示全部已公布'}</button><label>市場 <select id="revenue-market"><option value="all">上市＋上櫃</option><option value="上市">上市</option><option value="上櫃">上櫃</option></select></label><form id="revenue-search-form" class="revenue-search-form"><label for="revenue-search">搜尋</label><input id="revenue-search" type="search" placeholder="族群、股號或名稱" value="${esc(query)}"><button type="submit" id="revenue-search-confirm">確認</button></form></div>
       ${visible.map((sector, index) => {
         const stocks = sector.members.filter(stock => !positiveOnly || stock.revenue.yoy > 0)
           .filter(stock => !term || sector.name.toLowerCase().includes(term) || `${stock.name} ${stock.code}`.toLowerCase().includes(term))
@@ -55,7 +55,13 @@
     root.querySelector('.revenue-leaders')?.addEventListener('toggle', event => { leadersOpen = event.target.open; });
     root.querySelector('#revenue-market').value = market;
     root.querySelector('#revenue-market').onchange = event => { market = event.target.value; renderRevenue(); };
-    root.querySelector('#revenue-search').onchange = event => { query = event.target.value; renderRevenue(); };
+    root.querySelector('#revenue-search-form').onsubmit = event => {
+      event.preventDefault();
+      query = root.querySelector('#revenue-search').value.trim();
+      const stock = stockIndex.get(query);
+      renderRevenue();
+      if (stock) openStockDetail(stock, root.querySelector('#revenue-search-confirm'));
+    };
     root.querySelectorAll('.revenue-stock:not(:disabled)').forEach(button => button.onclick = () => {
       const stock = stockIndex.get(button.dataset.code);
       if (stock) openStockDetail(stock, button);
