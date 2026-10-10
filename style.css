@@ -153,3 +153,5 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 .revenue-leaders>summary{cursor:pointer;color:#ffe298;font-size:20px;font-weight:700;margin:0}.revenue-leaders[open]>summary{margin-bottom:14px}.revenue-leaders>summary small{font-size:13px;color:#c8bbce;font-weight:400;margin-left:8px}
 .sector-capital-details>summary{cursor:pointer;list-style:none}.sector-capital-details>summary::-webkit-details-marker{display:none}.sector-capital-details>summary h2::before{content:'▼ ';font-size:16px}.sector-capital-details:not([open])>summary h2::before{content:'▶ '}.sector-capital-details>summary:focus-visible{outline:2px solid #ffe298;outline-offset:5px;border-radius:4px}.sector-capital-details[open]>summary{margin-bottom:14px}
 
+
+#rows .backtest-day{padding:5px 0;border-bottom:1px solid #493d36}#rows .backtest-day:last-child{border-bottom:0}#rows .backtest-day strong{display:block;font-size:13px;white-space:normal}#rows .backtest-day span{margin-top:2px;font-size:12px}
