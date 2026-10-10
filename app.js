@@ -42,10 +42,10 @@ function backtestReference(s){
  if(prior.length<2||prior.some(b=>!Number.isFinite(b.low)||!Number.isFinite(b.volume)||b.volume<=0))return '<small>前兩日資料不足</small>';
  const volume=prior.reduce((sum,b)=>sum+b.volume,0);
  const exact=prior.every(b=>Number.isFinite(b.amount)&&b.amount>0);
- const low=Math.min(...prior.map(b=>b.low));
- if(!exact)return `<div class="backtest-reference"><strong>均價資料待補</strong><span>前兩日低點 ${fmt(low)}</span></div>`;
+ const lows=`<span>前一日低點 ${fmt(prior[1].low)}</span><span>前二日低點 ${fmt(prior[0].low)}</span>`;
+ if(!exact)return `<div class="backtest-reference"><strong>均價資料待補</strong>${lows}</div>`;
  const price=prior.reduce((sum,b)=>sum+b.amount,0)/(volume*1000);
- return `<div class="backtest-reference"><strong>${fmt(price)}</strong><small>前兩日成交量加權均價</small><span>前兩日低點 ${fmt(low)}</span></div>`;
+ return `<div class="backtest-reference"><strong>${fmt(price)}</strong><small>前兩日成交量加權均價</small>${lows}</div>`;
 }
 function reset(){document.querySelectorAll('.check input').forEach(x=>x.checked=false);$('search').value='';$('above-weekly20').checked=false;$('market').value='all';$('price-range').value='all';$('score').value=0;$('sort').value='score';render();}
 function render(){updatePriceRanges();const p=params();if(!validParams(p)){$('message').textContent='請輸入有效的門檻範圍，再更新篩選。';return;}$('message').textContent='';analyses=records.map(s=>analyze(s,p));
