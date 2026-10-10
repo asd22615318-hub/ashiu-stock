@@ -42,7 +42,10 @@ except Exception as e:
     if (root/'convertible-seed.json').exists():shutil.copy2(root/'convertible-seed.json',m.PUBLIC/'convertible-data.json')
 data=m.read_snapshot();data.pop('history_backfill',None)
 import regulatory_data
-regulatory_data.update(root,m.PUBLIC,max(b['date'] for s in data['stocks'] for b in s['bars']))
+try: regulatory_data.update(root,m.PUBLIC,max(b['date'] for s in data['stocks'] for b in s['bars']))
+except Exception as e:
+    print('Regulatory update failed; preserving previous snapshot:',e)
+    if (root/'regulatory-seed.json').exists():shutil.copy2(root/'regulatory-seed.json',m.PUBLIC/'regulatory-data.json')
 import prison_data
 try: prison_data.update(root,m.PUBLIC)
 except Exception as e:
