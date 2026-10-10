@@ -28,9 +28,10 @@ jobs:
           Copy-Item -LiteralPath dist/ownership-data.json -Destination ownership-seed.json
           Copy-Item -LiteralPath dist/regulatory-data.json -Destination regulatory-seed.json
           Copy-Item -LiteralPath dist/revenue-data.json -Destination revenue-seed.json
+          Copy-Item -LiteralPath dist/convertible-data.json -Destination convertible-seed.json
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add seed.json.gz institutional-seed.json ownership-seed.json regulatory-seed.json revenue-seed.json etf-seed.json prison-seed.json
+          git add seed.json.gz institutional-seed.json ownership-seed.json regulatory-seed.json revenue-seed.json convertible-seed.json etf-seed.json prison-seed.json
           git diff --cached --quiet
           if ($LASTEXITCODE -eq 1) {
             git commit -m 'Update official market snapshots'
