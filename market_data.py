@@ -115,6 +115,49 @@ def listed_daily_rows(payload):
     return rows
 
 
+def report_amounts(payload, market):
+    if market=='上市':
+        return {r['Code']:number(r.get('TradeValue')) for r in listed_daily_rows(payload)}
+    tables=payload.get('tables',[]) if isinstance(payload,dict) else []
+    if isinstance(payload,dict) and payload.get('fields') and payload.get('data'):
+        tables=[payload]+tables
+    if isinstance(payload,list):
+        tables=[{'data':payload}]
+    amounts={}
+    for table in tables:
+        fields=table.get('fields',[])
+        for row in table.get('data',[]):
+            item=dict(zip(fields,row)) if isinstance(row,list) else row
+            if not isinstance(item,dict):continue
+            code=next((str(v).strip() for k,v in item.items() if ('代號' in k or k in ('Code','SecuritiesCompanyCode','SecuritiesCode')) and re.fullmatch(r'\d{4}',str(v).strip())),None)
+            amount=next((number(v) for k,v in item.items() if k in ('TradingAmount','TradeValue') or '成交金額' in k),None)
+            if code and amount is not None and amount>0:amounts[code]=amount
+    if len(amounts)<50:raise ValueError('TPEx daily report has too few trade values')
+    return amounts
+
+def restore_recent_amounts(stocks):
+    dates=sorted({b['date'] for s in stocks for b in s['bars'][-3:]})[-3:-1]
+    restored=0
+    for date in dates:
+        for market in ('上市','上櫃'):
+            if market=='上市':
+                url='https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?'+urllib.parse.urlencode({'date':date.replace('-',''),'type':'ALLBUT0999','response':'json'})
+            else:
+                url='https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes?'+urllib.parse.urlencode({'date':date.replace('-','/'),'response':'json'})
+            try:amounts=report_amounts(get_json(url),market)
+            except Exception as error:
+                print(f'Trade-value backfill skipped for {market} {date}: {error}',flush=True)
+                continue
+            for stock in stocks:
+                if stock['market']!=market:continue
+                amount=amounts.get(stock['code'])
+                if amount is None:continue
+                for bar in stock['bars'][-3:]:
+                    if bar['date']==date and bar.get('volume',0)>0 and not bar.get('amount'):
+                        bar['amount']=amount
+                        restored+=1
+    print(f'Restored {restored} recent official trade values',flush=True)
+
 def update():
     with snapshot_lock():
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
@@ -124,7 +167,7 @@ def update():
         if not all(isinstance(v,list) and v for v in data.values()):raise ValueError('Official source returned an empty or invalid response; previous snapshot kept.')
         listed_api_date=max(date_iso(r['Date']) for r in data['listed'])
         listed_daily_date=max(date_iso(r['Date']) for r in data['listed_daily'])
-        listed_source='listed_daily' if listed_daily_date>listed_api_date else 'listed'
+        listed_source='listed_daily' if listed_daily_date>=listed_api_date else 'listed'
         data['listed']=data[listed_source]
         listed={str(r['公司代號']).strip() for r in data['listed_names']}
         otc={str(r['SecuritiesCompanyCode']).strip() for r in data['otc_names']}
@@ -155,12 +198,15 @@ def update():
                     stocks.append(prior);count+=1;continue
                 merged={v['date']:v for v in prior.get('bars',[]) if v['date']<=b['date']}
                 # Latest official quote takes precedence over cached historical data.
+                if 'amount' not in b and b['date'] in merged and 'amount' in merged[b['date']]:
+                    b['amount']=merged[b['date']]['amount']
                 merged[b['date']]=b
                 bars=[merged[k] for k in sorted(merged)][-520:]
                 stocks.append({'code':code,'name':str(r['Name'] if is_listed else r['CompanyName']).strip(),'market':market,'bars':bars,'source':listed_source if is_listed else source,'industry':industries.get(code,'未分類')})
                 count+=1
             if count<50:raise ValueError('Too few valid official stock rows; previous snapshot kept.')
             counts[market]=count
+        restore_recent_amounts(stocks)
         now=dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).isoformat(timespec='seconds')
         result={'source':'TWSE daily closing report / TWSE and TPEx OpenAPI','updated_at':now,'sources':URLS,'counts':counts,'stocks':stocks}
         if previous.get('history_backfill'):
@@ -184,7 +230,7 @@ def history(code):
             if path.exists() and back>0:
                 data=json.loads(path.read_text(encoding='utf-8'))
             else:
-                if stock['source']=='listed':
+                if stock['source'] in ('listed','listed_daily'):
                     url='https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?'+urllib.parse.urlencode({'date':stamp,'stockNo':code,'response':'json'})
                 else:
                     url='https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock?'+urllib.parse.urlencode({'code':code,'date':f'{year:04d}/{month:02d}/01','response':'json'})
@@ -192,7 +238,7 @@ def history(code):
                 if not isinstance(data,dict):raise ValueError('Historical source unavailable')
                 atomic_json(path,data)
                 time.sleep(.25)
-            if stock['source']=='listed':
+            if stock['source'] in ('listed','listed_daily'):
                 rows=data.get('data',[]); divisor=1000
             else:
                 rows=data.get('tables',[{}])[0].get('data',[]);divisor=1
@@ -200,6 +246,8 @@ def history(code):
                 if len(row)<7:continue
                 b={'date':date_iso(row[0]),'volume':number(row[1]),'open':number(row[3]),'high':number(row[4]),'low':number(row[5]),'close':number(row[6])}
                 if b['volume'] is not None:b['volume']/=divisor
+                amount=number(row[2])
+                if amount is not None and amount>0:b['amount']=amount
                 if valid_bar(b) and b['date']<=last.isoformat():bars[b['date']]=b
         if len(bars)<2:raise ValueError('Historical source returned insufficient data; previous records kept')
         bars.update({b['date']:b for b in stock['bars']})
