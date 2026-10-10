@@ -115,49 +115,6 @@ def listed_daily_rows(payload):
     return rows
 
 
-def report_amounts(payload, market):
-    if market=='上市':
-        return {r['Code']:number(r.get('TradeValue')) for r in listed_daily_rows(payload)}
-    tables=payload.get('tables',[]) if isinstance(payload,dict) else []
-    if isinstance(payload,dict) and payload.get('fields') and payload.get('data'):
-        tables=[payload]+tables
-    if isinstance(payload,list):
-        tables=[{'data':payload}]
-    amounts={}
-    for table in tables:
-        fields=table.get('fields',[])
-        for row in table.get('data',[]):
-            item=dict(zip(fields,row)) if isinstance(row,list) else row
-            if not isinstance(item,dict):continue
-            code=next((str(v).strip() for k,v in item.items() if ('代號' in k or k in ('Code','SecuritiesCompanyCode','SecuritiesCode')) and re.fullmatch(r'\d{4}',str(v).strip())),None)
-            amount=next((number(v) for k,v in item.items() if k in ('TradingAmount','TradeValue') or '成交金額' in k),None)
-            if code and amount is not None and amount>0:amounts[code]=amount
-    if len(amounts)<50:raise ValueError('TPEx daily report has too few trade values')
-    return amounts
-
-def restore_recent_amounts(stocks):
-    dates=sorted({b['date'] for s in stocks for b in s['bars'][-3:]})[-3:-1]
-    restored=0
-    for date in dates:
-        for market in ('上市','上櫃'):
-            if market=='上市':
-                url='https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?'+urllib.parse.urlencode({'date':date.replace('-',''),'type':'ALLBUT0999','response':'json'})
-            else:
-                url='https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes?'+urllib.parse.urlencode({'date':date.replace('-','/'),'response':'json'})
-            try:amounts=report_amounts(get_json(url),market)
-            except Exception as error:
-                print(f'Trade-value backfill skipped for {market} {date}: {error}',flush=True)
-                continue
-            for stock in stocks:
-                if stock['market']!=market:continue
-                amount=amounts.get(stock['code'])
-                if amount is None:continue
-                for bar in stock['bars'][-3:]:
-                    if bar['date']==date and bar.get('volume',0)>0 and not bar.get('amount'):
-                        bar['amount']=amount
-                        restored+=1
-    print(f'Restored {restored} recent official trade values',flush=True)
-
 def update():
     with snapshot_lock():
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
@@ -206,7 +163,6 @@ def update():
                 count+=1
             if count<50:raise ValueError('Too few valid official stock rows; previous snapshot kept.')
             counts[market]=count
-        restore_recent_amounts(stocks)
         now=dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).isoformat(timespec='seconds')
         result={'source':'TWSE daily closing report / TWSE and TPEx OpenAPI','updated_at':now,'sources':URLS,'counts':counts,'stocks':stocks}
         if previous.get('history_backfill'):
