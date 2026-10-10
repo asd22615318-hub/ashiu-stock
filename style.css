@@ -155,3 +155,5 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 
 
 #rows .backtest-day{padding:5px 0;border-bottom:1px solid #493d36}#rows .backtest-day:last-child{border-bottom:0}#rows .backtest-day strong{display:block;font-size:13px;white-space:normal}#rows .backtest-day span{margin-top:2px;font-size:12px}
+
+#rows .backtest-day span:last-child{color:#ffad5c}
