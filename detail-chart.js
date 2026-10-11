@@ -3,11 +3,7 @@ function defenseValues(a){
  const i=a.length-1,t=a[i],low=end=>end>=3?Math.min(...a.slice(end-3,end).map(b=>b.low)):null;
  return [{name:'三日低',key:'low',today:low(i),next:low(i+1)},{name:'五日線 MA5',key:'five',today:i>=5?ma(a,i-1,5):null,next:ma(a,i,5)},{name:'月線 MA20',key:'month',today:i>=20?ma(a,i-1,20):null,next:ma(a,i,20)}];
 }
-function renderDefenseChart(s){
- const rows=defenseValues(s.bars),price=v=>v===null?'—':fmt(v);
- document.getElementById('guard').innerHTML=`<div class="defense-table-wrap"><table class="defense-table"><thead><tr><th>防守線</th><th>昨日值（今天用）</th><th>今收距離</th><th>今日判定</th><th>明日防守值（今收後定案）</th></tr></thead><tbody>${rows.map(r=>{const delta=r.today===null?null:(s.t.close/r.today-1)*100;return `<tr class="defense-${r.key}"><td>${r.name}${r.date?`<small>紅 K：${esc(r.date)}</small>`:''}</td><td class="defense-price">${price(r.today)}</td><td class="${delta>=0?'up':'down'}">${delta===null?'—':(delta>=0?'+':'')+fmt(delta)+'%'}</td><td><span class="defense-status ${delta===null?'unknown':delta>=0?'held':'broken'}">${delta===null?'資料不足':delta>=0?'✓ 守住':'● 跌破'}</span></td><td class="defense-price">${price(r.next)}${r.disabled?'<small>今日跌破，明日不啟用</small>':''}</td></tr>`;}).join('')}</tbody></table></div><p class="defense-note">三日低：今天用前3個交易日最低價，不含今天；明日用含今天的近3日最低價。五日線：5日收盤均線，明日防守值採今日MA5。月線：20日收盤均線，明日防守值採今日MA20。收盤等於防守價視為守住，低於才判定跌破。日線採未還原價格。</p>`;
- renderDailyChart(s,rows);
-}
+function renderDefenseChart(s){renderDailyChart(s,defenseValues(s.bars));}
 function cumulativeVolumeZone(b,count=24){
  const floor=Math.min(...b.map(v=>v.low)),ceiling=Math.max(...b.map(v=>v.high));
  if(!Number.isFinite(floor)||ceiling<=floor)return null;

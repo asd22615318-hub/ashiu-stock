@@ -53,7 +53,8 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const fmt = value => value == null ? '—' : Number(value).toLocaleString('zh-TW');
   let allBonds = [];
-  const today = () => new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const today = () => { const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(part => [part.type,part.value])); return `${parts.year}-${parts.month}-${parts.day}`; };
+  window.convertibleDataStatus = 'loading';
   window.activeConvertibleBonds = code => allBonds.filter(bond => bond.underlying_code === String(code) && bond.maturity_date && bond.maturity_date >= today() && Number(bond.conversion_price) > 0 && (bond.outstanding_amount == null || Number(bond.outstanding_amount) > 0));
   const status = root.querySelector('#cb-data-status');
   const panel = root.querySelector('#cb-data-panel');
@@ -63,6 +64,7 @@
       if (!Array.isArray(data.bonds) || !data.bonds.length || !data.period) throw Error('月資料尚未取得');
       const bonds = [...data.bonds].sort((a,b) => (b.custody ?? -1) - (a.custody ?? -1) || a.code.localeCompare(b.code));
       allBonds = bonds;
+      window.convertibleDataStatus = 'ready';
       window.dispatchEvent(new Event('convertible-data-ready'));
       status.innerHTML = `<strong>集保月報 ${esc(data.period)} · ${bonds.length} 檔可轉債</strong><span>已接入實際保管張數及月變化；可轉債價格依最新公告變更價或發行時價格標示；每日 CB 價量尚未接入，策略分數暫不計算。</span>`;
       root.querySelector('#cb-data-period').textContent = data.period;
@@ -77,7 +79,7 @@
       search.addEventListener('input', render);
       render();
     })
-    .catch(error => { status.innerHTML = `<strong>集保可轉債月資料暫時無法顯示</strong><span>${esc(error.message)}；研究規則仍可查看，未產生任何推估排行。</span>`; });
+    .catch(error => { window.convertibleDataStatus = 'error'; window.dispatchEvent(new Event('convertible-data-ready')); status.innerHTML = `<strong>集保可轉債月資料暫時無法顯示</strong><span>${esc(error.message)}；研究規則仍可查看，未產生任何推估排行。</span>`; });
 })();
 
 
