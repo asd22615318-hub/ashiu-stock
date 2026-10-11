@@ -1,6 +1,9 @@
 name: Update stock screener data
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - convertible_data.py
   schedule:
     - cron: '50 8 * * *'
     - cron: '40 10 * * *'
