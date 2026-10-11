@@ -252,6 +252,12 @@ ownershipToggle.addEventListener('click',()=>{const content=document.getElementB
 for(const [toggleId,contentId,openLabel,closeLabel] of [['selection-toggle','selection-content','展開選股介面 ▾','收合選股介面 ▴']]){const toggle=document.getElementById(toggleId);toggle.addEventListener('click',()=>{const expanded=toggle.getAttribute('aria-expanded')!=='true';document.getElementById(contentId).hidden=!expanded;toggle.setAttribute('aria-expanded',String(expanded));toggle.textContent=expanded?closeLabel:openLabel;});}
 
 $('observation-return').onclick=()=>{if(!$('selection-content').hidden)$('selection-toggle').click();$('selection-toggle').focus({preventScroll:true});document.querySelector('.selection-panel').scrollIntoView({block:'start',behavior:'smooth'});};
+const observationTop=$('observation-top');
+function updateObservationTop(){const first=$('rows').querySelector('tr');const section=document.querySelector('.results');observationTop.hidden=!first||$('selection-content').hidden||section.getBoundingClientRect().bottom<=0||first.getBoundingClientRect().top>=60||!!document.querySelector('dialog[open]');}
+observationTop.onclick=()=>$('rows').querySelector('tr')?.scrollIntoView({block:'start',behavior:'smooth'});
+window.addEventListener('scroll',updateObservationTop,{passive:true});
+window.addEventListener('resize',updateObservationTop);
+$('selection-toggle').addEventListener('click',()=>requestAnimationFrame(updateObservationTop));
 
 
 
