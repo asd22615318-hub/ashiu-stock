@@ -48,6 +48,10 @@ function smcWeekly(bars) {
   return result;
 }
 
+function smcDaily(bars) {
+  return bars.filter(bar => /^\d{4}-\d{2}-\d{2}$/.test(bar.date)).map(bar => ({ ...bar, time: Math.floor(Date.parse(`${bar.date}T04:00:00Z`) / 1000) }));
+}
+
 function smcLevels(bars) {
   const pivots = [];
   for (let i = 2; i < bars.length - 2; i++) {
@@ -63,8 +67,8 @@ function smcLevels(bars) {
 
 function smcDraw(bars, period) {
   const el = document.getElementById('smc-chart');
-  const weekly = period === 'week';
-  const b = (weekly ? smcWeekly(bars) : smcAggregate(bars, Number(period))).slice(-90);
+  const weekly = period === 'week', daily = period === 'day';
+  const b = (weekly ? smcWeekly(bars) : daily ? smcDaily(bars) : smcAggregate(bars, Number(period))).slice(-90);
   if (b.length < 7) { el.innerHTML = '<p class="smc-empty">此週期分 K 資料不足，尚無法確認結構高低點。</p>'; return; }
   const { supports, resistances } = smcLevels(b);
   const levels = [...supports, ...resistances];
@@ -90,7 +94,9 @@ function smcDraw(bars, period) {
   });
   const latest = b.at(-1);
   svg += `<text x="${left}" y="${h - 9}" fill="#9eb0c0" font-size="12">${smcTime(b[0].time)}</text><text x="${w - right}" y="${h - 9}" text-anchor="end" fill="#9eb0c0" font-size="12">${smcTime(latest.time)}</text>`;
-  el.innerHTML = `<div class="smc-summary"><span>最新 ${smcTime(latest.time)}</span><span>收盤 ${fmt(latest.close)}</span><span>支撐 ${supports.length ? supports.map(p => fmt(p.price)).join(' / ') : '未確認'}</span><span>壓力 ${resistances.length ? resistances.map(p => fmt(p.price)).join(' / ') : '未確認'}</span></div><div class="smc-plot"><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${weekly ? '週 K' : period + ' 分 K'} 與已確認結構支撐壓力線">${svg}</svg></div><p class="smc-note">線條依前後各 2 根 K 棒確認的結構高低點繪製；只列出目前價格附近各 2 條支撐與壓力。這是 SMC 結構參考，無法直接辨識機構實際買賣。${weekly ? '週 K 由網站日線資料合成，當週可能尚未收完。' : `資料來源：Yahoo Finance 近 5 日 5 分 K；${period} 分 K 由 5 分 K 合成，可能延遲。`}${levels.length ? '' : '目前沒有已確認且符合位置的結構線。'}</p>`;
+  const label = weekly ? '週 K' : daily ? '日 K' : `${period} 分 K`;
+  const source = weekly ? '週 K 由網站日線資料合成，當週可能尚未收完。' : daily ? '日 K 使用網站現有盤後行情。' : `資料來源：Yahoo Finance 近 5 日 5 分 K；${period} 分 K 由 5 分 K 合成，可能延遲。`;
+  el.innerHTML = `<div class="smc-summary"><span>最新 ${weekly || daily ? latest.date || latest.key : smcTime(latest.time)}</span><span>收盤 ${fmt(latest.close)}</span><span>支撐 ${supports.length ? supports.map(p => fmt(p.price)).join(' / ') : '未確認'}</span><span>壓力 ${resistances.length ? resistances.map(p => fmt(p.price)).join(' / ') : '未確認'}</span></div><div class="smc-plot"><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${label} 與已確認結構支撐壓力線">${svg}</svg></div><p class="smc-note">線條依前後各 2 根 K 棒確認的結構高低點繪製；只列出目前價格附近各 2 條支撐與壓力。這是 SMC 結構參考，無法直接辨識機構實際買賣。${source}${levels.length ? '' : '目前沒有已確認且符合位置的結構線。'}</p>`;
 }
 
 async function renderSmcChart(stock) {
@@ -103,7 +109,7 @@ async function renderSmcChart(stock) {
     button.setAttribute('aria-pressed', String(button.dataset.smcPeriod === smcPeriod));
     button.onclick = () => { smcPeriod = button.dataset.smcPeriod; renderSmcChart(stock); };
   });
-  if (smcPeriod === 'week') { smcDraw(stock.bars, smcPeriod); return; }
+  if (smcPeriod === 'week' || smcPeriod === 'day') { smcDraw(stock.bars, smcPeriod); return; }
   const key = `${stock.code}:${stock.market}`;
   let data = smcCache.get(key);
   try {
