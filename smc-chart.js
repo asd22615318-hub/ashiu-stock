@@ -1,5 +1,6 @@
 let smcPeriod = '5';
 let smcZoom = 1;
+let smcShowAll = false;
 let smcRequest = 0;
 const smcCache = new Map();
 
@@ -89,7 +90,7 @@ function smcDraw(bars, period) {
   const b = (weekly ? smcWeekly(bars) : daily ? smcDaily(bars) : smcAggregate(bars, Number(period))).slice(-90);
   if (b.length < 7) { el.innerHTML = '<p class="smc-empty">此週期分 K 資料不足，尚無法確認結構高低點。</p>'; return; }
   const { supports, resistances } = smcLevels(b);
-  const levels = [...supports, ...resistances];
+  const levels = smcShowAll ? [...supports, ...resistances] : [...supports.slice(0, 2), ...resistances.slice(0, 1)];
   const w = 900 * smcZoom, h = 330, left = 54, right = 115, top = 20, bottom = 295;
   const high = Math.max(...b.map(x => x.high), ...levels.map(x => x.price));
   const low = Math.min(...b.map(x => x.low), ...levels.map(x => x.price));
@@ -97,8 +98,8 @@ function smcDraw(bars, period) {
   const y = value => bottom - (value - low + pad) / (high - low + pad * 2) * (bottom - top);
   const step = (w - left - right) / b.length;
   let svg = '';
-  for (let i = 0; i < 5; i++) {
-    const price = low - pad + (high - low + pad * 2) * i / 4;
+  for (let i = 0; i < 3; i++) {
+    const price = low - pad + (high - low + pad * 2) * i / 2;
     svg += `<path d="M${left} ${y(price)}H${w - right}" stroke="#28394e" stroke-width="1"/><text x="${left - 8}" y="${y(price) + 4}" text-anchor="end" fill="#aebbc9" font-size="12">${fmt(price)}</text>`;
   }
   b.forEach((bar, i) => {
@@ -115,13 +116,13 @@ function smcDraw(bars, period) {
     while (labelPositions.some(other => Math.abs(other - labelY) < 17) && labelY > 20) labelY -= 17;
     labelPositions.push(labelY);
     svg += `<path d="M${w - right} ${y(p.price)}L${w - right + 7} ${labelY - 4}" stroke="${color}" stroke-width="1"/><text x="${w - right + 9}" y="${labelY}" fill="${support ? '#e6f1ff' : color}" font-size="12">${p.type} ${fmt(p.price)}</text>`;
-    if (support && p.breakout >= 0) svg += `<text x="${left + (p.breakout + .5) * step}" y="${Math.max(14, y(p.price) - 8)}" fill="#e6f1ff" font-size="11" paint-order="stroke" stroke="#101b2c" stroke-width="4">突破</text>`;
+    if (smcShowAll && support && p.breakout >= 0) svg += `<circle cx="${left + (p.breakout + .5) * step}" cy="${y(p.price)}" r="3" fill="#e6f1ff"><title>收盤突破前高 ${fmt(p.price)}</title></circle>`;
   });
   const latest = b.at(-1);
   svg += `<text x="${left}" y="${h - 9}" fill="#9eb0c0" font-size="12">${smcTime(b[0].time)}</text><text x="${w - right}" y="${h - 9}" text-anchor="end" fill="#9eb0c0" font-size="12">${smcTime(latest.time)}</text>`;
   const label = weekly ? '週 K' : daily ? '日 K' : `${period} 分 K`;
   const source = weekly ? '週 K 由網站日線資料合成，當週可能尚未收完。' : daily ? '日 K 使用網站現有盤後行情。' : `資料來源：Yahoo Finance 近 5 日 5 分 K；${period} 分 K 由 5 分 K 合成，可能延遲。`;
-  el.innerHTML = `<div class="smc-summary"><span>最新 ${weekly || daily ? latest.date || latest.key : smcTime(latest.time)}</span><span>收盤 ${fmt(latest.close)}</span><span>支撐 ${supports.length ? supports.map(p => fmt(p.price)).join(' / ') : '未確認'}</span><span>壓力 ${resistances.length ? resistances.map(p => fmt(p.price)).join(' / ') : '未確認'}</span></div><div class="smc-plot"><svg viewBox="0 0 ${w} ${h}" style="width:${smcZoom * 100}%;min-width:${600 * smcZoom}px" role="img" aria-label="${label} 與已確認結構支撐壓力線">${svg}</svg></div><p class="smc-note">藍色雙線為支撐：前後各 2 根 K 棒確認的波段低點，或收盤突破已確認前高後由壓力轉成的支撐；「突破」標在首次收盤站上前高的位置。跌回線下後不再標為支撐。橘色虛線為尚未突破的前高壓力。最多顯示 6 條支撐、3 條壓力；相近價位會合併。此為價格結構參考，無法直接辨識機構實際買賣。${source}${levels.length ? '' : '目前沒有已確認的結構線。'}</p>`;
+  el.innerHTML = `<div class="smc-summary"><span class="smc-close">收盤 <strong>${fmt(latest.close)}</strong></span><span class="smc-support">最近支撐 <strong>${supports[0] ? fmt(supports[0].price) : '未確認'}</strong></span><span class="smc-resistance">最近壓力 <strong>${resistances[0] ? fmt(resistances[0].price) : '未確認'}</strong></span></div><div class="smc-plot"><svg viewBox="0 0 ${w} ${h}" style="width:${smcZoom * 100}%;min-width:${600 * smcZoom}px" role="img" aria-label="${label} 與已確認結構支撐壓力線">${svg}</svg></div><div class="smc-data-date">${label} · 最新 ${weekly || daily ? latest.date || latest.key : smcTime(latest.time)}${levels.length ? '' : ' · 目前沒有已確認的結構線'}</div><details class="smc-method"><summary>線條計算方式與資料來源</summary><p>藍色為結構低點，或收盤突破前高後轉成的支撐；跌回線下後不再標為支撐。橘色虛線是尚未突破的前高壓力。波段高低點由前後各 2 根 K 棒確認，相近價位合併；「顯示全部」最多列出 6 條支撐與 3 條壓力。這是價格結構參考，不能直接辨識機構買賣。${source}</p></details>`;
   const plot = el.querySelector('.smc-plot');
   plot.scrollLeft = plot.scrollWidth - plot.clientWidth;
 }
@@ -146,6 +147,12 @@ async function renderSmcChart(stock) {
   });
   const zoomLabel = document.getElementById('smc-zoom-label');
   if (zoomLabel) zoomLabel.textContent = `${Math.round(smcZoom * 100)}%`;
+  const allButton = document.getElementById('smc-show-all');
+  if (allButton) {
+    allButton.textContent = smcShowAll ? '精簡顯示' : '顯示全部價位';
+    allButton.setAttribute('aria-pressed', String(smcShowAll));
+    allButton.onclick = () => { smcShowAll = !smcShowAll; renderSmcChart(stock); };
+  }
   if (smcPeriod === 'week' || smcPeriod === 'day') { smcDraw(stock.bars, smcPeriod); return; }
   const key = `${stock.code}:${stock.market}`;
   let data = smcCache.get(key);
