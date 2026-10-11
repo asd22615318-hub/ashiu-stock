@@ -171,4 +171,5 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 .detail-modal #detail .detail-collapse-indicator{min-width:48px;min-height:28px;padding:4px 9px;font-size:12px;text-align:center}
 .detail-modal .daily-chart-card .daily-plot{max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-color:#68849a #0d1724}.detail-modal .daily-chart-card #chart .daily-plot svg{display:block;width:100%;max-width:none;height:auto}
 .selection-head h2{margin:0;font-size:20px;font-weight:700}@media(max-width:760px){.selection-head h2{font-size:20px}}@media(max-width:480px){.selection-head h2{font-size:17px}}
+.detail-modal .detail-close{background:#008f76;border-color:#55dfbf;color:#f5fffb}.detail-modal .detail-close:hover,.detail-modal .detail-close:focus-visible{background:#00ad8e;outline-color:#a0ffe9}
 
