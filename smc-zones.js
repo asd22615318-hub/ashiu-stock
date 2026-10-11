@@ -248,7 +248,7 @@ function smcRender(stock, minuteBars = null) {
   }).join('');
   const latestEvent = selected.events.at(-1);
   const signal = latestEvent && latestEvent.index >= selected.bars.length - 8 ? `${latestEvent.kind} ${latestEvent.direction}${latestEvent.kind === '掃低收回' && latestEvent.volumeConfirmed ? '（放量）' : ''} · ${selected.bars[latestEvent.index]?.date || smcStamp(selected.bars[latestEvent.index].time)}` : '近期無已確認結構訊號';
-  el.innerHTML = `<div class="smc-zone-metrics"><span>結構方向<strong>${selected.trend}</strong></span><span>最近支撐觀察帶<strong>${focusRange(supports[0])}</strong></span><span>最近壓力觀察帶<strong>${focusRange(pressures[0])}</strong></span><span>核心共振<strong>${core ? fmt(core.low) + '–' + fmt(core.high) : '尚未形成'}</strong></span></div>${smcSvg(selected, displayed, core, atr)}<p class="smc-zone-signal">${signal}${selected.eq !== null ? ` · EQ ${fmt(selected.eq)} · ${close < selected.eq ? '折價區' : '溢價區'}` : ''}</p><details class="smc-zone-sources"><summary>查看完整結構區與失效紀錄（${rows.length} / ${allZones.length}）</summary><div class="smc-zone-table-wrap"><table><thead><tr><th>週期</th><th>來源</th><th>完整區</th><th>形成時間</th><th>回測</th><th>狀態</th><th>距現價</th></tr></thead><tbody>${sourceRows}</tbody></table></div></details><p class="smc-zone-note">實色窄帶是先觀察的價格；淡色虛線框是完整結構區。支撐看上緣先測、收盤跌破下緣才判失效；壓力看下緣先測、收盤站上上緣才判失效。觀察帶最多取半個 ATR，完整區及失效價保留原始計算。日 K／週 K 用盤後資料，分 K 用近五日 5 分 K 合成；波段點需右側 K 棒完成才確認。區間是規則估算，非實際委託單或交易建議。</p>`;
+  el.innerHTML = `<div class="smc-zone-metrics"><span>結構方向<strong>${selected.trend}</strong></span><span>最近支撐觀察帶<strong>${focusRange(supports[0])}</strong></span><span>最近壓力觀察帶<strong>${focusRange(pressures[0])}</strong></span><span>核心共振（不同週期價格重疊）<strong>${core ? fmt(core.low) + '–' + fmt(core.high) : '尚未形成'}</strong></span></div>${smcSvg(selected, displayed, core, atr)}<p class="smc-zone-signal">${signal}${selected.eq !== null ? ` · EQ ${fmt(selected.eq)} · ${close < selected.eq ? '折價區' : '溢價區'}` : ''}</p><details class="smc-zone-sources"><summary>查看完整結構區與失效紀錄（${rows.length} / ${allZones.length}）</summary><div class="smc-zone-table-wrap"><table><thead><tr><th>週期</th><th>來源</th><th>完整區</th><th>形成時間</th><th>回測</th><th>狀態</th><th>距現價</th></tr></thead><tbody>${sourceRows}</tbody></table></div></details><p class="smc-zone-note">實色窄帶是先觀察的價格；淡色虛線框是完整結構區。支撐看上緣先測、收盤跌破下緣才判失效；壓力看下緣先測、收盤站上上緣才判失效。觀察帶最多取半個 ATR，完整區及失效價保留原始計算。日 K／週 K 用盤後資料，分 K 用近五日 5 分 K 合成；波段點需右側 K 棒完成才確認。區間是規則估算，非實際委託單或交易建議。</p>`;
 }
 
 async function renderSmcZones(stock) {
@@ -276,4 +276,5 @@ async function renderSmcZones(stock) {
     if (request === smcZoneRequest) el.innerHTML = `<p class="smc-zone-pending">${esc(error.message || '分 K 載入失敗')}。日 K 與週 K 仍可查看。</p>`;
   }
 }
+
 
