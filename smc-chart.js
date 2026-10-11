@@ -56,13 +56,30 @@ function smcLevels(bars) {
   const pivots = [];
   for (let i = 2; i < bars.length - 2; i++) {
     const around = bars.slice(i - 2, i + 3);
-    if (around.every((b, j) => j === 2 || bars[i].high > b.high)) pivots.push({ type: '壓力', price: bars[i].high, time: bars[i].time, index: i });
-    if (around.every((b, j) => j === 2 || bars[i].low < b.low)) pivots.push({ type: '支撐', price: bars[i].low, time: bars[i].time, index: i });
+    if (around.every((b, j) => j === 2 || bars[i].high > b.high)) pivots.push({ kind: 'high', price: bars[i].high, index: i });
+    if (around.every((b, j) => j === 2 || bars[i].low < b.low)) pivots.push({ kind: 'low', price: bars[i].low, index: i });
   }
   const close = bars.at(-1).close;
-  const supports = pivots.filter(p => p.price <= close).sort((a, b) => b.price - a.price || b.index - a.index);
-  const resistances = pivots.filter(p => p.price >= close).sort((a, b) => a.price - b.price || b.index - a.index);
-  return { supports: supports.slice(0, 2), resistances: resistances.slice(0, 2) };
+  const candidates = pivots.map(p => {
+    if (p.kind === 'low') return { ...p, type: p.price <= close ? '支撐' : '失守', start: p.index, breakout: -1 };
+    let breakout = -1;
+    for (let j = p.index + 3; j < bars.length; j++) {
+      if (bars[j - 1].close <= p.price && bars[j].close > p.price) { breakout = j; break; }
+    }
+    return { ...p, type: breakout >= 0 && p.price <= close ? '支撐' : '壓力', start: breakout >= 0 ? breakout : p.index, breakout };
+  });
+  function distinct(list, limit) {
+    const chosen = [];
+    for (const p of list) {
+      if (chosen.some(q => Math.abs(p.price - q.price) / Math.max(1, q.price) < .005)) continue;
+      chosen.push(p);
+      if (chosen.length === limit) break;
+    }
+    return chosen;
+  }
+  const supports = distinct(candidates.filter(p => p.type === '支撐').sort((a, b) => b.price - a.price || b.breakout - a.breakout), 6);
+  const resistances = distinct(candidates.filter(p => p.type === '壓力' && p.price >= close).sort((a, b) => a.price - b.price || b.index - a.index), 3);
+  return { supports, resistances };
 }
 
 function smcDraw(bars, period) {
@@ -89,14 +106,17 @@ function smcDraw(bars, period) {
     svg += `<g><title>${smcTime(bar.time)} 開 ${fmt(bar.open)} 高 ${fmt(bar.high)} 低 ${fmt(bar.low)} 收 ${fmt(bar.close)}</title><path d="M${x} ${y(bar.high)}V${y(bar.low)}" stroke="${color}"/><rect x="${x - step * .27}" y="${Math.min(y(bar.open), y(bar.close))}" width="${Math.max(2, step * .54)}" height="${Math.max(1.5, Math.abs(y(bar.open) - y(bar.close)))}" fill="${color}"/></g>`;
   });
   levels.forEach(p => {
-    const color = p.type === '支撐' ? '#5bd0ab' : '#ffab65';
-    svg += `<path d="M${left} ${y(p.price)}H${w - right}" stroke="${color}" stroke-width="1.8" stroke-dasharray="7 5"/><text x="${left + 4}" y="${Math.max(14, y(p.price) - 5)}" fill="${color}" font-size="13" paint-order="stroke" stroke="#101b2c" stroke-width="4">${p.type} ${fmt(p.price)}</text>`;
+    const support = p.type === '支撐', color = support ? '#2a91ff' : '#ffab65';
+    const startX = left + Math.max(0, p.start) * step;
+    svg += support ? `<path d="M${startX} ${y(p.price) - 2}H${w - right}M${startX} ${y(p.price) + 2}H${w - right}" stroke="${color}" stroke-width="2"/>` : `<path d="M${startX} ${y(p.price)}H${w - right}" stroke="${color}" stroke-width="1.8" stroke-dasharray="7 5"/>`;
+    svg += `<text x="${w - right - 4}" y="${Math.max(14, y(p.price) - 7)}" text-anchor="end" fill="${support ? '#e6f1ff' : color}" font-size="13" paint-order="stroke" stroke="#101b2c" stroke-width="4">${p.type} ${fmt(p.price)}</text>`;
+    if (support && p.breakout >= 0) svg += `<text x="${left + (p.breakout + .5) * step}" y="${Math.max(14, y(p.price) - 8)}" fill="#e6f1ff" font-size="11" paint-order="stroke" stroke="#101b2c" stroke-width="4">突破</text>`;
   });
   const latest = b.at(-1);
   svg += `<text x="${left}" y="${h - 9}" fill="#9eb0c0" font-size="12">${smcTime(b[0].time)}</text><text x="${w - right}" y="${h - 9}" text-anchor="end" fill="#9eb0c0" font-size="12">${smcTime(latest.time)}</text>`;
   const label = weekly ? '週 K' : daily ? '日 K' : `${period} 分 K`;
   const source = weekly ? '週 K 由網站日線資料合成，當週可能尚未收完。' : daily ? '日 K 使用網站現有盤後行情。' : `資料來源：Yahoo Finance 近 5 日 5 分 K；${period} 分 K 由 5 分 K 合成，可能延遲。`;
-  el.innerHTML = `<div class="smc-summary"><span>最新 ${weekly || daily ? latest.date || latest.key : smcTime(latest.time)}</span><span>收盤 ${fmt(latest.close)}</span><span>支撐 ${supports.length ? supports.map(p => fmt(p.price)).join(' / ') : '未確認'}</span><span>壓力 ${resistances.length ? resistances.map(p => fmt(p.price)).join(' / ') : '未確認'}</span></div><div class="smc-plot"><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${label} 與已確認結構支撐壓力線">${svg}</svg></div><p class="smc-note">線條依前後各 2 根 K 棒確認的結構高低點繪製；只列出目前價格附近各 2 條支撐與壓力。這是 SMC 結構參考，無法直接辨識機構實際買賣。${source}${levels.length ? '' : '目前沒有已確認且符合位置的結構線。'}</p>`;
+  el.innerHTML = `<div class="smc-summary"><span>最新 ${weekly || daily ? latest.date || latest.key : smcTime(latest.time)}</span><span>收盤 ${fmt(latest.close)}</span><span>支撐 ${supports.length ? supports.map(p => fmt(p.price)).join(' / ') : '未確認'}</span><span>壓力 ${resistances.length ? resistances.map(p => fmt(p.price)).join(' / ') : '未確認'}</span></div><div class="smc-plot"><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${label} 與已確認結構支撐壓力線">${svg}</svg></div><p class="smc-note">藍色雙線為支撐：前後各 2 根 K 棒確認的波段低點，或收盤突破已確認前高後由壓力轉成的支撐；「突破」標在首次收盤站上前高的位置。跌回線下後不再標為支撐。橘色虛線為尚未突破的前高壓力。最多顯示 6 條支撐、3 條壓力；相近價位會合併。此為價格結構參考，無法直接辨識機構實際買賣。${source}${levels.length ? '' : '目前沒有已確認的結構線。'}</p>`;
 }
 
 async function renderSmcChart(stock) {
