@@ -114,12 +114,46 @@ function init(){
  if(document.modelContext?.registerTool){const life=new AbortController();Promise.resolve(document.modelContext.registerTool({name:'configure_stock_screen',title:'設定均線與型態篩選',description:'調整可見篩選條件並回傳目前資料的候選清單。資料可能為合成示範；不抓行情或提供交易建議。',inputSchema:{type:'object',properties:{scoreRange:{type:'string',enum:['all','7-10','11-15']},patterns:{type:'array',items:{type:'string',enum:TYPES.map(x=>x[0])}},query:{type:'string'},market:{type:'string',enum:['all','上市','上櫃','未分類']}},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:true},execute:configure},{signal:life.signal})).catch(()=>{});window.addEventListener('pagehide',()=>life.abort(),{once:true});}
 }
 
-let marketUpdated='',marketLoading=false,historyLoading=false;
+let marketUpdated='',marketRequest=null,marketRecoveryAttempts=0,historyLoading=false;
+const marketSnapshotUrl='market-data.json.gz',marketCacheName='ashiu-market-snapshot-v1';
+async function parseMarketSnapshot(response){
+ if(!response.ok)throw Error('官方盤後資料暫時無法取得（HTTP '+response.status+'）');
+ if(!response.body)throw Error('盤後資料回應為空');
+ const data=await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).json();
+ if(!Array.isArray(data.stocks)||!data.stocks.length)throw Error('盤後資料為空');
+ return data;
+}
+async function getMarketSnapshot(){
+ let lastError;
+ for(let attempt=0;attempt<3;attempt++){
+  try{
+   const response=await fetch(marketSnapshotUrl,{cache:attempt?'reload':'default'});
+   const copy=response.clone(),data=await parseMarketSnapshot(response);
+   if('caches' in window)caches.open(marketCacheName).then(cache=>cache.put(marketSnapshotUrl,copy)).catch(()=>{});
+   return {data,cached:false};
+  }catch(error){lastError=error;if(attempt<2)await new Promise(resolve=>setTimeout(resolve,attempt?3500:1200));}
+ }
+ if('caches' in window){
+  try{const cached=await caches.open(marketCacheName).then(cache=>cache.match(marketSnapshotUrl));if(cached)return {data:await parseMarketSnapshot(cached),cached:true};}catch(error){lastError=error;}
+ }
+ throw lastError;
+}
 async function loadMarket(announce=true){
- try{const r=await fetch('market-data.json.gz?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error('尚未建立官方資料快照');const data=await new Response(r.body.pipeThrough(new DecompressionStream('gzip'))).json();if(!Array.isArray(data.stocks)||!data.stocks.length)throw Error('盤後資料為空');
- records=data.stocks;mode='live';marketUpdated=data.updated_at;render();if(!sectors.hidden)renderSectors();$('source').textContent='官方盤後行情 · 證交所＋櫃買中心';$('source-note').textContent='擷取 '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false})+'（台灣時間）。以官方資料日為準；僅對已補齊歷史者排名。';
- const progress=data.history_backfill;if(progress){$('source-note').textContent+=' 全市場歷史'+(progress.status==='running'?'補齊中':progress.status==='complete'?'已補齊':'部分完成')+'：'+progress.done+'/'+progress.total+' 份報表；'+progress.history_ready+' 檔具完整排名資料。'+(progress.failed?' '+progress.failed+' 份待重試。':'');}
- }catch(e){if(announce){$('message').textContent='盤後資料讀取失敗：'+e.message+'。可稍後重試或切換示範資料。';$('source').textContent='官方盤後資料尚未載入';}}
+ if(marketRequest)return marketRequest;
+ marketRequest=(async()=>{
+  try{
+   const {data,cached}=await getMarketSnapshot();
+   records=data.stocks;mode='live';marketUpdated=data.updated_at;marketRecoveryAttempts=0;render();if(!sectors.hidden)renderSectors();
+   $('source').textContent=cached?'上次成功載入的官方盤後行情':'官方盤後行情 · 證交所＋櫃買中心';
+   $('source-note').textContent='擷取 '+new Date(data.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false})+'（台灣時間）。以官方資料日為準；僅對已補齊歷史者排名。';
+   const progress=data.history_backfill;if(progress){$('source-note').textContent+=' 全市場歷史'+(progress.status==='running'?'補齊中':progress.status==='complete'?'已補齊':'部分完成')+'：'+progress.done+'/'+progress.total+' 份報表；'+progress.history_ready+' 檔具完整排名資料。'+(progress.failed?' '+progress.failed+' 份待重試。':'');}
+   $('message').textContent=cached?'連線暫時失敗，正在顯示上次成功載入的官方資料；可按「重新載入行情」再試。':'';
+  }catch(error){
+   if(announce){$('message').textContent='盤後資料讀取失敗：'+error.message+'。請按「重新載入行情」重試。';if(!records.length)$('source').textContent='官方盤後資料尚未載入';}
+   if(!records.length&&marketRecoveryAttempts<2){const delay=marketRecoveryAttempts++?120000:30000;setTimeout(()=>{if(!document.hidden&&!records.length)loadMarket(false);},delay);}
+  }finally{marketRequest=null;}
+ })();
+ return marketRequest;
 }
 async function refreshMarket(){await loadMarket();}
 async function loadHistory(){}
