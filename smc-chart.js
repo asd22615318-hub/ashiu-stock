@@ -91,38 +91,40 @@ function smcDraw(bars, period) {
   if (b.length < 7) { el.innerHTML = '<p class="smc-empty">此週期分 K 資料不足，尚無法確認結構高低點。</p>'; return; }
   const { supports, resistances } = smcLevels(b);
   const levels = smcShowAll ? [...supports, ...resistances] : [...supports.slice(0, 2), ...resistances.slice(0, 1)];
-  const w = 900 * smcZoom, h = 330, left = 54, right = 115, top = 20, bottom = 295;
+  const w = 900 * smcZoom, h = 330, left = 22, right = 58, top = 20, bottom = 295;
   const high = Math.max(...b.map(x => x.high), ...levels.map(x => x.price));
   const low = Math.min(...b.map(x => x.low), ...levels.map(x => x.price));
   const pad = (high - low) * .08 || high * .01;
   const y = value => bottom - (value - low + pad) / (high - low + pad * 2) * (bottom - top);
-  const step = (w - left - right) / b.length;
+  const candleRight = left + (w - left - right) * .63;
+  const step = (candleRight - left) / b.length;
   let svg = '';
   for (let i = 0; i < 3; i++) {
     const price = low - pad + (high - low + pad * 2) * i / 2;
-    svg += `<path d="M${left} ${y(price)}H${w - right}" stroke="#28394e" stroke-width="1"/><text x="${left - 8}" y="${y(price) + 4}" text-anchor="end" fill="#aebbc9" font-size="12">${fmt(price)}</text>`;
+    svg += `<path d="M${left} ${y(price)}H${w - right}" stroke="#222227" stroke-width="1"/><text x="${w - right + 8}" y="${y(price) + 4}" fill="#aebbc9" font-size="12">${fmt(price)}</text>`;
   }
   b.forEach((bar, i) => {
     const x = left + (i + .5) * step;
-    const color = bar.close >= bar.open ? '#f36e7b' : '#5bd0ab';
+    const color = bar.close >= bar.open ? '#f34886' : '#f2f2f2';
     svg += `<g><title>${smcTime(bar.time)} 開 ${fmt(bar.open)} 高 ${fmt(bar.high)} 低 ${fmt(bar.low)} 收 ${fmt(bar.close)}</title><path d="M${x} ${y(bar.high)}V${y(bar.low)}" stroke="${color}"/><rect x="${x - step * .27}" y="${Math.min(y(bar.open), y(bar.close))}" width="${Math.max(2, step * .54)}" height="${Math.max(1.5, Math.abs(y(bar.open) - y(bar.close)))}" fill="${color}"/></g>`;
   });
+  svg += `<path d="M${left} ${y(b.at(-1).close)}H${w - right}" stroke="#f34886" stroke-width="1" stroke-dasharray="2 6" opacity=".75"/>`;
   const labelPositions = [];
   levels.forEach(p => {
-    const support = p.type === '支撐', color = support ? '#2a91ff' : '#ffab65';
+    const support = p.type === '支撐', color = support ? '#238fff' : '#c84de0';
     const startX = left + Math.max(0, p.start) * step;
-    svg += support ? `<path d="M${startX} ${y(p.price) - 2}H${w - right}M${startX} ${y(p.price) + 2}H${w - right}" stroke="${color}" stroke-width="2"/>` : `<path d="M${startX} ${y(p.price)}H${w - right}" stroke="${color}" stroke-width="1.8" stroke-dasharray="7 5"/>`;
+    svg += `<path d="M${startX} ${y(p.price)}H${w - right}" stroke="${color}" stroke-width="7"/><path d="M${startX} ${y(p.price) - 1.5}H${w - right}" stroke="#f2f5ff" stroke-width="1.5"/>`;
     let labelY = Math.max(16, Math.min(bottom - 4, y(p.price) + 4));
     while (labelPositions.some(other => Math.abs(other - labelY) < 17) && labelY > 20) labelY -= 17;
     labelPositions.push(labelY);
-    svg += `<path d="M${w - right} ${y(p.price)}L${w - right + 7} ${labelY - 4}" stroke="${color}" stroke-width="1"/><text x="${w - right + 9}" y="${labelY}" fill="${support ? '#e6f1ff' : color}" font-size="12">${p.type} ${fmt(p.price)}</text>`;
-    if (smcShowAll && support && p.breakout >= 0) svg += `<circle cx="${left + (p.breakout + .5) * step}" cy="${y(p.price)}" r="3" fill="#e6f1ff"><title>收盤突破前高 ${fmt(p.price)}</title></circle>`;
+    const labelX = candleRight + (w - right - candleRight) * .5;
+    svg += `<text x="${labelX}" y="${labelY - 6}" text-anchor="middle" fill="#f5f5f8" font-size="15" paint-order="stroke" stroke="#070708" stroke-width="4">${p.type}</text>`;
   });
   const latest = b.at(-1);
-  svg += `<text x="${left}" y="${h - 9}" fill="#9eb0c0" font-size="12">${smcTime(b[0].time)}</text><text x="${w - right}" y="${h - 9}" text-anchor="end" fill="#9eb0c0" font-size="12">${smcTime(latest.time)}</text>`;
+  svg += `<text x="${left}" y="${h - 9}" fill="#9eb0c0" font-size="12">${smcTime(b[0].time)}</text><text x="${candleRight}" y="${h - 9}" text-anchor="end" fill="#9eb0c0" font-size="12">${smcTime(latest.time)}</text><text x="${w - right + 8}" y="${y(latest.close) - 7}" fill="#f34886" font-size="12" font-weight="700">${fmt(latest.close)}</text>`;
   const label = weekly ? '週 K' : daily ? '日 K' : `${period} 分 K`;
   const source = weekly ? '週 K 由網站日線資料合成，當週可能尚未收完。' : daily ? '日 K 使用網站現有盤後行情。' : `資料來源：Yahoo Finance 近 5 日 5 分 K；${period} 分 K 由 5 分 K 合成，可能延遲。`;
-  el.innerHTML = `<div class="smc-summary"><span class="smc-close">收盤 <strong>${fmt(latest.close)}</strong></span><span class="smc-support">最近支撐 <strong>${supports[0] ? fmt(supports[0].price) : '未確認'}</strong></span><span class="smc-resistance">最近壓力 <strong>${resistances[0] ? fmt(resistances[0].price) : '未確認'}</strong></span></div><div class="smc-plot"><svg viewBox="0 0 ${w} ${h}" style="width:${smcZoom * 100}%;min-width:${600 * smcZoom}px" role="img" aria-label="${label} 與已確認結構支撐壓力線">${svg}</svg></div><div class="smc-data-date">${label} · 最新 ${weekly || daily ? latest.date || latest.key : smcTime(latest.time)}${levels.length ? '' : ' · 目前沒有已確認的結構線'}</div><details class="smc-method"><summary>線條計算方式與資料來源</summary><p>藍色為結構低點，或收盤突破前高後轉成的支撐；跌回線下後不再標為支撐。橘色虛線是尚未突破的前高壓力。波段高低點由前後各 2 根 K 棒確認，相近價位合併；「顯示全部」最多列出 6 條支撐與 3 條壓力。這是價格結構參考，不能直接辨識機構買賣。${source}</p></details>`;
+  el.innerHTML = `<div class="smc-summary"><span class="smc-close">收盤 <strong>${fmt(latest.close)}</strong></span><span class="smc-support">最近支撐 <strong>${supports[0] ? fmt(supports[0].price) : '未確認'}</strong></span><span class="smc-resistance">最近壓力 <strong>${resistances[0] ? fmt(resistances[0].price) : '未確認'}</strong></span></div><div class="smc-plot"><svg viewBox="0 0 ${w} ${h}" style="width:${smcZoom * 100}%;min-width:${600 * smcZoom}px" role="img" aria-label="${label} 與已確認結構支撐壓力線">${svg}</svg></div><div class="smc-data-date">${label} · 最新 ${weekly || daily ? latest.date || latest.key : smcTime(latest.time)}${levels.length ? '' : ' · 目前沒有已確認的結構線'}</div><details class="smc-method"><summary>線條計算方式與資料來源</summary><p>藍白線為支撐，紫白線為壓力。依已確認的波段高低點與目前價格位置推算，相近價位合併；「顯示全部」最多列出 6 條支撐與 3 條壓力。這是價格結構參考，不能直接辨識機構買賣。${source}</p></details>`;
   const plot = el.querySelector('.smc-plot');
   plot.scrollLeft = plot.scrollWidth - plot.clientWidth;
 }
