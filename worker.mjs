@@ -41,21 +41,6 @@ export default {
     const valid = parts.length === 3 && /^\d+$/.test(parts[0]) && /^[a-f0-9]{32}$/.test(parts[1]) && /^[a-f0-9]{64}$/.test(parts[2]) && expiry > now && expiry <= now + lifetime && await equal(parts[2], await sign(parts[0] + '.' + parts[1], env.SHARED_PASSWORD));
     if (!valid) return url.pathname === '/' && ['GET', 'HEAD'].includes(request.method) ? loginPage(headers) : new Response('Sign in required.', { status: 401, headers });
     if (!['GET', 'HEAD'].includes(request.method)) return new Response('Method not allowed.', { status: 405, headers });
-    if (url.pathname === '/api/intraday') {
-      const code = url.searchParams.get('code') || '';
-      const market = url.searchParams.get('market') || '';
-      if (!/^\d{4,6}$/.test(code) || !['上市', '上櫃'].includes(market)) return Response.json({ error: '股票代號或市場無效' }, { status: 400, headers });
-      const symbol = code + (market === '上櫃' ? '.TWO' : '.TW');
-      try {
-        const upstream = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=5m&range=5d&includePrePost=false`, { headers: { 'User-Agent': 'Mozilla/5.0' }, cf: { cacheTtl: 120, cacheEverything: true } });
-        if (!upstream.ok) throw new Error('行情來源暫時無法使用');
-        const result = (await upstream.json())?.chart?.result?.[0];
-        const quote = result?.indicators?.quote?.[0], times = result?.timestamp || [];
-        if (!quote || !times.length) throw new Error('目前沒有分 K 資料');
-        const bars = times.map((time, i) => ({ time, open: quote.open?.[i], high: quote.high?.[i], low: quote.low?.[i], close: quote.close?.[i], volume: quote.volume?.[i] })).filter(b => Number.isFinite(b.open) && Number.isFinite(b.high) && Number.isFinite(b.low) && Number.isFinite(b.close) && Number.isFinite(b.volume) && b.volume >= 0 && b.high >= b.low);
-        return Response.json({ symbol, source: 'Yahoo Finance', interval: '5m', bars }, { headers: { ...headers, 'Cache-Control': 'private, max-age=120' } });
-      } catch (error) { return Response.json({ error: error.message || '分 K 載入失敗' }, { status: 502, headers }); }
-    }
     const asset = await env.ASSETS.fetch(request);
     const response = new Response(asset.body, asset);
     for (const [key, value] of Object.entries(headers)) response.headers.set(key, value);
