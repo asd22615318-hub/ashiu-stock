@@ -151,8 +151,9 @@ function smcAnalyze(raw, period) {
 function smcNearest(zones, close, side, count) {
   const active = zones.filter(z => z.status === '有效' && z.side === side && (side === 'support' ? z.low <= close : z.high >= close));
   active.sort((a, b) => {
-    const ad = Math.abs(close - (a.low + a.high) / 2), bd = Math.abs(close - (b.low + b.high) / 2);
-    return ad - bd || b.created - a.created;
+    const ad = side === 'support' ? Math.max(0, close - a.high) : Math.max(0, a.low - close);
+    const bd = side === 'support' ? Math.max(0, close - b.high) : Math.max(0, b.low - close);
+    return ad - bd || (a.high - a.low) - (b.high - b.low) || b.created - a.created;
   });
   const result = [];
   for (const z of active) {
@@ -161,6 +162,16 @@ function smcNearest(zones, close, side, count) {
     if (result.length === count) break;
   }
   return result;
+}
+
+function smcFocus(zone, atr) {
+  if (!zone) return null;
+  const width = zone.high - zone.low;
+  const cap = Math.max(smcTick((zone.low + zone.high) / 2), atr > 0 ? atr * .5 : width * .25);
+  const band = Math.min(width, cap);
+  return zone.side === 'support'
+    ? { low: zone.high - band, high: zone.high }
+    : { low: zone.low, high: zone.low + band };
 }
 
 function smcCore(analyses, close) {
@@ -177,7 +188,7 @@ function smcCore(analyses, close) {
   return best;
 }
 
-function smcSvg(analysis, displayed, core) {
+function smcSvg(analysis, displayed, core, atr) {
   const bars = analysis.bars.slice(-72), offset = analysis.bars.length - bars.length;
   if (bars.length < 5) return '';
   const w = 920, h = 340, left = 16, right = 124, top = 18, bottom = 304, plotRight = w - right;
@@ -196,9 +207,12 @@ function smcSvg(analysis, displayed, core) {
   for (const z of visibleZones) {
     const x = left + Math.max(0, z.created - offset) * step;
     const color = z.side === 'support' ? '#3baed6' : '#d678b4';
-    const yy = y(z.high), height = Math.max(3, y(z.low) - yy);
-    svg += `<rect x="${x}" y="${yy}" width="${plotRight - x}" height="${height}" fill="${color}" fill-opacity=".22" stroke="${color}" stroke-opacity=".75" rx="2"><title>${z.type} ${fmt(z.low)}–${fmt(z.high)} · ${z.formedAt}</title></rect>`;
-    svg += `<text x="${plotRight + 8}" y="${yy + 12}" fill="${color}" font-size="11">${z.side === 'support' ? '支' : '壓'} ${fmt(z.low)}–${fmt(z.high)}</text>`;
+    const focus = smcFocus(z, atr), yy = y(z.high), height = Math.max(3, y(z.low) - yy);
+    svg += `<rect x="${x}" y="${yy}" width="${plotRight - x}" height="${height}" fill="${color}" fill-opacity=".045" stroke="${color}" stroke-opacity=".5" stroke-dasharray="4 4" rx="2"><title>${z.type} 完整區 ${fmt(z.low)}–${fmt(z.high)} · ${z.formedAt}</title></rect>`;
+    svg += `<rect x="${x}" y="${y(focus.high)}" width="${plotRight - x}" height="${Math.max(3, y(focus.low) - y(focus.high))}" fill="${color}" fill-opacity=".26" stroke="${color}" stroke-opacity=".9" rx="2"><title>觀察帶 ${fmt(focus.low)}–${fmt(focus.high)}</title></rect>`;
+    const edge = z.side === 'support' ? z.low : z.high;
+    svg += `<text x="${plotRight + 8}" y="${y(focus.high) + 12}" fill="${color}" font-size="11">${z.side === 'support' ? '支' : '壓'} ${fmt(focus.low)}–${fmt(focus.high)}</text>`;
+    svg += `<text x="${plotRight + 8}" y="${y(edge) + (z.side === 'support' ? 13 : -4)}" fill="#8e9ca9" font-size="10">失效 ${fmt(edge)}</text>`;
   }
   if (core) svg += `<rect x="${left}" y="${y(core.high)}" width="${plotRight - left}" height="${Math.max(3, y(core.low) - y(core.high))}" fill="#4ed9a3" fill-opacity=".16" stroke="#4ed9a3" stroke-width="1.2" stroke-dasharray="5 4"><title>跨週期核心共振 ${fmt(core.low)}–${fmt(core.high)}</title></rect>`;
   bars.forEach((bar, i) => {
@@ -222,8 +236,10 @@ function smcRender(stock, minuteBars = null) {
   if (!Number.isFinite(close)) { el.innerHTML = '<p>目前沒有足夠的 K 棒資料。</p>'; return; }
   const supports = smcNearest(selected.zones, close, 'support', 2), pressures = smcNearest(selected.zones, close, 'pressure', 1);
   const displayed = [...supports, ...pressures];
+  const atr = smcAtr(selected.bars).at(-1) || 0;
   const core = smcCore(analyses, close);
   const fmtRange = z => z ? `${fmt(z.low)}–${fmt(z.high)}` : '尚未確認';
+  const focusRange = z => fmtRange(smcFocus(z, atr));
   const allZones = analyses.flatMap(a => a.zones).sort((a, b) => (a.status === '有效' ? 0 : 1) - (b.status === '有效' ? 0 : 1) || Math.abs(close - (a.low + a.high) / 2) - Math.abs(close - (b.low + b.high) / 2));
   const rows = allZones.slice(0, 80);
   const sourceRows = rows.map(z => {
@@ -232,7 +248,7 @@ function smcRender(stock, minuteBars = null) {
   }).join('');
   const latestEvent = selected.events.at(-1);
   const signal = latestEvent && latestEvent.index >= selected.bars.length - 8 ? `${latestEvent.kind} ${latestEvent.direction}${latestEvent.kind === '掃低收回' && latestEvent.volumeConfirmed ? '（放量）' : ''} · ${selected.bars[latestEvent.index]?.date || smcStamp(selected.bars[latestEvent.index].time)}` : '近期無已確認結構訊號';
-  el.innerHTML = `<div class="smc-zone-metrics"><span>結構方向<strong>${selected.trend}</strong></span><span>最近支撐<strong>${fmtRange(supports[0])}</strong></span><span>最近壓力<strong>${fmtRange(pressures[0])}</strong></span><span>核心共振<strong>${core ? fmt(core.low) + '–' + fmt(core.high) : '尚未形成'}</strong></span></div>${smcSvg(selected, displayed, core)}<p class="smc-zone-signal">${signal}${selected.eq !== null ? ` · EQ ${fmt(selected.eq)} · ${close < selected.eq ? '折價區' : '溢價區'}` : ''}</p><details class="smc-zone-sources"><summary>查看支撐壓力來源與失效紀錄（${rows.length} / ${allZones.length}）</summary><div class="smc-zone-table-wrap"><table><thead><tr><th>週期</th><th>來源</th><th>區間</th><th>形成時間</th><th>回測</th><th>狀態</th><th>距現價</th></tr></thead><tbody>${sourceRows}</tbody></table></div></details><p class="smc-zone-note">波段點需右側 K 棒完成才確認；日 K／週 K 用網站盤後資料，分 K 用近五日 5 分 K 合成。圖上只顯示目前週期最近兩個支撐與一個壓力，詳細來源不合併。區間是規則估算，非實際委託單或交易建議。</p>`;
+  el.innerHTML = `<div class="smc-zone-metrics"><span>結構方向<strong>${selected.trend}</strong></span><span>最近支撐觀察帶<strong>${focusRange(supports[0])}</strong></span><span>最近壓力觀察帶<strong>${focusRange(pressures[0])}</strong></span><span>核心共振<strong>${core ? fmt(core.low) + '–' + fmt(core.high) : '尚未形成'}</strong></span></div>${smcSvg(selected, displayed, core, atr)}<p class="smc-zone-signal">${signal}${selected.eq !== null ? ` · EQ ${fmt(selected.eq)} · ${close < selected.eq ? '折價區' : '溢價區'}` : ''}</p><details class="smc-zone-sources"><summary>查看完整結構區與失效紀錄（${rows.length} / ${allZones.length}）</summary><div class="smc-zone-table-wrap"><table><thead><tr><th>週期</th><th>來源</th><th>完整區</th><th>形成時間</th><th>回測</th><th>狀態</th><th>距現價</th></tr></thead><tbody>${sourceRows}</tbody></table></div></details><p class="smc-zone-note">實色窄帶是先觀察的價格；淡色虛線框是完整結構區。支撐看上緣先測、收盤跌破下緣才判失效；壓力看下緣先測、收盤站上上緣才判失效。觀察帶最多取半個 ATR，完整區及失效價保留原始計算。日 K／週 K 用盤後資料，分 K 用近五日 5 分 K 合成；波段點需右側 K 棒完成才確認。區間是規則估算，非實際委託單或交易建議。</p>`;
 }
 
 async function renderSmcZones(stock) {
