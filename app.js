@@ -84,7 +84,7 @@ function chipMetrics(code,weekDate=''){
 function refreshChipMetrics(){document.querySelectorAll('[data-chip-code]').forEach(el=>{el.outerHTML=chipMetrics(el.dataset.chipCode,el.dataset.chipWeek);});}
 function lights(values,kind){return values.map((v,i)=>`<i class="light ${kind} ${v?'on':''}" title="第 ${i+1} 項：${v===null?'資料不足':v?'符合':'未符合'}"></i>`).join('');}
 function stockConvertiblePriceHtml(s){const bonds=window.activeConvertibleBonds?.(s.code)||[];return bonds.map(bond=>`<span class="conversion-price-item"><span>${esc(bond.name||bond.code)} (${esc(bond.code)}) · ${bond.conversion_price_kind==='announced_change'?'公告轉換價':'發行時轉換價'}</span><strong>${fmt(bond.conversion_price)} 元</strong><small>到期 ${esc(bond.maturity_date)}${bond.conversion_price_date?' · 價格資料 '+esc(bond.conversion_price_date):''}</small></span>`).join('');}
-function showDetail(s){if(!s)return;renderInstitutional(s);renderStockHoldings(s);peerGroupKey='';renderPeers(s);$('history-load').hidden=true;$('history-load').textContent=s.bars.length>=361?'重新整理此股歷史':'補齊此股歷史日線';$('detail-name').textContent=s.code+' '+s.name+' · '+s.t.date+' 日 K';$('detail-industry').textContent=industryLabel(s)+' · '+Math.min(90,s.bars.length)+' 個交易日 · '+(s.score===null?s.known+' / 15（資料待齊）':s.score+' / 15 亮燈');$('detail-price').innerHTML=`<strong>${fmt(s.t.close)}</strong><small class="${s.change>=0?'up':'down'}">${s.change>=0?'+':''}${fmt(s.change)}%</small>`;$('detail-conversion-price').innerHTML=stockConvertiblePriceHtml(s);
+function showDetail(s){if(!s)return;renderInstitutional(s);renderStockHoldings(s);peerGroupKey='';renderPeers(s);$('history-load').hidden=true;$('history-load').textContent=s.bars.length>=361?'重新整理此股歷史':'補齊此股歷史日線';$('detail-name').textContent=s.code+' '+s.name+' · '+s.t.date+' 日 K';$('detail-industry').textContent=industryLabel(s)+' · '+Math.min(90,s.bars.length)+' 個交易日 · '+(s.score===null?s.known+' / 15（資料待齊）':s.score+' / 15 亮燈');$('detail-price').innerHTML=`<strong>${fmt(s.t.close)}</strong><small class="${s.change>=0?'up':'down'}">${s.change>=0?'+':''}${fmt(s.change)}%</small>`;
  const active=TYPES.filter(([k])=>s.signals[k]);$('explain').innerHTML=active.map(([k,name,rule])=>`<div class="reason"><div><strong>${name}</strong><p>${rule}</p>${s.structure?.notes[k]?'<p>'+esc(s.structure.notes[k])+'</p>':''}${k==='shadow'?'<p>拉回程度：'+s.shadowStrength+'</p>':''}</div></div>`).join('')||'<p>目前條件未辨識出候選型態。仍可查看均線位置。</p>';
  $('explain').innerHTML+=`<p style="margin-top:14px">${candleType(s.t)} · 開盤 ${fmt(s.t.open)}<br>MA5 ${fmt(s.m5)} · MA10 ${fmt(s.m10)}<br>當日量 ${fmt(s.t.volume,0)} 張<br>${s.bars.length} 筆日線</p>`;
  $('detail-score').textContent=s.score===null?s.known+' / 15（待判定 '+s.missing+' 項）':s.score+' / 15';$('score-breakdown').innerHTML=[['站上均線',s.stand,''],['收盤創高',s.fresh,'high'],['均線排列',s.order,'order']].map(([label,v,k])=>`<div class="score-row"><span>${label}</span><div class="lights">${lights(v,k)}</div><span>${v.filter(Boolean).length} / ${v.length}</span></div>`).join('')+`<p>點亮項目為符合；待判定項目不算未符合。資料未齊時顯示已符合分數，暫不納入正式排名。<br>完整口徑見「型態與規則」。</p>`;
@@ -203,7 +203,7 @@ function closeStockDetail(){if($('detail-modal').open)$('detail-modal').close();
 $('detail-close').onclick=closeStockDetail;
 $('detail-modal').addEventListener('close',()=>{detailClosed=true;$('detail').hidden=true;document.body.classList.remove('detail-modal-open');window.scrollTo({top:detailPageScroll,behavior:'instant'});if(detailTrigger?.isConnected)detailTrigger.focus({preventScroll:true});});
 $('detail-modal').addEventListener('click',event=>{if(event.target!==$('detail-modal'))return;const b=$('detail-modal').getBoundingClientRect();if(event.clientX<b.left||event.clientX>b.right||event.clientY<b.top||event.clientY>b.bottom)closeStockDetail();});
-window.addEventListener('convertible-data-ready',()=>{if($('detail-modal').open){const stock=analyses.find(s=>s.code===selected);if(stock){$('detail-conversion-price').innerHTML=stockConvertiblePriceHtml(stock);renderDailyChart(stock);}}});
+window.addEventListener('convertible-data-ready',()=>{if($('detail-modal').open){const stock=analyses.find(s=>s.code===selected);if(stock)renderDailyChart(stock);}});
 
 function renderStockHoldings(s){
  const weeks=ownership?.weeks||[],i=weeks.length-1,w=weeks[i],prior=weeks[i-1],d=w?.stocks[s.code],old=prior?.stocks[s.code];
@@ -284,6 +284,7 @@ function industryLabel(stock){
  const themes=[...new Set(matches.map(g=>g.theme))];
  return themes.map(theme=>theme+'／'+[...new Set(matches.filter(g=>g.theme===theme).map(g=>g.sub))].join('、')).join('\n');
 }
+
 
 
 
