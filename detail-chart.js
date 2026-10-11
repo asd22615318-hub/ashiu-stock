@@ -16,7 +16,7 @@ function cumulativeVolumeZone(b,count=24){
  const peak=Math.max(...volumes);if(peak<=0)return null;const k=volumes.indexOf(peak);return {low:floor+k*size,high:floor+(k+1)*size,volume:peak,mid:floor+(k+.5)*size};
 }
 function renderDailyChart(s,rows=defenseValues(s.bars)){
- const a=s.bars,start=Math.max(0,a.length-dailyChartDays),b=a.slice(start),mobile=window.matchMedia("(max-width:760px)").matches,w=mobile?400:1000,h=mobile?480:500,l=mobile?8:24,r=mobile?52:70,top=24,volBottom=h-28,plotHeight=volBottom-top-18,bottom=top+plotHeight*.75,volTop=bottom+18,scrollWidth=Math.max(720,b.length*14);
+ const a=s.bars,start=Math.max(0,a.length-dailyChartDays),b=a.slice(start),mobile=window.matchMedia("(max-width:760px)").matches,w=mobile?400:1000,h=mobile?480:500,l=mobile?8:24,r=mobile?52:70,top=24,volBottom=h-28,plotHeight=volBottom-top-18,bottom=top+plotHeight*.75,volTop=bottom+18,scrollWidth=Math.max(650,b.length*10);
  const colors={5:'#c8a343',20:'#589dc3',60:'#a780c4',120:'#e28335'},lineColors={low:'#d83c4a',month:'#5ba9a5',five:'#287fe0'};
  const vals=b.flatMap((v,k)=>[v.high,v.low,ma(a,start+k,5),ma(a,start+k,20),ma(a,start+k,60),ma(a,start+k,120)]).concat(rows.map(x=>x.next)).filter(x=>x!==null&&Number.isFinite(x));
  let hi=Math.max(...vals),lo=Math.min(...vals),pad=(hi-lo)*.08||hi*.02;hi+=pad;lo-=pad;
