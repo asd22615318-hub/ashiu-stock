@@ -164,4 +164,5 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 .detail-modal .smc-zone-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;width:100%;margin:14px 0}.detail-modal .smc-zone-tabs button{box-sizing:border-box;min-width:0;min-height:42px;width:100%;padding:8px 4px;text-align:center;white-space:nowrap;font-size:14px}.detail-modal .smc-zone-metrics span{min-width:0;overflow-wrap:anywhere}.detail-modal .smc-zone-plot{box-sizing:border-box;width:100%;max-width:100%;scrollbar-color:#68849a #0d1724}@media(max-width:700px){.detail-modal .smc-zone-tabs{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.detail-modal .smc-zone-tabs button{min-height:40px;font-size:13px}.detail-modal .smc-zone-metrics span{min-height:70px}}
 .detail-modal .history-actions:has(#history-load[hidden]){display:none}
 .detail-modal .defense-card h3,.detail-modal .daily-chart-card h3{border-left:0;padding-left:0}
+.detail-modal .detail-close{background:#0e756c;border-color:#5ce0ce;color:#f3fffc;font-weight:700}.detail-modal .detail-close:hover,.detail-modal .detail-close:focus-visible{background:#159a8d;outline-color:#96f5e7}
 
