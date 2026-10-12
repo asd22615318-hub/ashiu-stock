@@ -2,54 +2,24 @@
 (() => {
   const root = document.getElementById('convertible');
   if (!root) return;
+  function cbVolumeSignals(bars){
+    if(!Array.isArray(bars)||bars.length<21)return {abnormal:null,continuous:null,ratio20:null,ratio3:null};
+    const volumes=bars.map(bar=>Number(bar.volume));
+    if(volumes.some(volume=>!Number.isFinite(volume)||volume<0))return {abnormal:null,continuous:null,ratio20:null,ratio3:null};
+    const recent=volumes.slice(-3).reduce((sum,value)=>sum+value,0);
+    const prior=volumes.slice(-6,-3).reduce((sum,value)=>sum+value,0);
+    const average20=volumes.slice(-21,-1).reduce((sum,value)=>sum+value,0)/20;
+    const ratio20=average20>0?volumes.at(-1)/average20:null;
+    const ratio3=prior>0?recent/prior:null;
+    return {abnormal:ratio20===null?null:ratio20>=3,continuous:ratio3===null?null:ratio3>=2,ratio20,ratio3};
+  }
+  window.cbVolumeSignals=cbVolumeSignals;
   const rows = (items) => items.map(([name, rule]) => `<div class="cb-rule-row"><strong>${name}</strong><span>${rule}</span></div>`).join('');
   root.innerHTML = `
     <div class="sector-heading"><h1>可轉債雷達</h1><p>CB 領先正股 · 觀察可轉債量價與正股的連動</p></div>
     <div class="cb-data-status" id="cb-data-status" role="status"><strong>正在載入集保可轉債月資料…</strong><span>每日 CB 行情尚未接入，以下策略分數暫不計算。</span></div>
-    <section class="cb-panel cb-watch-panel"><div class="cb-panel-heading"><div><span class="cb-kicker">波段策略 · 正股觀察</span><h2>CB 對照正股蓄勢名單</h2></div><small id="cb-watch-count">資料載入中</small></div><p class="cb-data-note">依實際正股日線檢查近 5 日漲幅 −3%～+5%、收盤站上 MA5、尚未突破前 20 日高點。CB 每日量價尚缺，名單只供觀察，不能視為完整進場訊號。</p><div class="cb-watch-controls"><label>顯示 <select id="cb-watch-filter"><option value="watch">正股蓄勢</option><option value="all">全部有 CB 正股</option></select></label><label>搜尋 <input id="cb-watch-search" type="search" placeholder="代號、名稱或 CB 代號"></label></div><div id="cb-watch-list" class="cb-watch-list" aria-live="polite"><p>正在對照可轉債與正股行情…</p></div></section>
-    <section class="cb-panel" id="cb-data-panel" hidden><div class="cb-panel-heading"><div><span class="cb-kicker">官方資料</span><h2>可轉債保管月報</h2></div><small id="cb-data-period"></small></div><p class="cb-data-note">按本月底集保保管張數排序；月資料不代表今日成交量。發行張數為發行規模，並非剩餘流通張數。</p><label class="cb-search-label">搜尋代號或名稱 <input id="cb-data-search" type="search" placeholder="輸入可轉債或正股代號"></label><div class="cb-table-wrap"><table class="cb-table"><thead><tr><th>可轉債／正股</th><th>本月底保管</th><th>較前月</th><th>發行張數</th><th>集保戶數</th></tr></thead><tbody id="cb-data-rows"></tbody></table></div><p class="cb-data-note">資料來源：<a href="https://data.gov.tw/dataset/11462" target="_blank" rel="noopener">集保結算所可轉換公司債月分析表</a>。缺值以「—」表示。</p></section>
-    <section class="cb-panel"><div class="cb-panel-heading"><div><span class="cb-kicker">候選條件</span><h2>CB 領先正股</h2></div><small>研究用初版門檻</small></div>
-      <div class="cb-rule-grid">${rows([
-        ['CB 20 日量比', '今日成交量 ÷ 前 20 個交易日均量 ≥ 3 倍'],
-        ['轉換溢價率', '≤ 5%；優先觀察 0～3%'],
-        ['正股／轉換價', '正股收盤價 ÷ 當日有效轉換價介於 95%～110%'],
-        ['CB 近 3 日漲幅', '高於正股近 3 日漲幅'],
-        ['正股技術型態', '收盤站上 5 日線，且尚未突破前 20 日高點'],
-        ['觀察期間', '未來 5 個交易日；屬觀察窗口，非漲幅預測']
-      ])}</div>
-    </section>
-    <div class="cb-two-col">
-      <section class="cb-panel"><div class="cb-panel-heading"><div><span class="cb-kicker">量價條件</span><h2>放量與轉換位置</h2></div></div>
-        <div class="cb-rule-grid">${rows([
-          ['CB 異常放量', '今日量 ÷ 前 20 日均量 ≥ 3 倍'],
-          ['CB 連續放量', '近 3 日總量 ÷ 前 3 日總量 ≥ 2 倍'],
-          ['轉換溢價率', '0～5%，優先 0～3%'],
-          ['轉換價距離', '正股收盤相對有效轉換價在 −20%～+3%'],
-          ['正股型態', '站上 5 日線、量縮整理'],
-          ['籌碼動向', '外資、投信或主力近 5 日偏多；有資料時才判定']
-        ])}</div>
-      </section>
-      <section class="cb-panel"><div class="cb-panel-heading"><div><span class="cb-kicker">100 分模型</span><h2>CB 領先正股評分</h2></div><small>需先完成歷史驗證</small></div>
-        <div class="cb-score-list">${[
-          ['CB 異常放量倍數',20],['CB 近 3 日持續量增',15],['CB 價格相對正股強弱',20],['轉換溢價率與轉換價位置',15],['CB 剩餘流通張數及轉換變化',10],['正股技術面與籌碼',20]
-        ].map(([label,score])=>`<div><span>${label}</span><b>${score} 分</b></div>`).join('')}<div class="cb-score-total"><strong>總分</strong><strong>100 分</strong></div></div>
-      </section>
-    </div>
-    <div class="cb-two-col">
-      <section class="cb-panel cb-strategy"><div class="cb-panel-heading"><div><span class="cb-kicker">策略 A</span><h2>CB 先放量，正股未突破</h2></div></div><p>優先回測的觀察組合：</p><ul>
-        <li>CB 當日量 ≥ 前 20 日均量 3 倍，並排除基期成交量極低的個案。</li>
-        <li>CB 近 3 日報酬比正股近 3 日報酬高 2 個百分點以上。</li>
-        <li>正股近 5 日漲幅低於 5%，收盤尚未突破前 20 日高點。</li>
-      </ul></section>
-      <section class="cb-panel cb-strategy"><div class="cb-panel-heading"><div><span class="cb-kicker">策略 B</span><h2>正股接近轉換價，CB 放量</h2></div></div><ul>
-        <li>CB 當日量 ≥ 前 20 日均量 2 倍。</li>
-        <li>正股收盤價相對當日有效轉換價介於 −20%～+3%。</li>
-        <li>CB 轉換溢價率介於 −2%～+5%。</li>
-        <li>正股收盤站上 5 日均線。</li>
-        <li>使用當時已公告生效的轉換價，不以事後最新價格回填歷史。</li>
-      </ul></section>
-    </div>
-    <p class="cb-method-note">轉換溢價率以「CB 價格 ÷ 轉換價值 − 1」計算；轉換價值須按該債券面額與當日有效轉換價換算。上列門檻為使用者提供的研究方向，並非已驗證的預測結果。</p>`;
+    <section class="cb-panel cb-watch-panel"><div class="cb-panel-heading"><div><span class="cb-kicker">波段策略 · 正股觀察</span><h2>CB 對照正股蓄勢名單</h2></div><small id="cb-watch-count">資料載入中</small></div><p class="cb-data-note">依實際正股日線檢查近 5 日漲幅 −3%～+5%、收盤站上 MA5、尚未突破前 20 日高點。CB 異常放量＝當日成交張數 ÷ 前 20 日均量 ≥ 3；連續放量＝近 3 日成交張數總和 ÷ 再前 3 日總和 ≥ 2。均量不含當日；成交金額與集保月變化不代替日成交張數。目前 CB 每日價量尚缺，名單只供觀察，不能視為完整進場訊號。</p><div class="cb-watch-controls"><label>顯示 <select id="cb-watch-filter"><option value="watch">正股蓄勢</option><option value="all">全部有 CB 正股</option></select></label><label>搜尋 <input id="cb-watch-search" type="search" placeholder="代號、名稱或 CB 代號"></label></div><div id="cb-watch-list" class="cb-watch-list" aria-live="polite"><p>正在對照可轉債與正股行情…</p></div></section>
+    <section class="cb-panel" id="cb-data-panel" hidden><div class="cb-panel-heading"><div><span class="cb-kicker">官方資料</span><h2>可轉債保管月報</h2></div><small id="cb-data-period"></small></div><p class="cb-data-note">按本月底集保保管張數排序；月資料不代表今日成交量。發行張數為發行規模，並非剩餘流通張數。</p><label class="cb-search-label">搜尋代號或名稱 <input id="cb-data-search" type="search" placeholder="輸入可轉債或正股代號"></label><div class="cb-table-wrap"><table class="cb-table"><thead><tr><th>可轉債／正股</th><th>本月底保管</th><th>較前月</th><th>發行張數</th><th>集保戶數</th></tr></thead><tbody id="cb-data-rows"></tbody></table></div><p class="cb-data-note">資料來源：<a href="https://data.gov.tw/dataset/11462" target="_blank" rel="noopener">集保結算所可轉換公司債月分析表</a>。缺值以「—」表示。</p></section>`;
 
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const fmt = value => value == null ? '—' : Number(value).toLocaleString('zh-TW');
@@ -104,5 +74,6 @@
     })
     .catch(error => { window.convertibleDataStatus = 'error'; window.dispatchEvent(new Event('convertible-data-ready')); renderWatchlist(); status.innerHTML = `<strong>集保可轉債月資料暫時無法顯示</strong><span>${esc(error.message)}；研究規則仍可查看，未產生任何推估排行。</span>`; });
 })();
+
 
 
