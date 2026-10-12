@@ -5,6 +5,8 @@ on:
     paths:
       - convertible_data.py
       - cb_daily.py
+      - institutional_data.py
+      - ownership_data.py
   schedule:
     - cron: '50 8 * * *'
     - cron: '40 10 * * *'

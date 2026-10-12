@@ -36,9 +36,9 @@ def update(root,public,offline=False):
             for r in table['data']:
                 stocks[r[0].strip()]={'date':iso,'foreign':dict(zip(['buy','sell','net'],map(number,r[2:5]))),'trust':dict(zip(['buy','sell','net'],map(number,r[11:14]))),'dealer':dict(zip(['buy','sell','net'],map(number,r[20:23]))),'total':number(r[23])}
             return {'date':iso,'stocks':stocks}
-        days=[end-timedelta(days=i) for i in range(24) if (end-timedelta(days=i)).weekday()<5]
+        days=[end-timedelta(days=i) for i in range(40) if (end-timedelta(days=i)).weekday()<5]
         with ThreadPoolExecutor(max_workers=3) as pool:
-            reports=[r for r in pool.map(report,days) if r][:10]
+            reports=[r for r in pool.map(report,days) if r][:20]
         if not reports:raise ValueError('No official daily reports')
         stocks=reports[0]['stocks']
         for code,d in stocks.items():
@@ -54,3 +54,4 @@ def update(root,public,offline=False):
         data={'stocks':stocks,'sources':[TWSE,TPEX],'report_dates':[r['date'] for r in reports]}
     (public/'institutional-data.json').write_text(json.dumps(data,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
     return data
+
