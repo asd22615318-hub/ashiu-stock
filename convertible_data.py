@@ -66,7 +66,8 @@ def enrich(bonds, issues, changes, today=None):
             'outstanding_amount': outstanding,
         }
     latest_change = {}
-    for row in changes:
+    for raw in changes:
+        row = {str(key).lstrip('\ufeff').strip(): value for key, value in raw.items()}
         code = str(row.get('證券代號', '')).strip()
         changed_at = date(row.get('資料日期'))
         changed_price = price(row.get('轉(交)換價格'))
@@ -83,7 +84,7 @@ def enrich(bonds, issues, changes, today=None):
         if change:
             bond['conversion_price'] = change[1]
             bond['conversion_price_date'] = change[0]
-            bond['conversion_price_kind'] = 'announced_change'
+            bond['conversion_price_kind'] = 'current_official'
         elif issue['issue_conversion_price'] is not None:
             bond['conversion_price'] = issue['issue_conversion_price']
             bond['conversion_price_kind'] = 'at_issuance'

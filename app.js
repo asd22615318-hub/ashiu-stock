@@ -84,7 +84,7 @@ function chipMetrics(code,weekDate=''){
 }
 function refreshChipMetrics(){document.querySelectorAll('[data-chip-code]').forEach(el=>{el.outerHTML=chipMetrics(el.dataset.chipCode,el.dataset.chipWeek);});}
 function lights(values,kind){return values.map((v,i)=>`<i class="light ${kind} ${v?'on':''}" title="第 ${i+1} 項：${v===null?'資料不足':v?'符合':'未符合'}"></i>`).join('');}
-function stockConvertiblePriceHtml(s){const state=window.convertibleDataStatus;if(state==='loading'||!window.activeConvertibleBonds)return '<span class="conversion-price-status">轉換價格資料載入中…</span>';if(state==='error')return '<span class="conversion-price-status">轉換價格資料讀取失敗，請重新整理頁面。</span>';const bonds=window.activeConvertibleBonds(s.code);return bonds.map(bond=>`<span class="conversion-price-item"><span>${esc(bond.name||bond.code)} (${esc(bond.code)}) · ${bond.conversion_price_kind==='announced_change'?'公告轉換價':'發行時轉換價'}</span><strong>${fmt(bond.conversion_price)} 元</strong><small>到期 ${esc(bond.maturity_date)}${bond.conversion_price_date?' · 價格資料 '+esc(bond.conversion_price_date):''}</small></span>`).join('');}
+function stockConvertiblePriceHtml(s){const state=window.convertibleDataStatus;if(state==='loading'||!window.activeConvertibleBonds)return '<span class="conversion-price-status">轉換價格資料載入中…</span>';if(state==='error')return '<span class="conversion-price-status">轉換價格資料讀取失敗，請重新整理頁面。</span>';const bonds=window.activeConvertibleBonds(s.code);return bonds.map(bond=>`<span class="conversion-price-item"><span>${esc(bond.name||bond.code)} (${esc(bond.code)}) · ${bond.conversion_price_kind==='current_official'?'目前轉換價':'轉換價'}</span><strong>${fmt(bond.conversion_price)} 元</strong><small>到期 ${esc(bond.maturity_date)}${bond.conversion_price_date?' · 價格資料 '+esc(bond.conversion_price_date):''}</small></span>`).join('');}
 function showDetail(s){if(!s)return;renderInstitutional(s);renderStockHoldings(s);peerGroupKey='';renderPeers(s);$('history-load').hidden=true;$('history-load').textContent=s.bars.length>=361?'重新整理此股歷史':'補齊此股歷史日線';$('detail-name').textContent=s.code+' '+s.name+' · '+s.t.date+' 日 K';$('detail-industry').textContent=industryLabel(s)+' · '+Math.min(90,s.bars.length)+' 個交易日 · '+(s.score===null?s.known+' / 15（資料待齊）':s.score+' / 15 亮燈');$('detail-price').innerHTML=`<strong>${fmt(s.t.close)}</strong><small class="${s.change>=0?'up':'down'}">${s.change>=0?'+':''}${fmt(s.change)}%</small>`;
  const active=TYPES.filter(([k])=>s.signals[k]);$('explain').innerHTML=active.map(([k,name,rule])=>`<div class="reason"><div><strong>${name}</strong><p>${rule}</p>${s.structure?.notes[k]?'<p>'+esc(s.structure.notes[k])+'</p>':''}${k==='shadow'?'<p>拉回程度：'+s.shadowStrength+'</p>':''}</div></div>`).join('')||'<p>目前條件未辨識出候選型態。仍可查看均線位置。</p>';
  $('explain').innerHTML+=`<p style="margin-top:14px">${candleType(s.t)} · 開盤 ${fmt(s.t.open)}<br>MA5 ${fmt(s.m5)} · MA10 ${fmt(s.m10)}<br>當日量 ${fmt(s.t.volume,0)} 張<br>${s.bars.length} 筆日線</p>`;
@@ -284,6 +284,7 @@ function industryLabel(stock){
  const themes=[...new Set(matches.map(g=>g.theme))];
  return themes.map(theme=>theme+'／'+[...new Set(matches.filter(g=>g.theme===theme).map(g=>g.sub))].join('、')).join('\n');
 }
+
 
 
 

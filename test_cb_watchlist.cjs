@@ -11,7 +11,7 @@ const root = {innerHTML: '', querySelector(selector) { return elements.get(selec
 const bars = Array.from({length: 25}, (_, i) => ({date: `2026-09-${String(i + 1).padStart(2, '0')}`, open: 100, high: 101, low: 99, close: 100, volume: 1000}));
 const stock = {code: '1234', name: '測試股', bars, t: bars.at(-1)};
 const daily = Array.from({length: 21}, (_, i) => ({date: `2026-09-${String(i + 1).padStart(2, '0')}`, volume: i === 20 ? 400 : 100, close: 110}));
-const data = {period: '2026-09', daily: {as_of: '2026-09-21', covered: 2, active: 2}, bonds: [{code: '12341', name: '測試一', underlying_code: '1234', maturity_date: '2028-01-01', conversion_price: 110, conversion_price_kind: 'at_issuance', daily_bars: daily, custody: 100, change: 10}, {code: '12342', name: '測試二', underlying_code: '1234', maturity_date: '2028-01-01', conversion_price: 130, conversion_price_kind: 'announced_change', daily_bars: daily, custody: 90, change: 0}]};
+const data = {period: '2026-09', daily: {as_of: '2026-09-21', covered: 2, active: 2}, bonds: [{code: '12341', name: '測試一', underlying_code: '1234', maturity_date: '2028-01-01', conversion_price: 110, conversion_price_kind: 'current_official', daily_bars: daily, custody: 100, change: 10}, {code: '12342', name: '測試二', underlying_code: '1234', maturity_date: '2028-01-01', conversion_price: 130, conversion_price_kind: 'current_official', daily_bars: daily, custody: 90, change: 0}]};
 const context = {document: {getElementById() { return root; }}, window: {cbStockSnapshot() { return {mode: 'live', analyses: [stock]}; }, addEventListener() {}, dispatchEvent() {}}, fetch: async () => ({ok: true, json: async () => data}), Event: class {}, Intl, Date, Number, String, Array, Map, Math, Object, console};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('convertible-radar.js', 'utf8'), context);
@@ -34,4 +34,5 @@ setImmediate(() => {
   assert.equal(context.window.cbVolumeSignals(daily).continuous, true);
   assert.equal(context.window.cbVolumeSignals(daily.slice(0, 10)).abnormal, null);
 });
+
 
