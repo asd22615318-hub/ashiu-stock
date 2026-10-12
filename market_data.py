@@ -114,6 +114,26 @@ def listed_daily_rows(payload):
     if len(rows)<100:raise ValueError('TWSE daily report incomplete')
     return rows
 
+def otc_daily_amounts(day):
+    """Retrieve historical per-stock trade values from the official TPEx daily report."""
+    url='https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes?'+urllib.parse.urlencode({'response':'json','date':day.replace('-','/')})
+    payload=get_json(url)
+    if not isinstance(payload,dict):raise ValueError('TPEx daily report has no tables')
+    for table in payload.get('tables',[]) or [payload]:
+        fields=[re.sub(r'\s+|<[^>]*>','',str(field)) for field in table.get('fields',[])]
+        code_index=next((i for i,field in enumerate(fields) if '代號' in field),None)
+        amount_index=next((i for i,field in enumerate(fields) if '成交金額' in field),None)
+        if code_index is None or amount_index is None:continue
+        amounts={}
+        for row in table.get('data',[]):
+            if len(row)<=max(code_index,amount_index):continue
+            code=str(row[code_index]).strip()
+            amount=number(row[amount_index])
+            if re.fullmatch(r'\d{4}',code) and amount is not None and amount>0:
+                amounts[code]=amount
+        if len(amounts)>=100:return amounts
+    raise ValueError('TPEx daily report missing individual trade values')
+
 def update():
     with snapshot_lock():
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
@@ -166,6 +186,25 @@ def update():
                 count+=1
             if count<50:raise ValueError('Too few valid official stock rows; previous snapshot kept.')
             counts[market]=count
+        missing_otc_dates={b['date'] for s in stocks if s['market']=='上櫃' for b in s['bars'][-3:]
+                           if b.get('volume',0)>0 and not b.get('amount')}
+        for day in sorted(missing_otc_dates):
+            try:
+                amounts=otc_daily_amounts(day)
+                filled=0
+                for stock in stocks:
+                    if stock['market']!='上櫃':continue
+                    amount=amounts.get(stock['code'])
+                    if amount is None:continue
+                    for bar in stock['bars'][-3:]:
+                        if bar['date']!=day or bar.get('amount') or not bar.get('volume'):continue
+                        vwap=amount/(bar['volume']*1000)
+                        if bar['low']*.95<=vwap<=bar['high']*1.05:
+                            bar['amount']=amount
+                            filled+=1
+                print(f'TPEx trade values {day}: filled {filled}',flush=True)
+            except Exception as error:
+                print(f'TPEx trade values {day} unavailable: {error}',flush=True)
         now=dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).isoformat(timespec='seconds')
         result={'source':'TWSE daily closing report / TWSE and TPEx OpenAPI','updated_at':now,'sources':URLS,'counts':counts,'stocks':stocks}
         if previous.get('history_backfill'):
@@ -246,3 +285,4 @@ if __name__=='__main__':
         http.server.ThreadingHTTPServer(('127.0.0.1',8765),Handler).serve_forever()
     elif args.history:print(json.dumps(history(args.history),ensure_ascii=True))
     else:print(json.dumps(update(),ensure_ascii=True))
+
