@@ -10,7 +10,8 @@ on:
       - ownership_data.py
       - cb_chip_data.py
   schedule:
-    - cron: '50 8 * * *'
+    # 17:10 Asia/Taipei (UTC+8).
+    - cron: '10 9 * * *'
     - cron: '40 10 * * *'
 permissions:
   contents: write
