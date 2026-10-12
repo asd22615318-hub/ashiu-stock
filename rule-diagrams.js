@@ -8,6 +8,7 @@ function ruleDiagram(key,name){
  const rise=candle(45,129,108,100,140)+candle(86,112,89,80,120)+candle(127,91,65,58,99);
  let content='';
  if(key==='dragon')content=ma+rise+candle(180,76,96,67,103)+text(174,58,'量縮黑',green)+text(269,149,'五日線不破',purple,'end');
+ else if(key==='highDragon')content=rise+candle(203,49,83,36,96)+text(190,24,'均線 ≥ 10 分',gold,'middle')+text(203,115,'收黑 K',red,'middle')+text(268,150,'昨收漲跌 -10%～+3%',purple,'end');
  else if(key==='dance')content=ma+candle(52,130,108,100,140)+candle(114,107,81,72,118)+candle(177,48,92,20,104)+candle(239,85,96,79,103)+dot(239,96)+text(177,15,'昨日黑豹',green,'middle')+text(241,123,'今日量縮',gold,'middle')+text(267,158,'收盤近 MA5／下方 2.5%',purple,'end');
  else if(['smallDance','swordDance'].includes(key))content=ma+candle(45,130,111,105,140)+candle(89,111,89,82,120)+candle(151,50,92,key==='swordDance'?20:40,105)+candle(221,85,99,78,105)+dot(221,99)+text(143,28,key==='swordDance'?'長上影劍':'短期新高',green)+text(228,121,'收盤入',gold)+ (key==='smallDance'?line(35,'前高未過'):line(65,'',gold));
  else if(key==='sword')content=rise+candle(194,74,57,18,84)+text(204,28,'上影（劍）',gold)+line(84,'劍低');
@@ -21,4 +22,3 @@ function ruleDiagram(key,name){
  else if(key==='vcp')content=`<path d="M24 35Q60 202 114 38Q150 143 195 39Q217 95 243 39L275 22" fill="none" stroke="${green}" stroke-width="3"/>`+line(39,'突破觀察')+text(54,172,'大回檔')+text(140,132,'小回檔')+text(213,98,'再收縮')+text(150,187,'振幅與成交量逐次收縮',purple,'middle');
  return `<svg viewBox="0 0 300 200" role="img" aria-label="${name}解釋示意圖"><title>${name}：非實際行情</title>${content}</svg>`;
 }
-
