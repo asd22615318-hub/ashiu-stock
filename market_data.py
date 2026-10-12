@@ -52,8 +52,8 @@ def get_json(url):
                 except http.client.IncompleteRead as error:body=error.partial
                 # Only accept a syntactically complete JSON response; truncated JSON retries.
                 return json.loads(body)
-        except Exception:
-            if attempt==2:raise
+        except Exception as error:
+            if attempt==2:raise ValueError(f'Official source {url} failed: {error}') from error
             time.sleep(2*(attempt+1))
 
 def number(value):
@@ -114,16 +114,19 @@ def listed_daily_rows(payload):
     if len(rows)<100:raise ValueError('TWSE daily report incomplete')
     return rows
 
-
 def update():
     with snapshot_lock():
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
             futures={k:pool.submit(get_json,u) for k,u in URLS.items()}
-            data={k:f.result() for k,f in futures.items()}
-        data['listed_daily']=listed_daily_rows(data['listed_daily'])
-        if not all(isinstance(v,list) and v for v in data.values()):raise ValueError('Official source returned an empty or invalid response; previous snapshot kept.')
+            data={k:f.result() for k,f in futures.items() if k!='listed_daily'}
+            try:data['listed_daily']=listed_daily_rows(futures['listed_daily'].result())
+            except Exception as error:
+                print(f'TWSE daily report unavailable; using official OpenAPI quote: {error}',flush=True)
+                data['listed_daily']=[]
+        if not all(isinstance(v,list) and v for k,v in data.items() if k!='listed_daily'):raise ValueError('Official source returned an empty or invalid response; previous snapshot kept.')
         listed_api_date=max(date_iso(r['Date']) for r in data['listed'])
-        listed_daily_date=max(date_iso(r['Date']) for r in data['listed_daily'])
+        listed_daily_date=max((date_iso(r['Date']) for r in data['listed_daily']),default='')
+        # The TWSE daily report carries trade value; the OpenAPI quote may omit it.
         listed_source='listed_daily' if listed_daily_date>=listed_api_date else 'listed'
         data['listed']=data[listed_source]
         listed={str(r['公司代號']).strip() for r in data['listed_names']}

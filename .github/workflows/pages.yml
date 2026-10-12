@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - market_data.py
       - convertible_data.py
       - cb_daily.py
       - institutional_data.py
