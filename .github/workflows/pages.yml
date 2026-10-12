@@ -24,6 +24,8 @@ jobs:
         with:
           python-version: '3.12'
       - name: Update official reports and preserve history
+        env:
+          ASHIU_SKIP_CB_DAILY: '1'
         run: python build.py
       - name: Preserve snapshots for the protected Cloudflare build
         shell: pwsh

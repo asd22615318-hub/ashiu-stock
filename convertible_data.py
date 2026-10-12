@@ -1,5 +1,6 @@
 """Build a monthly convertible-bond custody snapshot from TDCC open data."""
 import json
+import os
 import re
 import urllib.request
 from datetime import datetime, timezone
@@ -153,8 +154,21 @@ def update(root: Path, public: Path):
     calendar = {bar['date'] for stock in market.get('stocks', [])
                 for bar in stock.get('bars', []) if bar.get('date')}
     previous = json.loads((root / 'convertible-seed.json').read_text(encoding='utf-8'))
-    data['daily'] = cb_daily.collect(data['bonds'], calendar,
-                                      previous.get('bonds', []))
+    try:
+        if os.environ.get('ASHIU_SKIP_CB_DAILY') == '1':
+            raise RuntimeError('Daily backfill paused after TPEx rate limiting')
+        data['daily'] = cb_daily.collect(data['bonds'], calendar,
+                                          previous.get('bonds', []))
+    except Exception as exc:
+        # A rate-limited daily endpoint must not erase the independently
+        # available issue, current conversion-price, and custody records.
+        print('CB daily update unavailable; preserving official base data:', exc)
+        old_bars = {bond['code']: bond.get('daily_bars') for bond in previous.get('bonds', [])}
+        for bond in data['bonds']:
+            if old_bars.get(bond['code']):
+                bond['daily_bars'] = old_bars[bond['code']]
+        data['daily'] = previous.get('daily', {'as_of': '', 'covered': 0, 'active': 0,
+                                               'status': 'unavailable'})
     data['issue_source'] = ISSUES_URL
     data['price_source'] = PRICES_URL
     text = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
