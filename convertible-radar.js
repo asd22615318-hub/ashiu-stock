@@ -68,22 +68,26 @@
       const bars=stock.bars||[],last=bars.at(-1);
       if(!last)return null;
       const ma5=bars.length>=5?bars.slice(-5).reduce((sum,bar)=>sum+bar.close,0)/5:null;
+      const ma20=bars.length>=20?bars.slice(-20).reduce((sum,bar)=>sum+bar.close,0)/20:null;
+      const ma60=bars.length>=60?bars.slice(-60).reduce((sum,bar)=>sum+bar.close,0)/60:null;
       const priorHigh=bars.length>=21?Math.max(...bars.slice(-21,-1).map(bar=>bar.high)):null;
       const move5=bars.length>=6&&bars.at(-6).close>0?(last.close/bars.at(-6).close-1)*100:null;
       const sideways=move5!==null&&move5>=-3&&move5<=5;
       const above5=ma5!==null&&last.close>=ma5;
+      const above20=ma20!==null&&last.close>=ma20;
+      const above60=ma60!==null&&last.close>=ma60;
       const belowHigh=priorHigh!==null&&last.close<=priorHigh;
       const matches=bonds.map(bond=>({bond,distance:(last.close/Number(bond.conversion_price)-1)*100}))
         .filter(item=>item.distance>=-30&&item.distance<=0)
         .sort((a,b)=>b.distance-a.distance);
-      return {stock,bonds,matches,move5,ma5,priorHigh,sideways,above5,belowHigh,watch:sideways&&above5&&belowHigh};
+      return {stock,bonds,matches,move5,ma5,ma20,ma60,priorHigh,sideways,above5,above20,above60,belowHigh,watch:sideways&&above5&&belowHigh};
     }).filter(Boolean).sort((a,b)=>Number(b.watch)-Number(a.watch)||b.matches.length-a.matches.length||a.stock.code.localeCompare(b.stock.code));
     const query=watchSearch.value.trim().toLowerCase();
     const threshold=watchFilter.value==='below10'?10:watchFilter.value==='below30'?30:20;
     const isBelow=watchFilter.value.startsWith('below');
     const shown=candidates.filter(item=>(watchFilter.value==='all'||(isBelow?item.matches.some(match=>match.distance>=-threshold):item.watch))&&(!query||`${item.stock.code} ${item.stock.name} ${item.bonds.map(bond=>`${bond.code} ${bond.name}`).join(' ')}`.toLowerCase().includes(query)));
     watchCount.textContent=`${candidates.filter(item=>item.matches.some(match=>match.distance>=-threshold)).length} 檔低於轉換價 0～${threshold}%／${candidates.length} 檔有 CB 正股`;
-    watchList.innerHTML=shown.slice(0,80).map(({stock,bonds,matches,move5,ma5,priorHigh,sideways,above5,belowHigh,watch})=>{
+    watchList.innerHTML=shown.slice(0,80).map(({stock,bonds,matches,move5,ma5,ma20,ma60,priorHigh,sideways,above5,above20,above60,belowHigh,watch})=>{
       const displayed=isBelow?matches.filter(match=>match.distance>=-threshold):bonds.map(bond=>({bond,distance:(stock.t.close/Number(bond.conversion_price)-1)*100}));
       const cbLines=displayed.map(({bond,distance})=>{
         const daily=bond.daily_bars||[];
@@ -94,7 +98,7 @@
         const continuous=signal.ratio3===null?'待 6 日量':`${signal.ratio3.toFixed(2)} 倍${signal.continuous?' · 連續放量':''}`;
         return `<div class="cb-watch-bond"><strong>${esc(bond.name||bond.code)} ${esc(bond.code)}</strong><span>${priceLabel} ${fmt(bond.conversion_price)} 元 · 正股距離 ${pct(distance)}</span><span>CB ${latest?.date||'—'} 收市 ${latest?.close==null?'—':fmt(latest.close)} · 成交 ${latest?.volume==null?'—':fmt(latest.volume)} 單位</span><span>20 日量比 ${ratio} · 3 日量比 ${continuous}</span></div>`;
       }).join('');
-      return `<article class="cb-watch-item"><div class="cb-watch-head"><button type="button" data-cb-stock="${esc(stock.code)}">${esc(stock.code)} ${esc(stock.name)}</button><span class="${watch?'cb-watch-ready':'cb-watch-pending'}">${watch?'正股蓄勢':'正股條件未齊'}</span></div><div class="cb-watch-metrics"><span>近 5 日 ${pct(move5)}</span><span>收盤 ${fmt(stock.t.close)}</span><span>MA5 ${ma5===null?'—':ma5.toFixed(2)}</span><span>前 20 日高 ${priorHigh===null?'—':priorHigh.toFixed(2)}</span></div><div class="cb-watch-checks"><span class="${sideways?'pass':'miss'}">${sideways?'✓':'○'} 尚未大漲</span><span class="${above5?'pass':'miss'}">${above5?'✓':'○'} 站上 MA5</span><span class="${belowHigh?'pass':'miss'}">${belowHigh?'✓':'○'} 未破 20 日高</span></div>${cbLines}</article>`;
+      return `<article class="cb-watch-item"><div class="cb-watch-head"><button type="button" data-cb-stock="${esc(stock.code)}">${esc(stock.code)} ${esc(stock.name)}</button><span class="${watch?'cb-watch-ready':'cb-watch-pending'}">${watch?'正股蓄勢':'正股條件未齊'}</span></div><div class="cb-watch-metrics"><span>近 5 日 ${pct(move5)}</span><span>收盤 ${fmt(stock.t.close)}</span><span>MA5 ${ma5===null?'—':ma5.toFixed(2)}</span><span>MA20 ${ma20===null?'—':ma20.toFixed(2)}</span><span>MA60 ${ma60===null?'—':ma60.toFixed(2)}</span><span>前 20 日高 ${priorHigh===null?'—':priorHigh.toFixed(2)}</span></div><div class="cb-watch-checks"><span class="${sideways?'pass':'miss'}">${sideways?'✓':'○'} 尚未大漲</span><span class="${above5?'pass':'miss'}">${above5?'✓':'○'} 站上 MA5</span><span class="${ma20===null?'unknown':above20?'pass':'miss'}">${ma20===null?'○ MA20 資料不足':above20?'✓ 站上 MA20':'○ 未站上 MA20'}</span><span class="${ma60===null?'unknown':above60?'pass':'miss'}">${ma60===null?'○ MA60 資料不足':above60?'✓ 站上 MA60':'○ 未站上 MA60'}</span><span class="${belowHigh?'pass':'miss'}">${belowHigh?'✓':'○'} 未破 20 日高</span></div>${cbLines}</article>`;
     }).join('')||'<p>目前沒有符合條件的個股；可切換「全部有 CB 正股」。</p>';
     watchList.querySelectorAll('[data-cb-stock]').forEach(button=>button.addEventListener('click',()=>{const stock=stockByCode.get(button.dataset.cbStock);if(stock&&typeof openStockDetail==='function')openStockDetail(stock,button);}));
   }

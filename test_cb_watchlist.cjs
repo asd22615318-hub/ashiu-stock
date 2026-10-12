@@ -21,6 +21,8 @@ setImmediate(() => {
   assert.match(elements.get('cb-watch-list').innerHTML, /正股蓄勢/);
   assert.match(elements.get('cb-watch-list').innerHTML, /20 日量比 4.00 倍 · 異常放量/);
   assert.match(elements.get('cb-watch-list').innerHTML, /正股距離 -9.1%/);
+  assert.match(elements.get('cb-watch-list').innerHTML, /站上 MA20/);
+  assert.match(elements.get('cb-watch-list').innerHTML, /MA60 資料不足/);
   assert.match(elements.get('cb-watch-count').textContent, /1 檔低於轉換價 0～20%/);
   const filter = elements.get('cb-watch-filter');
   filter.value = 'below10'; filter.listeners.change();
