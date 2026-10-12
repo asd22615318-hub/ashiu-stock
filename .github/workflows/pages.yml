@@ -42,16 +42,27 @@ jobs:
           Copy-Item -LiteralPath dist/convertible-data.json -Destination convertible-seed.json
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add seed.json.gz institutional-seed.json ownership-seed.json cb-chip-seed.json regulatory-seed.json revenue-seed.json convertible-seed.json etf-seed.json prison-seed.json
-          git diff --cached --quiet
-          if ($LASTEXITCODE -eq 1) {
+          $snapshots = @('seed.json.gz', 'institutional-seed.json', 'ownership-seed.json', 'cb-chip-seed.json', 'regulatory-seed.json', 'revenue-seed.json', 'convertible-seed.json', 'etf-seed.json', 'prison-seed.json')
+          $saved = Join-Path $env:RUNNER_TEMP 'market-snapshots'
+          New-Item -ItemType Directory -Path $saved -Force | Out-Null
+          foreach ($file in $snapshots) { Copy-Item -LiteralPath $file -Destination (Join-Path $saved $file) }
+          for ($attempt = 0; $attempt -lt 3; $attempt++) {
+            git fetch origin main
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            git reset --hard origin/main
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            foreach ($file in $snapshots) { Copy-Item -LiteralPath (Join-Path $saved $file) -Destination $file }
+            git add -- $snapshots
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            git diff --cached --quiet
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            if ($LASTEXITCODE -ne 1) { exit $LASTEXITCODE }
             git commit -m 'Update official market snapshots'
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            git pull --rebase origin main
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             git push origin HEAD:main
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          } elseif ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+          }
+          throw 'Could not publish market snapshots after three attempts.'
           exit 0
 
   disposal:
@@ -80,4 +91,3 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           } elseif ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           exit 0
-

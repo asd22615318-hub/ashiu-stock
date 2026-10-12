@@ -135,8 +135,12 @@ let marketUpdated='',marketRequest=null,marketRecoveryAttempts=0,historyLoading=
 const marketSnapshotUrl='market-data.json.gz',marketCacheName='ashiu-market-snapshot-v1';
 async function parseMarketSnapshot(response){
  if(!response.ok)throw Error('官方盤後資料暫時無法取得（HTTP '+response.status+'）');
- if(!response.body)throw Error('盤後資料回應為空');
- const data=await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).json();
+ const bytes=new Uint8Array(await response.arrayBuffer());
+ if(!bytes.length)throw Error('盤後資料回應為空');
+ const gzipped=bytes[0]===0x1f&&bytes[1]===0x8b;
+ const body=gzipped?await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text():new TextDecoder().decode(bytes);
+ let data;
+ try{data=JSON.parse(body);}catch{throw Error('盤後資料格式不正確，請重新載入');}
  if(!Array.isArray(data.stocks)||!data.stocks.length)throw Error('盤後資料為空');
  return data;
 }
@@ -211,7 +215,7 @@ function renderInstitutional(s){
  }else html=`<p>${mode!=='live'?'請載入官方行情查看法人資料。':institutionalError?'法人資料未載入：'+esc(institutionalError):institutional?'此股無官方法人紀錄；缺漏不視為 0。':'正在載入官方法人資料…'}</p>`;
  $('institutional-detail').innerHTML=html;
 }
-if(typeof document!=='undefined')init();
+if(typeof document!=='undefined'){try{init();}catch(error){console.error('網站初始化失敗',error);const message=document.getElementById('message');if(message)message.textContent='頁面初始化失敗：'+(error?.message||String(error))+'。請重新整理頁面。';}}
 
 let detailPageScroll=0;
 function openStockDetail(stock,trigger){if(!stock)return;const modal=$('detail-modal');if(!modal.open){detailPageScroll=window.scrollY;detailTrigger=trigger||document.activeElement;}selected=stock.code;currentDetailStock=stock;document.querySelectorAll('#rows tr').forEach(row=>row.classList.toggle('selected',row.dataset.code===selected));detailClosed=false;$('detail').hidden=false;showDetail(stock);if(!modal.open)modal.showModal();document.body.classList.add('detail-modal-open');modal.scrollTop=0;$('detail-close').focus({preventScroll:true});}
@@ -299,7 +303,6 @@ function industryLabel(stock){
  const themes=[...new Set(matches.map(g=>g.theme))];
  return themes.map(theme=>theme+'／'+[...new Set(matches.filter(g=>g.theme===theme).map(g=>g.sub))].join('、')).join('\n');
 }
-
 
 
 
