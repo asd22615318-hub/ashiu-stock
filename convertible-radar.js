@@ -51,8 +51,10 @@
       return;
     }
     if(snapshot?.mode!=='live'||!snapshot.analyses.length){
-      watchList.innerHTML='<p>請先載入官方盤後正股行情。</p>';
-      watchCount.textContent='等待正股行情';
+      const term=watchSearch.value.trim().toLowerCase();
+      const matching=allBonds.filter(bond=>bond.maturity_date>=today()&&(!term||`${bond.code} ${bond.name} ${bond.underlying_code}`.toLowerCase().includes(term)));
+      watchList.innerHTML=`<p>正股盤後行情暫時未載入；先顯示可轉債官方基本資料，價差及均線待正股行情恢復後計算。</p>${matching.slice(0,80).map(bond=>`<article class="cb-watch-item"><div class="cb-watch-head"><strong>${esc(bond.name||bond.code)} ${esc(bond.code)}</strong><span>正股 ${esc(bond.underlying_code||'—')}</span></div><div class="cb-watch-metrics"><span>目前轉換價 ${bond.conversion_price_kind==='current_official'?fmt(bond.conversion_price)+' 元':'待官方目前價格'}</span><span>到期 ${esc(bond.maturity_date)}</span><span>正股價差／MA20／MA60 待行情</span></div></article>`).join('')}`;
+      watchCount.textContent=`${matching.length} 檔 CB · 等待正股行情`;
       return;
     }
     const stockByCode=new Map(snapshot.analyses.map(stock=>[String(stock.code),stock]));
