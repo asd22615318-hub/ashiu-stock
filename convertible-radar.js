@@ -57,20 +57,16 @@
   }
   const pct = value => Number.isFinite(value) ? `${value >= 0 ? '+' : ''}${value.toFixed(1)}%` : '—';
   const chipHtml=stock=>{
-    if(!stock)return '<span>三大法人近20日 <b>待正股行情</b></span><span>集保大戶近4週 <b>待正股行情</b></span>';
+    if(!stock)return '<span>三大法人近20日 <b>待正股行情</b></span>';
     const live=window.cbChipMetrics?.(stock.code)||{};
     const saved=cbChipSnapshot?.stocks?.[stock.code]||{};
     const metrics={
       institutionalPercent:live.institutionalPercent??saved.institutionalPercent,
       institutionalDates:live.institutionalPercent!=null?live.institutionalDates:saved.institutionalDates,
-      holderDeltaPp:live.holderDeltaPp??saved.holderDeltaPp,
-      holderDates:live.holderDeltaPp!=null?live.holderDates:saved.holderDates,
     };
     const institutional=metrics.institutionalPercent;
-    const large=metrics.holderDeltaPp;
     const flowTitle=metrics.institutionalDates?`三大法人淨買超張數 ÷ 同期正股成交量 × 100%；${metrics.institutionalDates.join(' → ')}`:'需有完整20個交易日法人日報與正股成交量';
-    const holderTitle=metrics.holderDates?`400張以上大戶持股率變化（百分點）；${metrics.holderDates.join(' → ')}`:'需有相隔四週的集保週資料';
-    return `<span title="${esc(flowTitle)}">三大法人近20日 <b>${institutional==null?'資料不足':pct(institutional)}</b></span><span title="${esc(holderTitle)}">集保大戶近4週 <b>${large==null?'資料不足':`${large>=0?'+':''}${large.toFixed(2)} 個百分點`}</b></span>`;
+    return `<span title="${esc(flowTitle)}">三大法人近20日 <b>${institutional==null?'資料不足':pct(institutional)}</b></span>`;
   };
   function showSearchResults(){
     const query=watchSearch.value.trim().toLowerCase();
@@ -161,7 +157,7 @@
   watchFilter.addEventListener('change',renderWatchlist);
   window.addEventListener('stock-data-ready',renderWatchlist);
   window.addEventListener('cb-chip-data-ready',()=>{renderWatchlist();if(searchDialog.open)showSearchResults();});
-  fetch('cb-chip-data.json?v=20261012-196',{cache:'no-store'})
+  fetch('cb-chip-data.json?v=20261012-197',{cache:'no-store'})
     .then(response=>{if(!response.ok)throw Error('CB 籌碼快照尚未建立');return response.json();})
     .then(data=>{if(!data.stocks)throw Error('CB 籌碼快照格式錯誤');cbChipSnapshot=data;renderWatchlist();if(searchDialog.open)showSearchResults();})
     .catch(error=>{console.warn('CB 籌碼快照載入失敗',error);});
