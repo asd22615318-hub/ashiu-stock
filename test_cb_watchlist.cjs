@@ -24,7 +24,7 @@ setImmediate(() => {
   assert.match(elements.get('cb-watch-list').innerHTML, /站上 MA20/);
   assert.doesNotMatch(elements.get('cb-watch-list').innerHTML, /前 20 日高|未破 20 日高/);
   assert.match(elements.get('cb-watch-list').innerHTML, /均線分數 <b>12\/15<\/b>/);
-  assert.match(elements.get('cb-watch-list').innerHTML, /三大法人近20日 <b>\+2.4%<\/b>/);
+  assert.doesNotMatch(elements.get('cb-watch-list').innerHTML, /三大法人近20日/);
   assert.doesNotMatch(elements.get('cb-watch-list').innerHTML, /集保大戶近4週/);
   assert.match(elements.get('cb-watch-list').innerHTML, /MA60 資料不足/);
   assert.match(elements.get('cb-watch-count').textContent, /1 檔／1 檔有 CB 正股/);

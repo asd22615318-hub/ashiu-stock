@@ -24,7 +24,6 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const fmt = value => value == null ? '—' : Number(value).toLocaleString('zh-TW');
   let allBonds = [];
-  let cbChipSnapshot = null;
   const today = () => { const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(part => [part.type,part.value])); return `${parts.year}-${parts.month}-${parts.day}`; };
   window.convertibleDataStatus = 'loading';
   window.activeConvertibleBonds = code => allBonds.filter(bond => bond.underlying_code === String(code) && bond.maturity_date && bond.maturity_date >= today() && bond.conversion_price_kind === 'current_official' && Number(bond.conversion_price) > 0 && (bond.outstanding_amount == null || Number(bond.outstanding_amount) > 0));
@@ -56,18 +55,6 @@
     },{passive:true});
   }
   const pct = value => Number.isFinite(value) ? `${value >= 0 ? '+' : ''}${value.toFixed(1)}%` : '—';
-  const chipHtml=stock=>{
-    if(!stock)return '<span>三大法人近20日 <b>待正股行情</b></span>';
-    const live=window.cbChipMetrics?.(stock.code)||{};
-    const saved=cbChipSnapshot?.stocks?.[stock.code]||{};
-    const metrics={
-      institutionalPercent:live.institutionalPercent??saved.institutionalPercent,
-      institutionalDates:live.institutionalPercent!=null?live.institutionalDates:saved.institutionalDates,
-    };
-    const institutional=metrics.institutionalPercent;
-    const flowTitle=metrics.institutionalDates?`三大法人淨買超張數 ÷ 同期正股成交量 × 100%；${metrics.institutionalDates.join(' → ')}`:'需有完整20個交易日法人日報與正股成交量';
-    return `<span title="${esc(flowTitle)}">三大法人近20日 <b>${institutional==null?'資料不足':pct(institutional)}</b></span>`;
-  };
   function showSearchResults(){
     const query=watchSearch.value.trim().toLowerCase();
     if(!query){watchSearch.focus();return;}
@@ -82,7 +69,7 @@
       const ma20=bars.length>=20?bars.slice(-20).reduce((sum,bar)=>sum+bar.close,0)/20:null;
       const ma60=bars.length>=60?bars.slice(-60).reduce((sum,bar)=>sum+bar.close,0)/60:null;
       const latest=bond.daily_bars?.at(-1);
-      return `<article class="cb-watch-item"><div class="cb-watch-head">${stock?`<button type="button" data-cb-search-stock="${esc(stock.code)}">${esc(stock.code)} ${esc(stock.name)} ↗</button>`:`<strong>正股 ${esc(bond.underlying_code||'—')} · 日線待載入</strong>`}<span>${esc(bond.name||bond.code)} ${esc(bond.code)}</span></div><div class="cb-watch-metrics"><span class="cb-conversion-highlight">目前轉換價 <b>${conversion>0?fmt(conversion)+' 元':'待官方目前價格'}</b></span><span class="cb-stock-close-highlight">正股收盤 <b>${stock?fmt(stock.t.close):'待行情'}</b></span><span class="cb-stock-score-highlight">均線分數 <b>${stock?.score==null?'待補':`${stock.score}/15`}</b></span>${chipHtml(stock)}<span class="cb-conversion-highlight">正股距轉換價 <b>${gap===null?'—':pct(gap)}</b></span><span>${ma20===null?'MA20 待資料':stock.t.close>=ma20?'站上 MA20':'未站上 MA20'}</span><span>${ma60===null?'MA60 待資料':stock.t.close>=ma60?'站上 MA60':'未站上 MA60'}</span><span>CB ${latest?.date||'—'} 收市 ${latest?.close==null?'—':fmt(latest.close)} · 成交 ${latest?.volume==null?'—':fmt(latest.volume)} 單位</span></div></article>`;
+      return `<article class="cb-watch-item"><div class="cb-watch-head">${stock?`<button type="button" data-cb-search-stock="${esc(stock.code)}">${esc(stock.code)} ${esc(stock.name)} ↗</button>`:`<strong>正股 ${esc(bond.underlying_code||'—')} · 日線待載入</strong>`}<span>${esc(bond.name||bond.code)} ${esc(bond.code)}</span></div><div class="cb-watch-metrics"><span class="cb-conversion-highlight">目前轉換價 <b>${conversion>0?fmt(conversion)+' 元':'待官方目前價格'}</b></span><span class="cb-stock-close-highlight">正股收盤 <b>${stock?fmt(stock.t.close):'待行情'}</b></span><span class="cb-stock-score-highlight">均線分數 <b>${stock?.score==null?'待補':`${stock.score}/15`}</b></span><span class="cb-conversion-highlight">正股距轉換價 <b>${gap===null?'—':pct(gap)}</b></span><span>${ma20===null?'MA20 待資料':stock.t.close>=ma20?'站上 MA20':'未站上 MA20'}</span><span>${ma60===null?'MA60 待資料':stock.t.close>=ma60?'站上 MA60':'未站上 MA60'}</span><span>CB ${latest?.date||'—'} 收市 ${latest?.close==null?'—':fmt(latest.close)} · 成交 ${latest?.volume==null?'—':fmt(latest.volume)} 單位</span></div></article>`;
     }).join(''):`<p>找不到「${esc(query)}」的可轉債資料。可輸入正股代號、名稱或 CB 代號。</p>`;
     searchResults.querySelectorAll('[data-cb-search-stock]').forEach(button=>button.addEventListener('click',()=>{
       const stock=stocks.get(button.dataset.cbSearchStock);
@@ -150,17 +137,12 @@
         const cbTrend=latest?.close!=null&&priorClose!=null?Number(latest.close)>Number(priorClose)?'CB 價格上行':'CB 價格未上行':'CB 價格待資料';
         return `<div class="cb-watch-bond"><strong>${esc(bond.name||bond.code)} ${esc(bond.code)}</strong><span class="cb-conversion-highlight">${priceLabel} <b>${fmt(bond.conversion_price)} 元</b> · 正股距離 <b>${pct(distance)}</b></span><span>CB ${latest?.date||'—'} 收市 ${latest?.close==null?'—':fmt(latest.close)} · 成交 ${latest?.volume==null?'—':fmt(latest.volume)} 單位</span><span>20 日量比 ${ratio} · 3 日量比 ${continuous} · ${cbTrend}</span></div>`;
       }).join('');
-      return `<article class="cb-watch-item"><div class="cb-watch-head"><button type="button" data-cb-stock="${esc(stock.code)}">${esc(stock.code)} ${esc(stock.name)}</button><span class="${watch?'cb-watch-ready':'cb-watch-pending'}">${watch?'正股蓄勢':'正股條件未齊'}</span></div><div class="cb-watch-metrics"><span class="cb-stock-close-highlight">收盤 <b>${fmt(stock.t.close)}</b></span><span class="cb-stock-score-highlight">均線分數 <b>${stock.score==null?'待補':`${stock.score}/15`}</b></span>${chipHtml(stock)}<span>MA5 ${ma5===null?'—':ma5.toFixed(2)}</span><span>MA20 ${ma20===null?'—':ma20.toFixed(2)}</span><span>MA60 ${ma60===null?'—':ma60.toFixed(2)}</span></div><div class="cb-watch-checks"><span class="${sideways?'pass':'miss'}">${sideways?'✓':'○'} 尚未大漲</span><span class="${above5?'pass':'miss'}">${above5?'✓':'○'} 站上 MA5</span><span class="${ma20===null?'unknown':above20?'pass':'miss'}">${ma20===null?'○ MA20 資料不足':above20?'✓ 站上 MA20':'○ 未站上 MA20'}</span><span class="${ma60===null?'unknown':above60?'pass':'miss'}">${ma60===null?'○ MA60 資料不足':above60?'✓ 站上 MA60':'○ 未站上 MA60'}</span></div>${cbLines}</article>`;
+      return `<article class="cb-watch-item"><div class="cb-watch-head"><button type="button" data-cb-stock="${esc(stock.code)}">${esc(stock.code)} ${esc(stock.name)}</button><span class="${watch?'cb-watch-ready':'cb-watch-pending'}">${watch?'正股蓄勢':'正股條件未齊'}</span></div><div class="cb-watch-metrics"><span class="cb-stock-close-highlight">收盤 <b>${fmt(stock.t.close)}</b></span><span class="cb-stock-score-highlight">均線分數 <b>${stock.score==null?'待補':`${stock.score}/15`}</b></span><span>MA5 ${ma5===null?'—':ma5.toFixed(2)}</span><span>MA20 ${ma20===null?'—':ma20.toFixed(2)}</span><span>MA60 ${ma60===null?'—':ma60.toFixed(2)}</span></div><div class="cb-watch-checks"><span class="${sideways?'pass':'miss'}">${sideways?'✓':'○'} 尚未大漲</span><span class="${above5?'pass':'miss'}">${above5?'✓':'○'} 站上 MA5</span><span class="${ma20===null?'unknown':above20?'pass':'miss'}">${ma20===null?'○ MA20 資料不足':above20?'✓ 站上 MA20':'○ 未站上 MA20'}</span><span class="${ma60===null?'unknown':above60?'pass':'miss'}">${ma60===null?'○ MA60 資料不足':above60?'✓ 站上 MA60':'○ 未站上 MA60'}</span></div>${cbLines}</article>`;
     }).join('')||'<p>目前沒有符合條件的個股；可切換「全部有 CB 正股」。</p>';
     watchList.querySelectorAll('[data-cb-stock]').forEach(button=>button.addEventListener('click',()=>{const stock=stockByCode.get(button.dataset.cbStock);if(stock&&typeof openStockDetail==='function')openStockDetail(stock,button);}));
   }
   watchFilter.addEventListener('change',renderWatchlist);
   window.addEventListener('stock-data-ready',renderWatchlist);
-  window.addEventListener('cb-chip-data-ready',()=>{renderWatchlist();if(searchDialog.open)showSearchResults();});
-  fetch('cb-chip-data.json?v=20261012-197',{cache:'no-store'})
-    .then(response=>{if(!response.ok)throw Error('CB 籌碼快照尚未建立');return response.json();})
-    .then(data=>{if(!data.stocks)throw Error('CB 籌碼快照格式錯誤');cbChipSnapshot=data;renderWatchlist();if(searchDialog.open)showSearchResults();})
-    .catch(error=>{console.warn('CB 籌碼快照載入失敗',error);});
   fetch('convertible-data.json?v=' + Date.now(), {cache:'no-store'})
     .then(response => { if (!response.ok) throw Error('月資料尚未建立'); return response.json(); })
     .then(data => {
