@@ -35,6 +35,16 @@
   const watchSearch = root.querySelector('#cb-watch-search');
   const searchDialog = root.querySelector('#cb-search-dialog');
   const searchResults = root.querySelector('#cb-search-results');
+  for(const [selector,id,expanded] of [['.cb-strategy-panel','cb-strategy-content',false],['.cb-watch-panel','cb-watch-content',true],['#cb-data-panel','cb-data-content',false]]){
+    const section=root.querySelector(selector),heading=section?.querySelector('.cb-panel-heading');
+    if(!heading)continue;
+    const content=document.createElement('div');content.id=id;content.hidden=!expanded;
+    while(heading.nextSibling)content.appendChild(heading.nextSibling);
+    section.appendChild(content);
+    const toggle=document.createElement('button');toggle.type='button';toggle.className='cb-collapse-toggle';toggle.setAttribute('aria-controls',id);toggle.setAttribute('aria-expanded',String(expanded));toggle.textContent=expanded?'收合 −':'展開 ＋';
+    toggle.addEventListener('click',()=>{content.hidden=!content.hidden;toggle.setAttribute('aria-expanded',String(!content.hidden));toggle.textContent=content.hidden?'展開 ＋':'收合 −';});
+    heading.appendChild(toggle);
+  }
   const returnButton = root.querySelector('#cb-watch-return');
   if(returnButton){
     returnButton.addEventListener('click',()=>root.querySelector('.cb-watch-panel')?.scrollIntoView({behavior:'smooth',block:'start'}));
