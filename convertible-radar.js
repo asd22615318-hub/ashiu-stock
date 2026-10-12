@@ -24,6 +24,7 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const fmt = value => value == null ? '—' : Number(value).toLocaleString('zh-TW');
   let allBonds = [];
+  let cbChipSnapshot = null;
   const today = () => { const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(part => [part.type,part.value])); return `${parts.year}-${parts.month}-${parts.day}`; };
   window.convertibleDataStatus = 'loading';
   window.activeConvertibleBonds = code => allBonds.filter(bond => bond.underlying_code === String(code) && bond.maturity_date && bond.maturity_date >= today() && bond.conversion_price_kind === 'current_official' && Number(bond.conversion_price) > 0 && (bond.outstanding_amount == null || Number(bond.outstanding_amount) > 0));
@@ -57,7 +58,14 @@
   const pct = value => Number.isFinite(value) ? `${value >= 0 ? '+' : ''}${value.toFixed(1)}%` : '—';
   const chipHtml=stock=>{
     if(!stock)return '<span>三大法人近20日 <b>待正股行情</b></span><span>集保大戶近4週 <b>待正股行情</b></span>';
-    const metrics=window.cbChipMetrics?.(stock.code)||{};
+    const live=window.cbChipMetrics?.(stock.code)||{};
+    const saved=cbChipSnapshot?.stocks?.[stock.code]||{};
+    const metrics={
+      institutionalPercent:live.institutionalPercent??saved.institutionalPercent,
+      institutionalDates:live.institutionalPercent!=null?live.institutionalDates:saved.institutionalDates,
+      holderDeltaPp:live.holderDeltaPp??saved.holderDeltaPp,
+      holderDates:live.holderDeltaPp!=null?live.holderDates:saved.holderDates,
+    };
     const institutional=metrics.institutionalPercent;
     const large=metrics.holderDeltaPp;
     const flowTitle=metrics.institutionalDates?`三大法人淨買超張數 ÷ 同期正股成交量 × 100%；${metrics.institutionalDates.join(' → ')}`:'需有完整20個交易日法人日報與正股成交量';
@@ -153,6 +161,10 @@
   watchFilter.addEventListener('change',renderWatchlist);
   window.addEventListener('stock-data-ready',renderWatchlist);
   window.addEventListener('cb-chip-data-ready',()=>{renderWatchlist();if(searchDialog.open)showSearchResults();});
+  fetch('cb-chip-data.json?v=20261012-196',{cache:'no-store'})
+    .then(response=>{if(!response.ok)throw Error('CB 籌碼快照尚未建立');return response.json();})
+    .then(data=>{if(!data.stocks)throw Error('CB 籌碼快照格式錯誤');cbChipSnapshot=data;renderWatchlist();if(searchDialog.open)showSearchResults();})
+    .catch(error=>{console.warn('CB 籌碼快照載入失敗',error);});
   fetch('convertible-data.json?v=' + Date.now(), {cache:'no-store'})
     .then(response => { if (!response.ok) throw Error('月資料尚未建立'); return response.json(); })
     .then(data => {
