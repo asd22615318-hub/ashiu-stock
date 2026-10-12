@@ -73,12 +73,18 @@ function institutionalFlow(code,days=5){
  return volume>0?{net,volume,percent:net/volume*100,dates}:null;
 }
 window.cbChipMetrics=code=>{
- const flow=institutionalFlow(code,20);
+ const d=mode==='live'?institutional?.stocks[code]:null,s=records.find(s=>s.code===code);
+ const bars=new Map(s?.bars.map(b=>[b.date,b])||[]);
+ const reports=new Map(d?.daily_history?.map(h=>[h.date,h])||[]);
+ const dates=(institutional?.report_dates||[]).filter(date=>bars.has(date)&&reports.has(date)).slice(0,20);
+ let net=0,volume=0;
+ for(const date of dates){const bar=bars.get(date),h=reports.get(date);if(!Number.isFinite(bar.volume)||bar.volume<0||!Number.isFinite(h.total)){volume=0;break;}net+=h.total;volume+=bar.volume;}
+ const institutionalPercent=dates.length===20&&volume>0?net/volume*100:null;
  const weeks=mode==='live'?ownership?.weeks||[]:[];
  const current=weeks.at(-1),prior=weeks.length>=5?weeks.at(-5):null;
  const recent=current?.stocks?.[code]?.['400'],baseline=prior?.stocks?.[code]?.['400'];
  const holderDelta=Number.isFinite(recent)&&Number.isFinite(baseline)?Math.round((recent-baseline)*100)/100:null;
- return {institutionalPercent:flow?.percent??null,institutionalDates:flow?[flow.dates.at(-1),flow.dates[0]]:null,
+ return {institutionalPercent,institutionalDates:institutionalPercent===null?null:[dates.at(-1),dates[0]],
   holderDeltaPp:holderDelta,holderDates:holderDelta===null?null:[prior.date,current.date]};
 };
 function chipMetrics(code,weekDate=''){
