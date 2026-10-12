@@ -146,6 +146,14 @@ def update(root: Path, public: Path):
     if not isinstance(issues, list) or not isinstance(changes, list):
         raise ValueError('Convertible bond issue or price response is not a list')
     enrich(data['bonds'], issues, changes)
+    import cb_daily
+    import market_data
+    market = market_data.read_snapshot()
+    calendar = {bar['date'] for stock in market.get('stocks', [])
+                for bar in stock.get('bars', []) if bar.get('date')}
+    previous = json.loads((root / 'convertible-seed.json').read_text(encoding='utf-8'))
+    data['daily'] = cb_daily.collect(data['bonds'], calendar,
+                                      previous.get('bonds', []))
     data['issue_source'] = ISSUES_URL
     data['price_source'] = PRICES_URL
     text = json.dumps(data, ensure_ascii=False, separators=(',', ':'))

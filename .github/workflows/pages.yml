@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - convertible_data.py
+      - cb_daily.py
   schedule:
     - cron: '50 8 * * *'
     - cron: '40 10 * * *'
@@ -16,6 +17,7 @@ jobs:
   update:
     if: github.event.schedule != '40 10 * * *'
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v5
