@@ -141,36 +141,28 @@ function priceBaseHtml(bars){
 function valuationMetric(industry){
  return /金融|銀行|保險|證券|建材營造|鋼鐵|航運|塑膠|水泥|造紙|玻璃陶瓷|生技醫療/.test(industry)?'pb':'pe';
 }
-function valuationMedian(values){const sorted=values.slice().sort((a,b)=>a-b),n=sorted.length;return n%2?sorted[(n-1)/2]:(sorted[n/2-1]+sorted[n/2])/2;}
 function valuationAssessment(stock,snapshot,universe){
  if(!snapshot?.stocks)return {status:'missing',reason:'官方估值資料尚未載入'};
  const quote=snapshot.stocks[stock.code],date=stock.t.date,industry=stock.industry;
  if(!industry||industry==='未分類')return {status:'missing',reason:'缺少官方產業分類'};
  if(!quote||quote.date!==date)return {status:'missing',reason:'估值與收盤價資料日期未對齊'};
- const metric=valuationMetric(industry);
- if(!Number.isFinite(quote.pe)||quote.pe<=0||quote.pe>150||!Number.isFinite(quote.pb)||quote.pb<=0||quote.pb>30)return {status:'missing',reason:'P/E 或 P/B 缺少有效資料，無法雙指標交叉驗證'};
- const peers=universe.filter(x=>x.code!==stock.code&&x.industry===industry&&x.t?.date===date).map(x=>snapshot.stocks[x.code]).filter(x=>x?.date===date&&Number.isFinite(x.pe)&&x.pe>0&&x.pe<=150&&Number.isFinite(x.pb)&&x.pb>0&&x.pb<=30);
- if(peers.length<8)return {status:'missing',reason:`同產業 P/E、P/B 有效樣本不足（${peers.length}／8）`};
- const medianPe=valuationMedian(peers.map(x=>x.pe)),medianPb=valuationMedian(peers.map(x=>x.pb));
- const peRelative=quote.pe/medianPe,pbRelative=quote.pb/medianPb;
- const peerRoe=valuationMedian(peers.map(x=>x.pb/x.pe)),roe=quote.pb/quote.pe;
- let level='待確認',reason='P/E 與 P/B 訊號分歧或處於邊界';
- if(peRelative<=.8&&pbRelative<=.8){if(roe>=peerRoe*.8){level='便宜';reason='兩項倍數均低於同業至少 20%，獲利／淨值比未明顯偏弱';}else reason='倍數偏低，但獲利／淨值比明顯弱於同業';}
- else if(peRelative>=1.2&&pbRelative>=1.2){if(roe<=peerRoe*1.25){level='昂貴';reason='兩項倍數均高於同業至少 20%，獲利／淨值比不足以解釋溢價';}else reason='倍數偏高，但獲利／淨值比明顯優於同業';}
- else if(peRelative>=.85&&peRelative<=1.15&&pbRelative>=.85&&pbRelative<=1.15){level='合理價';reason='P/E 與 P/B 均接近同業中位數';}
- const close=stock.t.close;
- const peReference=Number.isFinite(close)&&close>0?close/quote.pe*medianPe:null;
- const pbReference=Number.isFinite(close)&&close>0?close/quote.pb*medianPb:null;
- return {status:'ready',industry,metric,pe:quote.pe,pb:quote.pb,medianPe,medianPb,peRelative,pbRelative,roe,peerRoe,level,reason,peers:peers.length,date,peReference,pbReference};
+ const metric=valuationMetric(industry),value=quote[metric],upper=metric==='pe'?150:30;
+ if(!Number.isFinite(value)||value<=0)return {status:'missing',reason:metric==='pe'?'本益比未公布或近四季獲利非正':'股價淨值比未公布'};
+ if(value>upper)return {status:'missing',reason:'估值倍數異常，暫不比較'};
+ const peers=universe.filter(x=>x.code!==stock.code&&x.industry===industry&&x.t?.date===date).map(x=>snapshot.stocks[x.code]).filter(x=>x?.date===date&&Number.isFinite(x[metric])&&x[metric]>0&&x[metric]<=upper).map(x=>x[metric]).sort((a,b)=>a-b);
+ if(peers.length<8)return {status:'missing',reason:`同產業有效樣本不足（${peers.length}／8）`};
+ const middle=Math.floor(peers.length/2),median=peers.length%2?peers[middle]:(peers[middle-1]+peers[middle])/2;
+ const relative=value/median,level=relative<.8?'便宜':relative>1.2?'昂貴':'合理價';
+ return {status:'ready',industry,metric,value,median,relative,level,peers:peers.length,date};
 }
 function valuationHtml(s){
  const result=valuationAssessment(s,valuationSnapshot,analyses);
  if(result.status!=='ready')return `<div class="valuation-heading"><span>產業相對估值</span><b>暫無判定</b></div><small>${esc(valuationError||result.reason)}</small>`;
- const tone=result.level==='便宜'?'cheap':result.level==='昂貴'?'expensive':result.level==='合理價'?'fair':'pending';
+ const label=result.metric==='pb'?'股價淨值比 P/B':'本益比 P/E';
+ const tone=result.level==='便宜'?'cheap':result.level==='昂貴'?'expensive':'fair';
+ const reason=result.metric==='pb'?'以淨值比較資產型、循環或生技產業':'以近四季獲利比較同產業';
  const sourceUrl=s.market==='上櫃'?'https://www.tpex.org.tw/zh-tw/mainboard/trading/info/daily-pe.html':'https://www.twse.com.tw/zh/trading/historical/bwibbu-day.html';
- const referenceAgrees=Number.isFinite(result.peReference)&&Number.isFinite(result.pbReference)&&Math.max(result.peReference,result.pbReference)/Math.min(result.peReference,result.pbReference)<=1.3;
- const priceReference=referenceAgrees?`<div class="valuation-facts"><span>同業倍數參考價</span><strong>${fmt(Math.min(result.peReference,result.pbReference))}～${fmt(Math.max(result.peReference,result.pbReference))} 元</strong></div>`:'<div class="valuation-facts"><span>P/E 與 P/B 參考價差距過大，暫不顯示價格區間</span></div>';
- return `<div class="valuation-heading"><span>產業相對估值</span><b class="valuation-${tone}">${result.level}</b></div><div class="valuation-facts"><span>P/E ${fmt(result.pe)} 倍（同業 ${fmt(result.medianPe)}）</span><span>P/B ${fmt(result.pb)} 倍（同業 ${fmt(result.medianPb)}）</span><span>推算 ROE 約 ${fmt(result.roe*100,1)}%（同業 ${fmt(result.peerRoe*100,1)}%）</span><span>同業 ${result.peers} 檔</span></div>${priceReference}<small>${esc(result.industry)} · ${esc(result.date)} · P/E 相對同業 ${fmt((result.peRelative-1)*100,1)}%，P/B ${fmt((result.pbRelative-1)*100,1)}%。${esc(result.reason)}。推算 ROE 為 P/B ÷ P/E，並非財報正式 ROE；參考價由近四季獲利及淨值乘同業中位倍數推算，並非目標價。預估 EPS 與景氣循環正常化 EPS 尚無可核對資料，不納入分類。<a href="${sourceUrl}" target="_blank" rel="noopener">官方資料</a></small>`;
+ return `<div class="valuation-heading"><span>產業相對估值</span><b class="valuation-${tone}">${result.level}</b></div><div class="valuation-facts"><span>採用 ${label}</span><strong>${fmt(result.value)} 倍</strong><span>同業中位數 ${fmt(result.median)} 倍</span><span>同業 ${result.peers} 檔</span></div><small>${esc(result.industry)} · ${esc(result.date)} · 相對同業中位數 ${fmt((result.relative-1)*100,1)}%。低於 80% 為便宜，高於 120% 為昂貴，其餘為合理價。${reason}；未納入成長與財務品質，不代表內在價值。<a href="${sourceUrl}" target="_blank" rel="noopener">官方資料</a></small>`;
 }
 async function loadValuation(){
  try{const response=await fetch('valuation-data.json?v='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);const data=await response.json();if(!data.stocks||Object.keys(data.stocks).length<1000)throw Error('官方估值資料不完整');valuationSnapshot=data;valuationError='';}
