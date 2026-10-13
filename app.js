@@ -102,7 +102,20 @@ function chipMetrics(code,weekDate=''){
 function refreshChipMetrics(){document.querySelectorAll('[data-chip-code]').forEach(el=>{el.outerHTML=chipMetrics(el.dataset.chipCode,el.dataset.chipWeek);});}
 function lights(values,kind){return values.map((v,i)=>`<i class="light ${kind} ${v?'on':''}" title="第 ${i+1} 項：${v===null?'資料不足':v?'符合':'未符合'}"></i>`).join('');}
 function stockConvertiblePriceHtml(s){const state=window.convertibleDataStatus;if(state==='loading'||!window.activeConvertibleBonds)return '<span class="conversion-price-status">轉換價格資料載入中…</span>';if(state==='error')return '<span class="conversion-price-status">轉換價格資料讀取失敗，請重新整理頁面。</span>';const bonds=window.activeConvertibleBonds(s.code);return bonds.map(bond=>`<span class="conversion-price-item"><span>${esc(bond.name||bond.code)} (${esc(bond.code)}) · ${bond.conversion_price_kind==='current_official'?'目前轉換價':'轉換價'}</span><strong>${fmt(bond.conversion_price)} 元</strong><small>到期 ${esc(bond.maturity_date)}${bond.conversion_price_date?' · 價格資料 '+esc(bond.conversion_price_date):''}</small></span>`).join('');}
+function priceBaseHtml(bars){
+ const recent=bars.slice(-250);
+ if(recent.length<250)return `<span class="price-base-label">價格基期</span><span class="price-base-pending">資料不足（${recent.length}／250 筆交易日）</span>`;
+ const lows=recent.map(b=>Number(b.low)),highs=recent.map(b=>Number(b.high)),close=Number(recent.at(-1).close);
+ if(!lows.every(Number.isFinite)||!highs.every(Number.isFinite)||!Number.isFinite(close))return '<span class="price-base-label">價格基期</span><span class="price-base-pending">行情資料不足</span>';
+ const low=Math.min(...lows),high=Math.max(...highs);
+ if(high<=low)return '<span class="price-base-label">價格基期</span><span class="price-base-pending">價格區間無法計算</span>';
+ const position=Math.max(0,Math.min(100,(close-low)/(high-low)*100));
+ const level=position<=20?'低價格基期':position>=80?'高價格基期':'中間價格區';
+ const tone=position<=20?'low':position>=80?'high':'middle';
+ return `<div class="price-base-heading"><span class="price-base-label">價格基期 · 近 250 筆交易日</span><b class="price-base-${tone}">${level}</b><span class="price-base-percent">${position.toFixed(1)}%</span></div><div class="price-base-track" role="img" aria-label="目前收盤價位於近 250 筆交易日價格區間的 ${position.toFixed(1)}%"><span style="left:${position.toFixed(1)}%"></span></div><div class="price-base-range"><span>區間低 ${fmt(low)}</span><span>區間高 ${fmt(high)}</span></div><small class="price-base-note">依最高、最低價計算目前收盤價位置；不代表估值高低。</small>`;
+}
 function showDetail(s){if(!s)return;renderInstitutional(s);renderStockHoldings(s);peerGroupKey='';renderPeers(s);$('history-load').hidden=true;$('history-load').textContent=s.bars.length>=361?'重新整理此股歷史':'補齊此股歷史日線';$('detail-name').textContent=s.code+' '+s.name+' · '+s.t.date+' 日 K';$('detail-industry').textContent=industryLabel(s)+' · '+Math.min(90,s.bars.length)+' 個交易日 · '+(s.score===null?s.known+' / 15（資料待齊）':s.score+' / 15 亮燈');$('detail-price').innerHTML=`<strong>${fmt(s.t.close)}</strong><small class="${s.change>=0?'up':'down'}">${s.change>=0?'+':''}${fmt(s.change)}%</small>`;
+ $('detail-price-base').innerHTML=priceBaseHtml(s.bars);
  const active=TYPES.filter(([k])=>s.signals[k]);$('explain').innerHTML=active.map(([k,name,rule])=>`<div class="reason"><div><strong>${name}</strong><p>${rule}</p>${s.structure?.notes[k]?'<p>'+esc(s.structure.notes[k])+'</p>':''}${k==='shadow'?'<p>拉回程度：'+s.shadowStrength+'</p>':''}</div></div>`).join('')||'<p>目前條件未辨識出候選型態。仍可查看均線位置。</p>';
  $('explain').innerHTML+=`<p style="margin-top:14px">${candleType(s.t)} · 開盤 ${fmt(s.t.open)}<br>MA5 ${fmt(s.m5)} · MA10 ${fmt(s.m10)}<br>當日量 ${fmt(s.t.volume,0)} 張<br>${s.bars.length} 筆日線</p>`;
  $('detail-score').textContent=s.score===null?s.known+' / 15（待判定 '+s.missing+' 項）':s.score+' / 15';$('score-breakdown').innerHTML=[['站上均線',s.stand,''],['收盤創高',s.fresh,'high'],['均線排列',s.order,'order']].map(([label,v,k])=>`<div class="score-row"><span>${label}</span><div class="lights">${lights(v,k)}</div><span>${v.filter(Boolean).length} / ${v.length}</span></div>`).join('')+`<p>點亮項目為符合；待判定項目不算未符合。資料未齊時顯示已符合分數，暫不納入正式排名。<br>完整口徑見「型態與規則」。</p>`;
