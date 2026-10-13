@@ -5,6 +5,7 @@ const $=id=>document.getElementById(id);
 const TYPES=[['panther','黑豹候選','開盤後上衝（最高價高於開盤），最後收黑 K，且成交量大於前5日均量；不要求前日漲停或突破前高。'],['dragon','極限黑龍候選','量縮黑 K 拉回五日線；整理／起漲位置待人工確認。'],['highDragon','創高黑龍','均線分數至少 10／15，今日收黑 K（收盤低於開盤），當日相對昨收漲跌幅介於 -10% 至 +3%（含邊界）。'],['sword','紅劍候選','紅 K、上影線占振幅達門檻，且成交量達爆量門檻；起漲第一根待確認。'],['swordDance','劍飛舞候選','前一日上影紅／黑 K，今日量縮黑 K 回五日線。'],['shadow','神下影候選','跌破昨日低，長下影達門檻，收盤收復昨收或接近昨收／昨低。'],['dance','黑飛舞候選','前一日符合黑豹，今日量低於前 5 日均量；收盤靠近 MA5，或跌破 MA5 不超過 2.5%。'],['extremeDance','極限黑飛舞候選','前一日創所選週期新高，今日量縮長黑，收盤接近 MA10；不要求收最低。'],['smallDance','小黑飛舞候選','前一日黑 K 創前 5 日高但未創前 N 日高，今日量縮回五日線。'],['mother','母子組合','今日高低完整包含在昨日高低內，成交量縮小。'],['headShoulders','頭肩底候選','依莊爸第二堂講義：三個谷，中間最低；兩個反彈高點連成頸線，右肩常在月線／季線附近。'],['triangle','三角收斂候選','依莊爸第二堂講義：高點不過高、低點不破低；包含對稱、上升與下降三角。長紅突破上緣另標示突破狀態。'],['vcp','VCP候選','依莊爸第二堂講義：上漲趨勢中的中期整理，大圓底 → 小圓底，價格與成交量逐次收縮，觀察再次突破頸線。'],['nearCross','即將穿惡','最新交易日收盤價 > 20 週均線、> MA60（日），且 < MA20（日）；三項同時符合。']];
 const LIMITS={score:[0,15],volPeriod:[5,20],shrinkRatio:[.1,1.5],burstRatio:[1,5],tolerance:[0,5],highPeriod:[20,60,120],wick:[10,90]};
 let records=[],analyses=[],filtered=[],selected=null,mode='demo',detailClosed=true,detailTrigger=null,analysisInputRecords=null,currentDetailStock=null;
+let valuationSnapshot=null,valuationError='';
 window.cbStockSnapshot=()=>({mode,analyses});
 const fmt=(x,n=2)=>Number.isFinite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:n,maximumFractionDigits:n}):'—';
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -137,8 +138,40 @@ function priceBaseHtml(bars){
  const tone=position<=20?'low':position>=80?'high':'middle';
  return `<div class="price-base-heading"><span class="price-base-label">價格基期 · 近 250 筆交易日</span><b class="price-base-${tone}">${level}</b><span class="price-base-percent">${position.toFixed(1)}%</span></div><div class="price-base-track" role="img" aria-label="目前收盤價位於近 250 筆交易日價格區間的 ${position.toFixed(1)}%"><span style="left:${position.toFixed(1)}%"></span></div><div class="price-base-range"><span>區間低 ${fmt(low)}</span><span>區間高 ${fmt(high)}</span></div><small class="price-base-note">依最高、最低價計算目前收盤價位置；不代表估值高低。</small>`;
 }
+function valuationMetric(industry){
+ return /金融|銀行|保險|證券|建材營造|鋼鐵|航運|塑膠|水泥|造紙|玻璃陶瓷|生技醫療/.test(industry)?'pb':'pe';
+}
+function valuationAssessment(stock,snapshot,universe){
+ if(!snapshot?.stocks)return {status:'missing',reason:'官方估值資料尚未載入'};
+ const quote=snapshot.stocks[stock.code],date=stock.t.date,industry=stock.industry;
+ if(!industry||industry==='未分類')return {status:'missing',reason:'缺少官方產業分類'};
+ if(!quote||quote.date!==date)return {status:'missing',reason:'估值與收盤價資料日期未對齊'};
+ const metric=valuationMetric(industry),value=quote[metric],upper=metric==='pe'?150:30;
+ if(!Number.isFinite(value)||value<=0)return {status:'missing',reason:metric==='pe'?'本益比未公布或近四季獲利非正':'股價淨值比未公布'};
+ if(value>upper)return {status:'missing',reason:'估值倍數異常，暫不比較'};
+ const peers=universe.filter(x=>x.code!==stock.code&&x.industry===industry&&x.t?.date===date).map(x=>snapshot.stocks[x.code]).filter(x=>x?.date===date&&Number.isFinite(x[metric])&&x[metric]>0&&x[metric]<=upper).map(x=>x[metric]).sort((a,b)=>a-b);
+ if(peers.length<8)return {status:'missing',reason:`同產業有效樣本不足（${peers.length}／8）`};
+ const middle=Math.floor(peers.length/2),median=peers.length%2?peers[middle]:(peers[middle-1]+peers[middle])/2;
+ const relative=value/median,level=relative<.8?'便宜':relative>1.2?'昂貴':'合理價';
+ return {status:'ready',industry,metric,value,median,relative,level,peers:peers.length,date};
+}
+function valuationHtml(s){
+ const result=valuationAssessment(s,valuationSnapshot,analyses);
+ if(result.status!=='ready')return `<div class="valuation-heading"><span>產業相對估值</span><b>暫無判定</b></div><small>${esc(valuationError||result.reason)}</small>`;
+ const label=result.metric==='pb'?'股價淨值比 P/B':'本益比 P/E';
+ const tone=result.level==='便宜'?'cheap':result.level==='昂貴'?'expensive':'fair';
+ const reason=result.metric==='pb'?'以淨值比較資產型、循環或生技產業':'以近四季獲利比較同產業';
+ const sourceUrl=s.market==='上櫃'?'https://www.tpex.org.tw/zh-tw/mainboard/trading/info/daily-pe.html':'https://www.twse.com.tw/zh/trading/historical/bwibbu-day.html';
+ return `<div class="valuation-heading"><span>產業相對估值</span><b class="valuation-${tone}">${result.level}</b></div><div class="valuation-facts"><span>採用 ${label}</span><strong>${fmt(result.value)} 倍</strong><span>同業中位數 ${fmt(result.median)} 倍</span><span>同業 ${result.peers} 檔</span></div><small>${esc(result.industry)} · ${esc(result.date)} · 相對同業中位數 ${fmt((result.relative-1)*100,1)}%。低於 80% 為便宜，高於 120% 為昂貴，其餘為合理價。${reason}；未納入成長與財務品質，不代表內在價值。<a href="${sourceUrl}" target="_blank" rel="noopener">官方資料</a></small>`;
+}
+async function loadValuation(){
+ try{const response=await fetch('valuation-data.json?v='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);const data=await response.json();if(!data.stocks||Object.keys(data.stocks).length<1000)throw Error('官方估值資料不完整');valuationSnapshot=data;valuationError='';}
+ catch(error){valuationError='估值資料讀取失敗：'+error.message;}
+ if(currentDetailStock&&!$('detail').hidden)$('detail-valuation').innerHTML=valuationHtml(currentDetailStock);
+}
 function showDetail(s){if(!s)return;renderInstitutional(s);renderStockHoldings(s);peerGroupKey='';renderPeers(s);$('history-load').hidden=true;$('history-load').textContent=s.bars.length>=361?'重新整理此股歷史':'補齊此股歷史日線';$('detail-name').textContent=s.code+' '+s.name+' · '+s.t.date+' 日 K';$('detail-industry').textContent=industryLabel(s)+' · '+Math.min(90,s.bars.length)+' 個交易日 · '+(s.score===null?s.known+' / 15（資料待齊）':s.score+' / 15 亮燈');$('detail-price').innerHTML=`<strong>${fmt(s.t.close)}</strong><small class="${s.change>=0?'up':'down'}">${s.change>=0?'+':''}${fmt(s.change)}%</small>`;
  $('detail-price-base').innerHTML=priceBaseHtml(s.bars);
+ $('detail-valuation').innerHTML=valuationHtml(s);
  const active=TYPES.filter(([k])=>s.signals[k]);$('explain').innerHTML=active.map(([k,name,rule])=>`<div class="reason"><div><strong>${name}</strong><p>${rule}</p>${s.structure?.notes[k]?'<p>'+esc(s.structure.notes[k])+'</p>':''}${k==='shadow'?'<p>拉回程度：'+s.shadowStrength+'</p>':''}</div></div>`).join('')||'<p>目前條件未辨識出候選型態。仍可查看均線位置。</p>';
  $('explain').innerHTML+=`<p style="margin-top:14px">${candleType(s.t)} · 開盤 ${fmt(s.t.open)}<br>MA5 ${fmt(s.m5)} · MA10 ${fmt(s.m10)}<br>當日量 ${fmt(s.t.volume,0)} 張<br>${s.bars.length} 筆日線</p>`;
  $('detail-score').textContent=s.score===null?s.known+' / 15（待判定 '+s.missing+' 項）':s.score+' / 15';$('score-breakdown').innerHTML=[['站上均線',s.stand,''],['收盤創高',s.fresh,'high'],['均線排列',s.order,'order']].map(([label,v,k])=>`<div class="score-row"><span>${label}</span><div class="lights">${lights(v,k)}</div><span>${v.filter(Boolean).length} / ${v.length}</span></div>`).join('')+`<p>點亮項目為符合；待判定項目不算未符合。資料未齊時顯示已符合分數，暫不納入正式排名。<br>完整口徑見「型態與規則」。</p>`;
@@ -163,7 +196,7 @@ function init(){
  let searchDetailTimer;const confirmStockSearch=()=>{clearTimeout(searchDetailTimer);const query=$('search').value.trim();const stock=analyses.find(x=>x.code===query||x.name===query);if(stock)openStockDetail(stock,$('search'));else render();};$('search-confirm').onclick=confirmStockSearch;$('search').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();confirmStockSearch();}});$('search').addEventListener('input',e=>{clearTimeout(searchDetailTimer);if(!e.isComposing)searchDetailTimer=setTimeout(render,350);});for(const id of ['market','sort'])$(id).addEventListener('input',render);$('price-range').addEventListener('change',render);$('score').addEventListener('change',render);$('above-weekly20').addEventListener('change',render);document.querySelectorAll('.check input').forEach(x=>x.addEventListener('change',render));$('reset').onclick=reset;$('empty-reset').onclick=reset;$('demo').onclick=setDemo;
  $('template').onclick=()=>{const sample=makeDemo().slice(0,2);const lines=['code,name,market,date,open,high,low,close,volume,limit_up'];for(const s of sample)for(const b of s.bars)lines.push([s.code,s.name,s.market,b.date,...['open','high','low','close'].map(k=>b[k].toFixed(4)),b.volume,b.limit_up??''].join(','));download('日線匯入範例-合成行情.csv',lines.join('\n'));};
  $('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>15e6)throw Error('請選擇 15 MB 以下 CSV。');const next=parseCSV(await f.text());records=next;mode='import';$('source').textContent='已匯入 · '+f.name;$('source-note').textContent=`${records.length} 檔標的。由你提供的資料計算，未與官方行情核對；重新整理將回到示範。`;selected=null;reset();}catch(err){$('message').textContent=err.message+' 原資料已保留。';}finally{e.target.value='';}};
- records=[];render();loadMarket();loadOwnership();loadInstitutional();loadRegulatory();
+ records=[];render();loadMarket();loadOwnership();loadInstitutional();loadRegulatory();loadValuation();
  $('refresh-market').onclick=refreshMarket;$('history-load').onclick=loadHistory;
  setInterval(()=>{if(mode==='live'&&!document.hidden)loadMarket(false);},900000);
  if(document.modelContext?.registerTool){const life=new AbortController();Promise.resolve(document.modelContext.registerTool({name:'configure_stock_screen',title:'設定均線與型態篩選',description:'調整可見篩選條件並回傳目前資料的候選清單。資料可能為合成示範；不抓行情或提供交易建議。',inputSchema:{type:'object',properties:{scoreRange:{type:'string',enum:['all','7-10','11-15']},patterns:{type:'array',items:{type:'string',enum:TYPES.map(x=>x[0])}},query:{type:'string'},market:{type:'string',enum:['all','上市','上櫃','未分類']}},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:true},execute:configure},{signal:life.signal})).catch(()=>{});window.addEventListener('pagehide',()=>life.abort(),{once:true});}
