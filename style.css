@@ -195,4 +195,4 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 .cb-watch-metrics .cb-conversion-highlight,.cb-watch-bond .cb-conversion-highlight{color:#f4a75c;font-weight:700}.cb-conversion-highlight b{color:#ffb36e;font-weight:800}
 .cb-watch-metrics .cb-stock-close-highlight{color:#f4a75c;font-size:15px;font-weight:700}.cb-stock-close-highlight b{color:#ffb36e;font-size:16px;font-weight:800}.cb-watch-metrics .cb-stock-score-highlight{color:#f5d875;font-size:15px;font-weight:700}.cb-stock-score-highlight b{color:#ffe298;font-size:16px;font-weight:800}
 .filters #score{border:2px solid #f2a35a;box-shadow:0 0 0 1px #f2a35a33}.filters #score:focus-visible{outline:2px solid #ffcb85;outline-offset:3px}
-
+.filters #price-range{border:2px solid #4dd5bd;box-shadow:0 0 0 1px #4dd5bd33}.filters #price-range:focus-visible{outline:2px solid #8ff3df;outline-offset:3px}
