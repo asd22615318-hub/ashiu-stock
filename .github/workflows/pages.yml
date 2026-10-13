@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - market_data.py
+      - valuation_data.cjs
       - convertible_data.py
       - cb_daily.py
       - institutional_data.py
@@ -31,11 +32,14 @@ jobs:
       - name: Update official reports and preserve history
         env:
           ASHIU_SKIP_CB_DAILY: '1'
-        run: python build.py
+        run: |
+          node valuation_data.cjs
+          python build.py
       - name: Preserve snapshots for the protected Cloudflare build
         shell: pwsh
         run: |
           Copy-Item -LiteralPath dist/market-data.json.gz -Destination seed.json.gz
+          Copy-Item -LiteralPath dist/valuation-data.json -Destination valuation-seed.json
           Copy-Item -LiteralPath dist/institutional-data.json -Destination institutional-seed.json
           Copy-Item -LiteralPath dist/ownership-data.json -Destination ownership-seed.json
           Copy-Item -LiteralPath dist/cb-chip-data.json -Destination cb-chip-seed.json
@@ -44,7 +48,7 @@ jobs:
           Copy-Item -LiteralPath dist/convertible-data.json -Destination convertible-seed.json
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          $snapshots = @('seed.json.gz', 'institutional-seed.json', 'ownership-seed.json', 'cb-chip-seed.json', 'regulatory-seed.json', 'revenue-seed.json', 'convertible-seed.json', 'etf-seed.json', 'prison-seed.json')
+          $snapshots = @('seed.json.gz', 'valuation-seed.json', 'institutional-seed.json', 'ownership-seed.json', 'cb-chip-seed.json', 'regulatory-seed.json', 'revenue-seed.json', 'convertible-seed.json', 'etf-seed.json', 'prison-seed.json')
           $saved = Join-Path $env:RUNNER_TEMP 'market-snapshots'
           New-Item -ItemType Directory -Path $saved -Force | Out-Null
           foreach ($file in $snapshots) { Copy-Item -LiteralPath $file -Destination (Join-Path $saved $file) }
