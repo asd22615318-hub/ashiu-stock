@@ -105,7 +105,7 @@
     }
     const candidates=[...groups.values()].map(({stock,bonds})=>{
       const bars=stock.bars||[],last=bars.at(-1);
-      if(!last)return null;
+      if(!last||!Number.isFinite(Number(last.volume))||Number(last.volume)<=500)return null;
       const ma5=bars.length>=5?bars.slice(-5).reduce((sum,bar)=>sum+bar.close,0)/5:null;
       const ma20=bars.length>=20?bars.slice(-20).reduce((sum,bar)=>sum+bar.close,0)/20:null;
       const ma60=bars.length>=60?bars.slice(-60).reduce((sum,bar)=>sum+bar.close,0)/60:null;
@@ -123,7 +123,7 @@
     const range=gapRanges[watchFilter.value];
     const inRange=match=>range&&(range.above?match.distance>=0&&match.distance<=range.max:match.distance>=-range.max&&(range.min===0?match.distance<=0:match.distance< -range.min));
     const shown=candidates.filter(item=>watchFilter.value==='all'||(range?item.matches.some(inRange):item.watch));
-    watchCount.textContent=range?`${shown.length} 檔${range.above?'高於':'低於'}轉換價 ${range.label}／${candidates.length} 檔有 CB 正股`:`${shown.length} 檔／${candidates.length} 檔有 CB 正股`;
+    watchCount.textContent=(range?`${shown.length} 檔${range.above?'高於':'低於'}轉換價 ${range.label}／${candidates.length} 檔有 CB 正股`:`${shown.length} 檔／${candidates.length} 檔有 CB 正股`)+' · 正股量 >500 張';
     watchList.innerHTML=shown.slice(0,80).map(({stock,bonds,matches,move5,ma5,ma20,ma60,sideways,above5,above20,above60,watch})=>{
       const displayed=range?matches.filter(inRange):bonds.map(bond=>({bond,distance:(stock.t.close/Number(bond.conversion_price)-1)*100}));
       const cbLines=displayed.map(({bond,distance})=>{
