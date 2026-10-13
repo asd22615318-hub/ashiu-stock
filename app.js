@@ -12,6 +12,29 @@ const candleType=t=>t.close>t.open?'紅 K':t.close<t.open?'綠 K':'平 K';
 const avg=a=>a.reduce((s,v)=>s+v,0)/a.length;
 const ma=(a,i,n)=>i>=n-1?avg(a.slice(i-n+1,i+1).map(x=>x.close)):null;
 const max=(a,key)=>Math.max(...a.map(x=>x[key]));
+function secondWaveTarget(bars){
+ const n=bars.length;if(n<60)return null;
+ const monthly=Array(n).fill(null);let sum=0;
+ for(let i=0;i<n;i++){sum+=bars[i].close;if(i>=20)sum-=bars[i-20].close;if(i>=19)monthly[i]=sum/20;}
+ const crossesUp=i=>i>=20&&bars[i-1].close<=monthly[i-1]&&bars[i].close>monthly[i];
+ const crossesDown=i=>i>=20&&bars[i-1].close>=monthly[i-1]&&bars[i].close<monthly[i];
+ for(let reclaim=n-1;reclaim>=Math.max(20,n-20);reclaim--){
+  const b=bars[reclaim];if(!crossesUp(reclaim)||b.close<=b.open||(b.close-b.open)/b.open<.03)continue;
+  if(bars.slice(reclaim+1).some((bar,offset)=>bar.close<=monthly[reclaim+1+offset]))continue;
+  let breakdown=-1;for(let i=reclaim-1;i>=20;i--)if(crossesDown(i)){breakdown=i;break;}
+  if(breakdown<0)continue;
+  let firstCross=-1;for(let i=breakdown-1;i>=Math.max(20,breakdown-180);i--)if(crossesUp(i)){firstCross=i;break;}
+  if(firstCross<0)continue;
+  const firstPeak=max(bars.slice(firstCross,breakdown),'high'),firstGain=firstPeak/bars[firstCross].close-1;
+  if(firstGain<.30)continue;
+  const secondLow=Math.min(...bars.slice(breakdown,reclaim+1).map(bar=>bar.low));
+  const targetGain=.5*(1+firstGain),target=secondLow*(1+targetGain);
+  if(bars.slice(reclaim).some(bar=>bar.high>=target))continue;
+  return {target,firstGain:firstGain*100,targetGain:targetGain*100,secondLow,firstCross:bars[firstCross].date,breakdown:bars[breakdown].date,reclaim:bars[reclaim].date};
+ }
+ return null;
+}
+function secondWaveTargetHtml(s){const w=s.secondWaveTarget;if(!w)return '<span class="wave-target-empty">—</span>';return `<div class="wave-target"><strong>${fmt(w.target)} 元</strong><span>前波 +${fmt(w.firstGain)}% → 目標漲幅 +${fmt(w.targetGain)}%</span><small>第二波低點 ${fmt(w.secondLow)} · 重新上穿 ${esc(w.reclaim)}</small><small title="前波上穿 ${esc(w.firstCross)}；跌破 ${esc(w.breakdown)}；重新上穿 ${esc(w.reclaim)}">推估值，非保證價格</small></div>`;}
 // Monday-based calendar weeks; current week uses the latest available close.
 function weeklyMA(a,n=20){const weeks=new Map();for(const b of a){const d=new Date(b.date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-(d.getUTCDay()+6)%7);weeks.set(d.toISOString().slice(0,10),b.close);}const closes=[...weeks.values()];return closes.length>=n?avg(closes.slice(-n)):null;}
 function params(){return {score:+$('score').value,volPeriod:5,shrinkRatio:1,burstRatio:2,tolerance:2.5,highPeriod:20,wick:40};}
@@ -37,7 +60,7 @@ function analyze(stock,p){const a=stock.bars,i=a.length-1,t=a[i],prev=a[i-1],m5=
  const all=[...stand,...fresh,...order],score=all.includes(null)?null:all.filter(Boolean).length;
  const change=Number.isFinite(t.quote_change_pct)?t.quote_change_pct:prev?(t.close/prev.close-1)*100:null;
  signals.highDragon=score!==null&&score>=10&&black&&change!==null&&change>=-10&&change<=3;
- return {...stock,t,prev,m5,m10,m20,m60,w20,ratio,shrink,burst,signals,structure,score,stand,fresh,order,known:all.filter(Boolean).length,missing:all.filter(x=>x===null).length,shadowStrength,change};}
+ return {...stock,t,prev,m5,m10,m20,m60,w20,ratio,shrink,burst,signals,structure,score,stand,fresh,order,known:all.filter(Boolean).length,missing:all.filter(x=>x===null).length,shadowStrength,change,secondWaveTarget:secondWaveTarget(a)};}
 function updatePriceRanges(){const select=$('price-range'),maximum=Math.max(1000,...records.map(s=>s.bars.at(-1).close)),ceiling=Math.floor(maximum/100)*100+100;if(select.dataset.ceiling===String(ceiling))return;const chosen=select.value;let options='<option value="all">不限股價</option><option value="0:50">0–50 元</option><option value="50:100">50–100 元</option>';for(let low=100;low<ceiling;low+=100)options+=`<option value="${low}:${low+100}">${low}–${low+100} 元</option>`;select.innerHTML=options;select.dataset.ceiling=String(ceiling);select.value=[...select.options].some(x=>x.value===chosen)?chosen:'all';}
 function matchesPrice(price,range){if(range==='all')return true;const [low,high]=range.split(':').map(Number);return Number.isFinite(price)&&price>=low&&price<high;}
 function backtestReference(s){
@@ -58,7 +81,7 @@ function render(event){updatePriceRanges();const p=params();if(!validParams(p)){
  if(!patternOnly){renderOwnership();if(!$('sectors').hidden)renderSectors();if(!$('revenue').hidden)renderRevenue();}$('total').textContent=records.length;$('matches').textContent=filtered.length;$('shrink').textContent=analyses.filter(s=>s.t.volume>500&&s.shrink).length;$('date').textContent=records.length?records.map(s=>s.bars.at(-1).date).sort().at(-1):'—';
  $('result-sub').textContent=`${filtered.length} 檔符合 · 成交量 > 500 張${$('price-range').value==='all'?'':' · 股價 '+$('price-range').selectedOptions[0].textContent} · 已具完整分數 ${analyses.filter(s=>s.t.volume>500&&s.score!==null).length}/${analyses.filter(s=>s.t.volume>500).length} 檔`;
  if(!$('detail-modal').open&&!filtered.some(s=>s.code===selected))selected=filtered[0]?.code??null;
- $('rows').innerHTML=filtered.map(s=>`<tr data-code="${esc(s.code)}" class="${s.code===selected?'selected':''}"><td><button aria-label="查看 ${esc(s.name)} 詳情"><span class="observation-stock-heading"><strong>${esc(s.code)} ${esc(s.name)}</strong>${s.score===null?`<span class="stock-score partial-score">均線已符合 ${s.known} / 15 · 待判定 ${s.missing} 項</span>`:`<span class="stock-score">均線分數 ${s.score} / 15</span>`}</span>${regulatoryBadges(s.code)}${chipMetrics(s.code)}<small class="industry-label">${esc(industryLabel(s))}<br>${esc(s.market)} · ${s.rank?(mode==='live'?'已補歷史排名 #':'均線排名 #')+s.rank:'待補歷史'}<br>${esc(s.t.date)}</small></button></td><td class="numeric"><strong>${fmt(s.t.close)}</strong><span class="candle-badge ${s.t.close>s.t.open?'up':s.t.close<s.t.open?'down':'flat'}">${candleType(s.t)}</span><small class="${s.change>=0?'up':'down'}">${s.change===null?'漲跌資料缺漏':s.change===0?'平盤 0.00%':(s.change>0?'+':'')+fmt(s.change)+'%'}</small></td><td>${TYPES.filter(([k])=>s.signals[k]).map(([k,name])=>`<span class="tag ${k==='panther'?'amber':''}">${name.replace('候選','')}</span>`).join('')||(s.bars.length<21?'<small>待補歷史日線</small>':'<small>暫無型態</small>')}</td><td>${backtestReference(s)}</td><td>${ma20Deduction(s)}</td></tr>`).join('');
+ $('rows').innerHTML=filtered.map(s=>`<tr data-code="${esc(s.code)}" class="${s.code===selected?'selected':''}"><td><button aria-label="查看 ${esc(s.name)} 詳情"><span class="observation-stock-heading"><strong>${esc(s.code)} ${esc(s.name)}</strong>${s.score===null?`<span class="stock-score partial-score">均線已符合 ${s.known} / 15 · 待判定 ${s.missing} 項</span>`:`<span class="stock-score">均線分數 ${s.score} / 15</span>`}</span>${regulatoryBadges(s.code)}${chipMetrics(s.code)}<small class="industry-label">${esc(industryLabel(s))}<br>${esc(s.market)} · ${s.rank?(mode==='live'?'已補歷史排名 #':'均線排名 #')+s.rank:'待補歷史'}<br>${esc(s.t.date)}</small></button></td><td class="numeric"><strong>${fmt(s.t.close)}</strong><span class="candle-badge ${s.t.close>s.t.open?'up':s.t.close<s.t.open?'down':'flat'}">${candleType(s.t)}</span><small class="${s.change>=0?'up':'down'}">${s.change===null?'漲跌資料缺漏':s.change===0?'平盤 0.00%':(s.change>0?'+':'')+fmt(s.change)+'%'}</small></td><td>${TYPES.filter(([k])=>s.signals[k]).map(([k,name])=>`<span class="tag ${k==='panther'?'amber':''}">${name.replace('候選','')}</span>`).join('')||(s.bars.length<21?'<small>待補歷史日線</small>':'<small>暫無型態</small>')}</td><td>${backtestReference(s)}</td><td>${ma20Deduction(s)}</td><td>${secondWaveTargetHtml(s)}</td></tr>`).join('');
  $('empty').hidden=filtered.length!==0;$('detail').hidden=detailClosed||!selected;
  document.querySelectorAll('#rows tr').forEach(row=>{row.addEventListener('click',()=>{openStockDetail(analyses.find(x=>x.code===row.dataset.code),row.querySelector('button'));});});if(selected&&$('detail-modal').open)showDetail(analyses.find(s=>s.code===selected));}
 const INCLUDE_FOREIGN=true;
