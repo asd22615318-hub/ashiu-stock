@@ -134,11 +134,38 @@ def otc_daily_amounts(day):
         if len(amounts)>=100:return amounts
     raise ValueError('TPEx daily report missing individual trade values')
 
+def otc_daily_rows(day):
+    """Use the official TPEx daily report when its OpenAPI quote is malformed."""
+    url='https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes?'+urllib.parse.urlencode({'response':'json','date':day.replace('-','/')})
+    payload=get_json(url)
+    if not isinstance(payload,dict):raise ValueError('TPEx daily report has no tables')
+    reported=payload.get('date')
+    if reported and date_iso(reported)!=day:raise ValueError(f'TPEx daily report is for {reported}, not {day}')
+    for table in payload.get('tables',[]):
+        fields=[re.sub(r'\s+|<[^>]*>','',str(field)) for field in table.get('fields',[])]
+        def column(label):
+            return next((i for i,field in enumerate(fields) if label in field),None)
+        indexes={key:column(label) for key,label in [('code','代號'),('name','名稱'),('close','收盤'),('open','開盤'),('high','最高'),('low','最低'),('volume','成交股數'),('amount','成交金額')]}
+        if any(index is None for index in indexes.values()):continue
+        change_index=column('漲跌')
+        rows=[]
+        for values in table.get('data',[]):
+            if len(values)<=max(indexes.values()):continue
+            code=str(values[indexes['code']]).strip()
+            if not re.fullmatch(r'\d{4}',code):continue
+            row={'Date':day.replace('-',''),'SecuritiesCompanyCode':code,'CompanyName':str(values[indexes['name']]).strip(),
+                 'ClosingPrice':values[indexes['close']],'Open':values[indexes['open']],'High':values[indexes['high']],
+                 'Low':values[indexes['low']],'TradingShares':values[indexes['volume']],'TradingAmount':values[indexes['amount']]}
+            if change_index is not None:row['Change']=values[change_index]
+            rows.append(row)
+        if len(rows)>=100:return rows
+    raise ValueError('TPEx daily report missing stock quotes')
+
 def update():
     with snapshot_lock():
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
             futures={k:pool.submit(get_json,u) for k,u in URLS.items()}
-            data={k:f.result() for k,f in futures.items() if k!='listed_daily'}
+            data={k:f.result() for k,f in futures.items() if k not in ('listed_daily','otc')}
             try:data['listed_daily']=listed_daily_rows(futures['listed_daily'].result())
             except Exception as error:
                 print(f'TWSE daily report unavailable; using official OpenAPI quote: {error}',flush=True)
@@ -149,6 +176,10 @@ def update():
         # The TWSE daily report carries trade value; the OpenAPI quote may omit it.
         listed_source='listed_daily' if listed_daily_date>=listed_api_date else 'listed'
         data['listed']=data[listed_source]
+        try:data['otc']=futures['otc'].result()
+        except Exception as error:
+            print(f'TPEx OpenAPI quote unavailable; using official daily report: {error}',flush=True)
+            data['otc']=otc_daily_rows(listed_api_date)
         listed={str(r['公司代號']).strip() for r in data['listed_names']}
         otc={str(r['SecuritiesCompanyCode']).strip() for r in data['otc_names']}
         previous=read_snapshot()
