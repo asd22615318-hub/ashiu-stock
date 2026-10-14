@@ -21,14 +21,9 @@
     <section class="cb-panel cb-watch-panel"><div class="cb-panel-heading"><div><span class="cb-kicker">波段策略 · 正股觀察</span><h2>CB 對照正股蓄勢名單</h2></div><small id="cb-watch-count">資料載入中</small></div><p class="cb-data-note">CB 異常放量＝當日成交單位 ÷ 前 20 個交易日均量 ≥ 3；連續放量＝近 3 日總量 ÷ 再前 3 日總量 ≥ 2。等價與議價成交單位加總；無成交日計 0，均量不含當日。價差篩選只採用集保公布的目前轉換價格；沒有目前價格的可轉債不列入。</p><div class="cb-watch-controls"><label>顯示 <select id="cb-watch-filter"><option value="gap0to10">正股低於轉換價 0～10%</option><option value="gap11to20">正股低於轉換價 11～20%</option><option value="gap21to50">正股低於轉換價 21～50%</option><option value="gapAbove0to5">正股高於轉換價 0～5%</option><option value="watch">正股蓄勢</option><option value="all">全部有 CB 正股</option></select></label><form id="cb-search-form" class="cb-search-form"><label for="cb-watch-search">搜尋</label><input id="cb-watch-search" type="search" placeholder="代號、名稱或 CB 代號"><button type="submit" id="cb-search-confirm">確認</button></form></div><div id="cb-watch-list" class="cb-watch-list" aria-live="polite"><p>正在對照可轉債與正股行情…</p></div></section>
     <dialog id="cb-search-dialog" class="cb-search-dialog" aria-labelledby="cb-search-title"><div class="cb-search-dialog-head"><h2 id="cb-search-title">個股與可轉債資訊</h2><button id="cb-search-close" type="button">× 返回</button></div><div id="cb-search-results" class="cb-watch-list"></div></dialog><section class="cb-panel" id="cb-data-panel" hidden><div class="cb-panel-heading"><div><span class="cb-kicker">官方資料</span><h2>可轉債保管月報</h2></div><small id="cb-data-period"></small></div><p class="cb-data-note">按本月底集保保管張數排序；月資料不代表今日成交量。發行張數為發行規模，並非剩餘流通張數。</p><label class="cb-search-label">搜尋代號或名稱 <input id="cb-data-search" type="search" placeholder="輸入可轉債或正股代號"></label><div class="cb-table-wrap"><table class="cb-table"><thead><tr><th>可轉債／正股</th><th>本月底保管</th><th>較前月</th><th>發行張數</th><th>集保戶數</th></tr></thead><tbody id="cb-data-rows"></tbody></table></div><p class="cb-data-note">資料來源：<a href="https://data.gov.tw/dataset/11462" target="_blank" rel="noopener">集保結算所可轉換公司債月分析表</a>。缺值以「—」表示。</p></section><button id="cb-watch-return" class="cb-watch-return" type="button" hidden>↑ 返回</button>`;
 
-  root.querySelector('#cb-search-form').insertAdjacentHTML('beforebegin', '<label>近期高點回落 <select id="cb-high-drop-filter"><option value="all">不限</option><option value="drop0to10">下跌 0～10%</option><option value="drop10to20">下跌 10～20%</option><option value="drop20plus">下跌 20% 以上</option></select></label>');
-  root.querySelector('.cb-watch-controls').insertAdjacentHTML('afterend', '<p class="cb-data-note">近期高點＝近 20 個交易日最高價（含最新交易日）；回落幅度＝（近期高點－最新收盤價）÷ 近期高點。歷史 K 棒不足 20 根時不納入回落幅度篩選。</p>');
-  root.querySelector('.cb-watch-panel').insertAdjacentHTML('afterend', '<section class="cb-panel cb-disposal-guide"><div class="cb-panel-heading"><div><span class="cb-kicker">官方公告 × 正股技術位置</span><h2>處置股觀察邏輯</h2></div></div><div class="cb-disposal-grid"><article><strong>留存首筆處置</strong><span>參考 MA5／MA10 附近的價格位置，觀察處置期間是否延續回落。</span></article><article><strong>再度處置</strong><span>對照 MA10／MA20；是否為近期再犯，以官方公告文字或留存紀錄確認。</span></article><article><strong>多次處置</strong><span>對照 MA20 與近 3 日低點，留意風險升高。</span></article></div><p class="cb-data-note">僅呈現已留存的官方公告與價格參考，不能用留存首筆推定歷史首次，也不自動產生買進或賣出訊號。</p></section>');
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const fmt = value => value == null ? '—' : Number(value).toLocaleString('zh-TW');
   let allBonds = [];
-  let disposalData = null;
-  let disposalError = false;
   const today = () => { const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(part => [part.type,part.value])); return `${parts.year}-${parts.month}-${parts.day}`; };
   window.convertibleDataStatus = 'loading';
   window.activeConvertibleBonds = code => allBonds.filter(bond => bond.underlying_code === String(code) && bond.maturity_date && bond.maturity_date >= today() && bond.conversion_price_kind === 'current_official' && Number(bond.conversion_price) > 0 && (bond.outstanding_amount == null || Number(bond.outstanding_amount) > 0));
@@ -37,7 +32,6 @@
   const watchList = root.querySelector('#cb-watch-list');
   const watchCount = root.querySelector('#cb-watch-count');
   const watchFilter = root.querySelector('#cb-watch-filter');
-  const highDropFilter = root.querySelector('#cb-high-drop-filter');
   const watchSearch = root.querySelector('#cb-watch-search');
   const searchDialog = root.querySelector('#cb-search-dialog');
   const searchResults = root.querySelector('#cb-search-results');
@@ -61,25 +55,6 @@
     },{passive:true});
   }
   const pct = value => Number.isFinite(value) ? `${value >= 0 ? '+' : ''}${value.toFixed(1)}%` : '—';
-  function highDrop(bars){
-    if(!Array.isArray(bars)||bars.length<20)return null;
-    const recent=bars.slice(-20),high=Math.max(...recent.map(bar=>Number(bar.high))),close=Number(recent.at(-1).close);
-    return high>0&&Number.isFinite(high)&&Number.isFinite(close)&&close>=0?Math.max(0,(high-close)/high*100):null;
-  }
-  function disposalInfo(code,bars){
-    if(!disposalData)return `<span class="unknown">處置公告${disposalError?'暫無法載入':'載入中'}</span>`;
-    const records=disposalData.disposals.filter(record=>String(record.code)===String(code)).sort((a,b)=>a.start.localeCompare(b.start));
-    if(!records.length)return '<span class="unknown">留存期間無處置公告</span>';
-    const latest=records.at(-1),active=latest.start<=disposalData.as_of&&latest.end>=disposalData.as_of;
-    const repeat=records.length>1||/最近.{0,30}曾.{0,10}(?:發布)?處置|最近.{0,30}曾達.{0,10}處置/.test(latest.detail||'');
-    const type=records.length>=3?'多次處置':repeat?'再度處置':'留存首筆處置';
-    const average=n=>bars.length>=n?bars.slice(-n).reduce((sum,bar)=>sum+Number(bar.close),0)/n:null;
-    const refs=records.length>=3?[[`MA20`,average(20)],[`近 3 日低點`,bars.length>=3?Math.min(...bars.slice(-3).map(bar=>Number(bar.low))):null]]:repeat?[[`MA10`,average(10)],[`MA20`,average(20)]]:[[ `MA5`,average(5)],[`MA10`,average(10)]];
-    const close=Number(bars.at(-1)?.close);
-    const reference=refs.map(([label,price])=>`${label} ${price===null||!Number.isFinite(price)?'待資料':price.toFixed(2)+(Number.isFinite(close)&&price>0&&Math.abs(close/price-1)<=.03?' · 距離 3% 內':'')}`).join('／');
-    const phase=latest.start>disposalData.as_of?'即將處置':active?'處置中':'已期滿';
-    return `<span class="${active?'miss':'unknown'}">${phase} · ${type}（${records.length} 筆留存公告）</span><span>期間 ${esc(latest.start)}～${esc(latest.end)} · ${reference}</span><a href="${esc(latest.source)}" target="_blank" rel="noopener">官方公告 ↗</a>`;
-  }
   function showSearchResults(){
     const query=watchSearch.value.trim().toLowerCase();
     if(!query){watchSearch.focus();return;}
@@ -113,11 +88,6 @@
       return;
     }
     if(snapshot?.mode!=='live'||!snapshot.analyses.length){
-      if(highDropFilter.value!=='all'){
-        watchList.innerHTML='<p>正股盤後行情尚未載入，暫時無法計算近期高點回落幅度。</p>';
-        watchCount.textContent='等待正股行情';
-        return;
-      }
       const matching=allBonds.filter(bond=>bond.maturity_date>=today());
       watchList.innerHTML=`<p>正股盤後行情暫時未載入；先顯示可轉債官方基本資料，價差及均線待正股行情恢復後計算。</p>${matching.slice(0,80).map(bond=>`<article class="cb-watch-item"><div class="cb-watch-head"><strong>${esc(bond.name||bond.code)} ${esc(bond.code)}</strong><span>正股 ${esc(bond.underlying_code||'—')}</span></div><div class="cb-watch-metrics"><span class="cb-conversion-highlight">目前轉換價 <b>${bond.conversion_price_kind==='current_official'?fmt(bond.conversion_price)+' 元':'待官方目前價格'}</b></span><span>到期 ${esc(bond.maturity_date)}</span><span>正股價差／MA20／MA60 待行情</span></div></article>`).join('')}`;
       watchCount.textContent=`${matching.length} 檔 CB · 等待正股行情`;
@@ -147,16 +117,14 @@
       const matches=bonds.map(bond=>({bond,distance:(last.close/Number(bond.conversion_price)-1)*100}))
         .filter(item=>item.distance>=-50&&item.distance<=5)
         .sort((a,b)=>b.distance-a.distance);
-      return {stock,bonds,matches,move5,ma5,ma20,ma60,sideways,above5,above20,above60,drop:highDrop(bars),watch:sideways&&above5};
+      return {stock,bonds,matches,move5,ma5,ma20,ma60,sideways,above5,above20,above60,watch:sideways&&above5};
     }).filter(Boolean).sort((a,b)=>Number(b.watch)-Number(a.watch)||b.matches.length-a.matches.length||a.stock.code.localeCompare(b.stock.code));
     const gapRanges={gap0to10:{min:0,max:10,label:'0～10%'},gap11to20:{min:10,max:20,label:'11～20%'},gap21to50:{min:20,max:50,label:'21～50%'},gapAbove0to5:{min:0,max:5,label:'0～5%',above:true}};
     const range=gapRanges[watchFilter.value];
     const inRange=match=>range&&(range.above?match.distance>=0&&match.distance<=range.max:match.distance>=-range.max&&(range.min===0?match.distance<=0:match.distance< -range.min));
-    const dropRange=highDropFilter.value;
-    const dropMatches=item=>dropRange==='all'||(item.drop!==null&&(dropRange==='drop0to10'?item.drop<10:dropRange==='drop10to20'?item.drop>=10&&item.drop<20:item.drop>=20));
-    const shown=candidates.filter(item=>(watchFilter.value==='all'||(range?item.matches.some(inRange):item.watch))&&dropMatches(item));
+    const shown=candidates.filter(item=>watchFilter.value==='all'||(range?item.matches.some(inRange):item.watch));
     watchCount.textContent=(range?`${shown.length} 檔${range.above?'高於':'低於'}轉換價 ${range.label}／${candidates.length} 檔有 CB 正股`:`${shown.length} 檔／${candidates.length} 檔有 CB 正股`)+' · 正股量 >500 張';
-    watchList.innerHTML=shown.slice(0,80).map(({stock,bonds,matches,move5,ma5,ma20,ma60,sideways,above5,above20,above60,drop,watch})=>{
+    watchList.innerHTML=shown.slice(0,80).map(({stock,bonds,matches,move5,ma5,ma20,ma60,sideways,above5,above20,above60,watch})=>{
       const displayed=range?matches.filter(inRange):bonds.map(bond=>({bond,distance:(stock.t.close/Number(bond.conversion_price)-1)*100}));
       const cbLines=displayed.map(({bond,distance})=>{
         const daily=bond.daily_bars||[];
@@ -169,13 +137,11 @@
         const cbTrend=latest?.close!=null&&priorClose!=null?Number(latest.close)>Number(priorClose)?'CB 價格上行':'CB 價格未上行':'CB 價格待資料';
         return `<div class="cb-watch-bond"><strong>${esc(bond.name||bond.code)} ${esc(bond.code)}</strong><span class="cb-conversion-highlight">${priceLabel} <b>${fmt(bond.conversion_price)} 元</b> · 正股距離 <b>${pct(distance)}</b></span><span>CB ${latest?.date||'—'} 收市 ${latest?.close==null?'—':fmt(latest.close)} · 成交 ${latest?.volume==null?'—':fmt(latest.volume)} 單位</span><span>20 日量比 ${ratio} · 3 日量比 ${continuous} · ${cbTrend}</span></div>`;
       }).join('');
-      return `<article class="cb-watch-item"><div class="cb-watch-head"><button type="button" data-cb-stock="${esc(stock.code)}">${esc(stock.code)} ${esc(stock.name)}</button><span class="${watch?'cb-watch-ready':'cb-watch-pending'}">${watch?'正股蓄勢':'正股條件未齊'}</span></div><div class="cb-watch-metrics"><span class="cb-stock-close-highlight">收盤 <b>${fmt(stock.t.close)}</b></span><span class="cb-stock-score-highlight">均線分數 <b>${stock.score==null?'待補':`${stock.score}/15`}</b></span><span>MA5 ${ma5===null?'—':ma5.toFixed(2)}</span><span>MA20 ${ma20===null?'—':ma20.toFixed(2)}</span><span>MA60 ${ma60===null?'—':ma60.toFixed(2)}</span><span>近 20 日高點回落 ${drop===null?'資料不足':drop.toFixed(1)+'%'}</span></div><div class="cb-watch-disposal">${disposalInfo(stock.code,stock.bars||[])}</div><div class="cb-watch-checks"><span class="${sideways?'pass':'miss'}">${sideways?'✓':'○'} 尚未大漲</span><span class="${above5?'pass':'miss'}">${above5?'✓':'○'} 站上 MA5</span><span class="${ma20===null?'unknown':above20?'pass':'miss'}">${ma20===null?'○ MA20 資料不足':above20?'✓ 站上 MA20':'○ 未站上 MA20'}</span><span class="${ma60===null?'unknown':above60?'pass':'miss'}">${ma60===null?'○ MA60 資料不足':above60?'✓ 站上 MA60':'○ 未站上 MA60'}</span></div>${cbLines}</article>`;
+      return `<article class="cb-watch-item"><div class="cb-watch-head"><button type="button" data-cb-stock="${esc(stock.code)}">${esc(stock.code)} ${esc(stock.name)}</button><span class="${watch?'cb-watch-ready':'cb-watch-pending'}">${watch?'正股蓄勢':'正股條件未齊'}</span></div><div class="cb-watch-metrics"><span class="cb-stock-close-highlight">收盤 <b>${fmt(stock.t.close)}</b></span><span class="cb-stock-score-highlight">均線分數 <b>${stock.score==null?'待補':`${stock.score}/15`}</b></span><span>MA5 ${ma5===null?'—':ma5.toFixed(2)}</span><span>MA20 ${ma20===null?'—':ma20.toFixed(2)}</span><span>MA60 ${ma60===null?'—':ma60.toFixed(2)}</span></div><div class="cb-watch-checks"><span class="${sideways?'pass':'miss'}">${sideways?'✓':'○'} 尚未大漲</span><span class="${above5?'pass':'miss'}">${above5?'✓':'○'} 站上 MA5</span><span class="${ma20===null?'unknown':above20?'pass':'miss'}">${ma20===null?'○ MA20 資料不足':above20?'✓ 站上 MA20':'○ 未站上 MA20'}</span><span class="${ma60===null?'unknown':above60?'pass':'miss'}">${ma60===null?'○ MA60 資料不足':above60?'✓ 站上 MA60':'○ 未站上 MA60'}</span></div>${cbLines}</article>`;
     }).join('')||'<p>目前沒有符合條件的個股；可切換「全部有 CB 正股」。</p>';
     watchList.querySelectorAll('[data-cb-stock]').forEach(button=>button.addEventListener('click',()=>{const stock=stockByCode.get(button.dataset.cbStock);if(stock&&typeof openStockDetail==='function')openStockDetail(stock,button);}));
   }
   watchFilter.addEventListener('change',renderWatchlist);
-  highDropFilter.addEventListener('change',renderWatchlist);
-  fetch('prison-data.json?v='+Date.now(),{cache:'no-store'}).then(response=>{if(!response.ok)throw Error('處置公告未載入');return response.json();}).then(data=>{if(!Array.isArray(data.disposals)||!data.as_of)throw Error('處置公告格式錯誤');disposalData=data;renderWatchlist();}).catch(()=>{disposalData=null;disposalError=true;renderWatchlist();});
   window.addEventListener('stock-data-ready',renderWatchlist);
   fetch('convertible-data.json?v=' + Date.now(), {cache:'no-store'})
     .then(response => { if (!response.ok) throw Error('月資料尚未建立'); return response.json(); })
