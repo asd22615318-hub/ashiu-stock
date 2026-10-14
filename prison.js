@@ -15,7 +15,7 @@
   const bars=priceStock(r.code)?.bars||[],close=Number(bars.at(-1)?.close),ma=n=>bars.length>=n?bars.slice(-n).reduce((sum,bar)=>sum+Number(bar.close),0)/n:null;
   const refs=count>=3?[['MA20',ma(20)],['近 3 日低點',bars.length>=3?Math.min(...bars.slice(-3).map(bar=>Number(bar.low))):null]]:repeat?[['MA10',ma(10)],['MA20',ma(20)]]:[['MA5',ma(5)],['MA10',ma(10)]];
   const drop=highDrop(r.code);
-  return `<div class="prison-context"><strong>${type} · 留存 ${count} 次處置</strong><span>${refs.map(([name,value])=>`${name} ${value===null||!Number.isFinite(value)?'待資料':value.toFixed(2)+(Number.isFinite(close)&&value>0&&Math.abs(close/value-1)<=.03?'（距離 3% 內）':'')}`).join('／')}</span><span>近 20 日高點回落 ${drop===null?'資料不足':drop.toFixed(1)+'%'}</span></div>`;
+  return `<div class="prison-context"><strong>${type} · 留存 ${count} 次處置</strong><span>${refs.map(([name,value])=>`${name} ${value===null||!Number.isFinite(value)?'待資料':value.toFixed(2)+(Number.isFinite(close)&&value>0&&Math.abs(close/value-1)<=.03?'（距離 3% 內）':'')}`).join('／')}</span><span>近 20 日高點回落 <b class="prison-drawdown-value">${drop===null?'資料不足':drop.toFixed(1)+'%'}</b></span></div>`;
  }
  const stock=r=>`<button class="prison-stock" data-prison-code="${e(r.code)}">${e(r.code)} ${e(r.name)}</button>`;
  const quote=r=>{const s=priceStock(r.code),close=Number(s?.t?.close),date=s?.t?.date;
