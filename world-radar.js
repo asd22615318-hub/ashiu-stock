@@ -29,6 +29,7 @@
   if (!root) return;
   const style = document.createElement('style');
   style.textContent = `
+    body:has(#world:not([hidden])) main>.heading,body:has(#world:not([hidden])) main>.notice,body:has(#world:not([hidden])) main>#message{display:none}
     #world{max-width:1500px;margin:0 auto;padding:14px 0 70px;color:#e5e9ee}#world[hidden]{display:none}
     .world-head,.world-panel{background:#1d252c;border:1px solid #526056;border-radius:20px;padding:24px;margin:16px 0;box-shadow:0 10px 28px #0002}
     .world-head h1{color:#e7c776;font-size:clamp(26px,3vw,38px);margin:0 0 7px}.world-head p,.world-note{color:#b9c4c5;line-height:1.6;margin:6px 0}
@@ -79,7 +80,7 @@
     root.innerHTML=`<div class="world-head"><h1>國際數據</h1><p>追蹤美股、台股 ADR、全球指數及關鍵市場價格，並對照可能受影響的台股產業族群。</p><div class="world-controls"><button type="button" id="world-refresh">重新載入國際行情</button><span class="world-note">各市場收盤時間不同；每筆資料顯示各自日期。資料約每 30 分鐘快取更新。</span></div></div><div class="world-panel"><h2>開盤前重點</h2><div class="world-mini" id="world-brief"></div></div><div class="world-jump">${groups.map(g=>`<a href="#world-${g.id}">${esc(g.title)}</a>`).join('')}</div>${groups.map((g,i)=>`<div class="world-panel" id="world-${g.id}"><details ${i<3?'open':''} data-world-group="${g.id}"><summary>${esc(g.title)}</summary><div class="world-table-wrap"><table class="world-table"><thead><tr><th>標的／日期</th><th>收盤</th><th>單日</th><th>5 日</th><th>20 日</th><th>60 日</th><th>今年</th><th>距一年收盤高點</th><th>MA20／60</th>${g.id==='leaders'?'<th>台股關聯族群</th>':''}</tr></thead><tbody data-world-table="${g.id}"></tbody></table></div></details></div>`).join('')}<div class="world-panel world-source"><p class="world-note">價格資料：Yahoo Finance 日線；各標的依當地交易日計算。台股族群為產品與資本支出方向的產業關聯，不能據此認定個別公司已取得訂單或為直接供應商。不同市場幣別不可直接比較價格。</p><p class="world-note">呈現方式參考 <a href="https://zhuang.tw/world" target="_blank" rel="noopener">國際股市・收盤一覽</a>；歷史行情與供應鏈對應僅供研究，不代表投資建議。</p></div>`;
     root.querySelector('#world-refresh').addEventListener('click',()=>{cache.clear();groups.filter(g=>g.id==='indices'||g.id==='leaders'||g.id==='adr'||root.querySelector(`[data-world-group="${g.id}"]`).open).forEach(load)});
     root.querySelectorAll('[data-world-group]').forEach(d=>d.addEventListener('toggle',()=>{if(d.open){const g=groups.find(x=>x.id===d.dataset.worldGroup);if(g)load(g)}}));
-    groups.forEach(paintGroup);paintBrief();groups.slice(0,3).forEach(load);
+    groups.forEach(paintGroup);paintBrief();groups.filter(g=>g.id!=='asia').forEach(load);
   }
   let initialized=false;
   document.querySelectorAll('.nav').forEach(button=>button.addEventListener('click',()=>{

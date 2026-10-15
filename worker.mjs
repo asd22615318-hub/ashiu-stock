@@ -51,6 +51,9 @@ export default {
         const result = (await upstream.json())?.chart?.result?.[0];
         const quote = result?.indicators?.quote?.[0];
         const bars = (result?.timestamp || []).map((time,i) => ({ time, close: quote?.close?.[i] })).filter(b => Number.isFinite(b.close) && b.close > 0);
+        const regular = result.meta?.currentTradingPeriod?.regular;
+        const last = bars.at(-1);
+        if (last && regular?.start && regular?.end && Date.now()/1000 < regular.end && last.time >= regular.start && last.time < regular.end) bars.pop();
         if (!bars.length) throw new Error('暫無有效收盤資料');
         return Response.json({ symbol, currency: result.meta?.currency || '', exchangeTimezone: result.meta?.exchangeTimezoneName || '', source: 'Yahoo Finance', bars }, { headers: { ...headers, 'Cache-Control': 'private, max-age=1800' } });
       } catch (error) { return Response.json({ symbol, error: error.message || '國際行情讀取失敗' }, { status: 502, headers }); }
