@@ -41,6 +41,24 @@ export default {
     const valid = parts.length === 3 && /^\d+$/.test(parts[0]) && /^[a-f0-9]{32}$/.test(parts[1]) && /^[a-f0-9]{64}$/.test(parts[2]) && expiry > now && expiry <= now + lifetime && await equal(parts[2], await sign(parts[0] + '.' + parts[1], env.SHARED_PASSWORD));
     if (!valid) return url.pathname === '/' && ['GET', 'HEAD'].includes(request.method) ? loginPage(headers) : new Response('Sign in required.', { status: 401, headers });
     if (!['GET', 'HEAD'].includes(request.method)) return new Response('Method not allowed.', { status: 405, headers });
+    if (url.pathname === '/api/futchip') {
+      try {
+        const upstream = await fetch('https://zhuang.tw/futchip', {
+          headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'text/html' },
+          signal: AbortSignal.timeout(15000), cf: { cacheTtl: 600, cacheEverything: true }
+        });
+        if (!upstream.ok) throw new Error('參考來源暫時無法讀取');
+        const html = await upstream.text();
+        const match = html.match(/var ALL = (\[.*?\]);/s);
+        if (!match) throw new Error('來源格式已變更');
+        const fields = ['d','i','o','tO','tL','tS','mO','mL','mS','fx','it','dl','fc','fp','pv','po','sf','st','sd','sa','mt','mo'];
+        const rows = JSON.parse(match[1]).filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r.d) && Number.isFinite(r.i)).map(r => Object.fromEntries(fields.filter(k => k === 'd' || Number.isFinite(r[k])).map(k => [k,r[k]]))).sort((a,b) => a.d.localeCompare(b.d));
+        if (rows.length < 20) throw new Error('來源資料不足');
+        return Response.json({ source: 'https://zhuang.tw/futchip', built: html.match(/var BUILT = '([^']+)'/)?.[1] || '', rows }, { headers: { ...headers, 'Cache-Control': 'private, max-age=600' } });
+      } catch (error) {
+        return Response.json({ error: error.message || '籌碼資料更新失敗' }, { status: 502, headers });
+      }
+    }
     if (url.pathname === '/api/intraday') {
       const code = url.searchParams.get('code') || '';
       const market = url.searchParams.get('market') || '';
