@@ -6,7 +6,7 @@ if '--offline' in sys.argv:
     saved_root=Path(__file__).resolve().parent
     saved_public=saved_root/'dist'
     saved_public.mkdir(exist_ok=True)
-    for source,target in [('seed.json.gz','market-data.json.gz'),('valuation-seed.json','valuation-data.json'),('institutional-seed.json','institutional-data.json'),('ownership-seed.json','ownership-data.json'),('cb-chip-seed.json','cb-chip-data.json'),('regulatory-seed.json','regulatory-data.json'),('revenue-seed.json','revenue-data.json'),('convertible-seed.json','convertible-data.json'),('futchip-radar.js','futchip-radar.js'),('futchip-seed.json','futchip-data.json'),('index.html','index.html'),('app.js','app.js'),('revenue-radar.js','revenue-radar.js'),('convertible-radar.js','convertible-radar.js'),('sector-capital.js','sector-capital.js'),('style.css','style.css'),('structure-patterns.js','structure-patterns.js'),('rule-diagrams.js','rule-diagrams.js'),('detail-chart.js','detail-chart.js'),('detail-collapse.js','detail-collapse.js'),('smc-zones.js','smc-zones.js'),('etf-radar.js','etf-radar.js'),('etf-seed.json','etf-data.json'),('prison-seed.json','prison-data.json'),('prison.js','prison.js')]:
+    for source,target in [('seed.json.gz','market-data.json.gz'),('valuation-seed.json','valuation-data.json'),('institutional-seed.json','institutional-data.json'),('ownership-seed.json','ownership-data.json'),('cb-chip-seed.json','cb-chip-data.json'),('regulatory-seed.json','regulatory-data.json'),('revenue-seed.json','revenue-data.json'),('convertible-seed.json','convertible-data.json'),('futchip-radar.js','futchip-radar.js'),('world-radar.js','world-radar.js'),('futchip-seed.json','futchip-data.json'),('index.html','index.html'),('app.js','app.js'),('revenue-radar.js','revenue-radar.js'),('convertible-radar.js','convertible-radar.js'),('sector-capital.js','sector-capital.js'),('style.css','style.css'),('structure-patterns.js','structure-patterns.js'),('rule-diagrams.js','rule-diagrams.js'),('detail-chart.js','detail-chart.js'),('detail-collapse.js','detail-collapse.js'),('smc-zones.js','smc-zones.js'),('etf-radar.js','etf-radar.js'),('etf-seed.json','etf-data.json'),('prison-seed.json','prison-data.json'),('prison.js','prison.js')]:
         shutil.copy2(saved_root/source,saved_public/target)
     (saved_public/'market-data.json').unlink(missing_ok=True)
     print('Protected site built from saved official snapshots.')
@@ -58,7 +58,7 @@ except Exception as e:
     print('ETF update failed; preserving previous snapshot:',e)
     if (root/'etf-seed.json').exists():shutil.copy2(root/'etf-seed.json',m.PUBLIC/'etf-data.json')
 shutil.copy2(root/'futchip-seed.json',m.PUBLIC/'futchip-data.json')
-for name in ['futchip-radar.js','index.html','style.css','app.js','revenue-radar.js','convertible-radar.js','sector-capital.js','structure-patterns.js','detail-chart.js','detail-collapse.js','smc-zones.js','etf-radar.js','rule-diagrams.js','prison.js']:shutil.copy2(root/name,m.PUBLIC/name)
+for name in ['futchip-radar.js','world-radar.js','index.html','style.css','app.js','revenue-radar.js','convertible-radar.js','sector-capital.js','structure-patterns.js','detail-chart.js','detail-collapse.js','smc-zones.js','etf-radar.js','rule-diagrams.js','prison.js']:shutil.copy2(root/name,m.PUBLIC/name)
 with gzip.GzipFile(filename=str(m.PUBLIC/'market-data.json.gz'),mode='wb',mtime=0) as f:
     f.write(json.dumps(data,ensure_ascii=False,separators=(',',':')).encode())
 import cb_chip_data
@@ -66,6 +66,7 @@ cb_chip_data.update(root,m.PUBLIC)
 m.SNAPSHOT.unlink()
 (m.PUBLIC/'.nojekyll').touch()
 print(json.dumps({'stocks':len(data['stocks']),'updated_at':data['updated_at'],'public_files':[p.name for p in m.PUBLIC.iterdir()]}))
+
 
 
 

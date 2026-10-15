@@ -1,0 +1,90 @@
+(() => {
+  'use strict';
+  const groups = [
+    { id:'indices', title:'美股指數', items:[['^DJI','道瓊工業'],['^GSPC','標普 500'],['^IXIC','那斯達克'],['^NDX','那斯達克 100'],['^SOX','費城半導體'],['^RUT','羅素 2000'],['^VIX','VIX 恐慌指數']] },
+    { id:'leaders', title:'美股權值與台股供應鏈', items:[['NVDA','輝達'],['AAPL','蘋果'],['MSFT','微軟'],['GOOGL','Alphabet'],['AMZN','亞馬遜'],['META','Meta'],['TSLA','特斯拉'],['AVGO','博通'],['AMD','超微'],['MU','美光'],['INTC','英特爾'],['QCOM','高通'],['ASML','艾司摩爾'],['ARM','安謀'],['ORCL','甲骨文'],['SMCI','美超微']] },
+    { id:'adr', title:'台股相關 ADR', items:[['TSM','台積電 ADR'],['UMC','聯電 ADR'],['ASX','日月光 ADR'],['CHT','中華電 ADR']] },
+    { id:'asia', title:'亞洲與歐洲股市', items:[['^N225','日經 225'],['^HSI','恆生指數'],['000001.SS','上證綜指'],['^KS11','韓國綜合'],['^FTSE','英國 FTSE'],['^GDAXI','德國 DAX'],['^FCHI','法國 CAC']] },
+    { id:'macro', title:'匯率、利率與原物料', items:[['TWD=X','美元／新台幣'],['JPY=X','美元／日圓'],['^TNX','美國 10 年債殖利率'],['GC=F','黃金期貨'],['CL=F','WTI 原油期貨'],['BTC-USD','比特幣']] }
+  ];
+  const chain = {
+    NVDA:['AI 伺服器','先進封裝','散熱／風扇','電源供應器','PCB－ABF 載板'],
+    AAPL:['手機鏡頭','電子代工','PCB－銅箔基板','連接器','被動元件'],
+    MSFT:['AI 伺服器','資料中心網通','矽光子／光通訊','電源供應器'],
+    GOOGL:['AI 伺服器','ASIC／IP','資料中心網通','散熱／風扇'],
+    AMZN:['AI 伺服器','ASIC／IP','資料中心網通','電源供應器'],
+    META:['AI 伺服器','矽光子／光通訊','散熱／風扇','PCB－銅箔基板'],
+    TSLA:['車用電子','車用電池模組','充電樁','功率元件'],
+    AVGO:['ASIC／IP','資料中心網通','矽光子／光通訊','先進封裝'],
+    AMD:['晶圓代工','先進封裝','AI 伺服器','PCB－ABF 載板'],
+    MU:['DRAM','記憶體設計／利基型','半導體封測'],
+    INTC:['晶圓代工','先進封裝','半導體設備'],
+    QCOM:['IC 設計','手機供應鏈','射頻／濾波器'],
+    ASML:['半導體設備','半導體特用材料','晶圓代工'],
+    ARM:['IC 設計','IP 股','晶圓代工'],
+    ORCL:['AI 伺服器','資料中心網通','電源供應器'],
+    SMCI:['AI 伺服器','散熱／風扇','電源供應器','PCB－銅箔基板']
+  };
+  const root = document.getElementById('world');
+  if (!root) return;
+  const style = document.createElement('style');
+  style.textContent = `
+    #world{max-width:1500px;margin:0 auto;padding:14px 0 70px;color:#e5e9ee}#world[hidden]{display:none}
+    .world-head,.world-panel{background:#1d252c;border:1px solid #526056;border-radius:20px;padding:24px;margin:16px 0;box-shadow:0 10px 28px #0002}
+    .world-head h1{color:#e7c776;font-size:clamp(26px,3vw,38px);margin:0 0 7px}.world-head p,.world-note{color:#b9c4c5;line-height:1.6;margin:6px 0}
+    .world-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:17px}.world-controls button,.world-jump a{background:#143931;color:#d6f4e9;border:1px solid #4d8d7e;border-radius:10px;padding:9px 14px;font:inherit;cursor:pointer;text-decoration:none}.world-controls button:hover,.world-jump a:hover{background:#20584b}
+    .world-jump{display:flex;gap:8px;flex-wrap:wrap}.world-panel h2{font-size:23px;color:#eed594;margin:0 0 14px}.world-panel details summary{cursor:pointer;color:#eed594;font-size:21px;font-weight:700}
+    .world-table-wrap{overflow-x:auto}.world-table{width:100%;border-collapse:collapse;min-width:780px;font-size:15px}.world-table th{text-align:right;color:#aec5c4;border-bottom:1px solid #547069;padding:10px 8px;white-space:nowrap}.world-table th:first-child,.world-table td:first-child{text-align:left}.world-table td{text-align:right;border-bottom:1px solid #344640;padding:11px 8px;white-space:nowrap}.world-table tr:hover{background:#294039}.world-name{font-weight:700;color:#f3e4b9}.world-sym{display:block;font-size:12px;color:#9cb1b1}.world-pos{color:#62d8b3}.world-neg{color:#f18d91}.world-muted{color:#a8b4b3}.world-date{font-size:12px;color:#9cacaa}
+    .world-chain{display:flex;flex-wrap:wrap;gap:5px;max-width:380px;text-align:left}.world-chain span{display:inline-block;background:#1c4b42;border:1px solid #477e70;color:#c8eee0;border-radius:999px;padding:3px 7px;font-size:12px;white-space:nowrap}
+    .world-mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.world-mini article{border:1px solid #4d625e;border-radius:12px;padding:14px;background:#122a2b}.world-mini small{color:#abbdbc;display:block}.world-mini strong{display:block;font-size:24px;color:#f0d28c;margin-top:5px}.world-mini em{font-style:normal;font-size:14px}
+    .world-fail{color:#f2ae8a}.world-source a{color:#8edaca}
+    @media(max-width:680px){.world-head,.world-panel{padding:16px;margin:12px 0}.world-table{font-size:13px}.world-table td,.world-table th{padding:8px 5px}}
+  `;
+  document.head.appendChild(style);
+  const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const cache = new Map();
+  let inFlight=0;
+  const waiting=[];
+  async function queuedFetch(url){
+    if(inFlight>=5)await new Promise(resolve=>waiting.push(resolve));
+    inFlight++;
+    try{return await fetch(url,{credentials:'same-origin'});}finally{inFlight--;waiting.shift()?.();}
+  }
+  const pct = n => Number.isFinite(n) ? `${n>0?'+':''}${n.toFixed(2)}%` : '—';
+  const cls = n => Number.isFinite(n) ? n>0?'world-pos':n<0?'world-neg':'world-muted' : 'world-muted';
+  const val = n => Number.isFinite(n) ? n.toLocaleString('en-US',{maximumFractionDigits:2,minimumFractionDigits:2}) : '—';
+  function metric(data) {
+    const b=data.bars, latest=b.at(-1), close=latest.close, previous=b.at(-2)?.close;
+    const change=previous ? (close/previous-1)*100 : NaN;
+    const period=n => b.length>n ? (close/b.at(-1-n).close-1)*100 : NaN;
+    const ma=n => b.length>=n ? b.slice(-n).reduce((sum,x)=>sum+x.close,0)/n : NaN;
+    const high=Math.max(...b.map(x=>x.close));
+    return { close, change, week:period(5), month:period(20), quarter:period(60), ytd:(()=>{const year=new Date(latest.time*1000).getUTCFullYear(), prior=b.filter(x=>new Date(x.time*1000).getUTCFullYear()<year).at(-1);return prior?(close/prior.close-1)*100:NaN})(), fromHigh:(close/high-1)*100, ma20:ma(20), ma60:ma(60), date:new Intl.DateTimeFormat('zh-TW',{timeZone:data.exchangeTimezone||'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(latest.time*1000)), currency:data.currency };
+  }
+  function row(item, groupId) {
+    const [symbol,name]=item, data=cache.get(symbol), m=data?.bars?.length?metric(data):null;
+    const supply=groupId==='leaders'?`<td><div class="world-chain">${(chain[symbol]||[]).map(x=>`<span>${esc(x)}</span>`).join('')}</div></td>`:'';
+    if (!m) return `<tr><td><span class="world-name">${esc(name)}</span><span class="world-sym">${esc(symbol)}</span></td><td colspan="${groupId==='leaders'?9:8}" class="world-fail">${data?.error?esc(data.error):'讀取中…'}</td></tr>`;
+    return `<tr><td><span class="world-name">${esc(name)}</span><span class="world-sym">${esc(symbol)} · ${esc(m.currency)} · <span class="world-date">${esc(m.date)}</span></span></td><td><strong>${val(m.close)}</strong></td><td class="${cls(m.change)}">${pct(m.change)}</td><td class="${cls(m.week)}">${pct(m.week)}</td><td class="${cls(m.month)}">${pct(m.month)}</td><td class="${cls(m.quarter)}">${pct(m.quarter)}</td><td class="${cls(m.ytd)}">${pct(m.ytd)}</td><td class="${cls(m.fromHigh)}">${pct(m.fromHigh)}</td><td class="${cls(m.close-m.ma20)}">${val(m.ma20)} / ${val(m.ma60)}</td>${supply}</tr>`;
+  }
+  function paintGroup(g) {
+    const node=root.querySelector(`[data-world-table="${g.id}"]`);if(node)node.innerHTML=g.items.map(item=>row(item,g.id)).join('');
+  }
+  function paintBrief(){const node=root.querySelector('#world-brief');if(!node)return;node.innerHTML=[['^SOX','費城半導體'],['^IXIC','那斯達克'],['NVDA','輝達'],['TSM','台積電 ADR'],['^VIX','VIX'],['TWD=X','美元／新台幣']].map(([symbol,name])=>{const data=cache.get(symbol),m=data?.bars?.length?metric(data):null;return `<article><small>${esc(name)} · ${esc(symbol)}</small><strong>${m?val(m.close):'—'}</strong><em class="${m?cls(m.change):'world-muted'}">${m?pct(m.change):'等待行情'}</em><small>${m?esc(m.date):''}</small></article>`}).join('')}
+  async function load(g) {
+    const pending=g.items.filter(([symbol])=>!cache.has(symbol));
+    await Promise.all(pending.map(async ([symbol])=>{try{const response=await queuedFetch(`/api/world?symbol=${encodeURIComponent(symbol)}`);const data=await response.json();cache.set(symbol,response.ok?data:{error:data.error||'行情來源無法讀取'});}catch(error){cache.set(symbol,{error:'連線失敗，請稍後重試'});}paintGroup(g);paintBrief()}));
+  }
+  function init(){
+    root.innerHTML=`<div class="world-head"><h1>國際數據</h1><p>追蹤美股、台股 ADR、全球指數及關鍵市場價格，並對照可能受影響的台股產業族群。</p><div class="world-controls"><button type="button" id="world-refresh">重新載入國際行情</button><span class="world-note">各市場收盤時間不同；每筆資料顯示各自日期。資料約每 30 分鐘快取更新。</span></div></div><div class="world-panel"><h2>開盤前重點</h2><div class="world-mini" id="world-brief"></div></div><div class="world-jump">${groups.map(g=>`<a href="#world-${g.id}">${esc(g.title)}</a>`).join('')}</div>${groups.map((g,i)=>`<div class="world-panel" id="world-${g.id}"><details ${i<3?'open':''} data-world-group="${g.id}"><summary>${esc(g.title)}</summary><div class="world-table-wrap"><table class="world-table"><thead><tr><th>標的／日期</th><th>收盤</th><th>單日</th><th>5 日</th><th>20 日</th><th>60 日</th><th>今年</th><th>距一年收盤高點</th><th>MA20／60</th>${g.id==='leaders'?'<th>台股關聯族群</th>':''}</tr></thead><tbody data-world-table="${g.id}"></tbody></table></div></details></div>`).join('')}<div class="world-panel world-source"><p class="world-note">價格資料：Yahoo Finance 日線；各標的依當地交易日計算。台股族群為產品與資本支出方向的產業關聯，不能據此認定個別公司已取得訂單或為直接供應商。不同市場幣別不可直接比較價格。</p><p class="world-note">呈現方式參考 <a href="https://zhuang.tw/world" target="_blank" rel="noopener">國際股市・收盤一覽</a>；歷史行情與供應鏈對應僅供研究，不代表投資建議。</p></div>`;
+    root.querySelector('#world-refresh').addEventListener('click',()=>{cache.clear();groups.filter(g=>g.id==='indices'||g.id==='leaders'||g.id==='adr'||root.querySelector(`[data-world-group="${g.id}"]`).open).forEach(load)});
+    root.querySelectorAll('[data-world-group]').forEach(d=>d.addEventListener('toggle',()=>{if(d.open){const g=groups.find(x=>x.id===d.dataset.worldGroup);if(g)load(g)}}));
+    groups.forEach(paintGroup);paintBrief();groups.slice(0,3).forEach(load);
+  }
+  let initialized=false;
+  document.querySelectorAll('.nav').forEach(button=>button.addEventListener('click',()=>{
+    root.hidden=button.dataset.view!=='world';
+    if(!root.hidden&&!initialized){initialized=true;init()}
+  }));
+})();
+
