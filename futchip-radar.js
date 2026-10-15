@@ -13,7 +13,7 @@
   const color = n => n>0?'fc-up':n<0?'fc-down':'';
   const diff = (r,p,k) => valid(r?.[k]) && valid(p?.[k]) ? r[k]-p[k] : null;
   function renderMarketSummary(rows) {
-    const last=rows.at(-1), recent=rows.slice(-5), base=rows.at(-6);
+    const last=rows.at(-1), previous=rows.at(-2), recent=rows.slice(-5), base=rows.at(-6);
     const stale=Date.now()-Date.parse(last.d+'T00:00:00+08:00')>4*86400000;
     const spot=recent.map(r=>r.sf).filter(valid);
     const spotNet=spot.length>=3 && valid(last.sf) ? spot.reduce((sum,value)=>sum+value,0) : null;
@@ -21,13 +21,15 @@
     const foreign=spotNet===null||futures===null?'資料不足':spotNet>0&&futures>0?'偏多':spotNet<0&&futures<0?'偏空':'分歧';
     const small=valid(last.mR)?last.mR:null, micro=valid(last.tR)?last.tR:null;
     const retail=small===null||micro===null?'資料不足':small>0&&micro>0?'偏多':small<0&&micro<0?'偏空':'分歧';
+    const smallChange=diff(last,previous,'mR'),microChange=diff(last,previous,'tR');
+    const retailWarning=smallChange===null||microChange===null?'資料不足':smallChange>0&&microChange>0&&small>0&&micro>0?'反向偏空警訊':smallChange<0&&microChange<0&&small<0&&micro<0?'反向偏多觀察':'無一致反向訊號';
     const margin=valid(last.mt)&&valid(base?.mt)?last.mt-base.mt:null;
     const indexChange=valid(last.i)&&valid(base?.i)&&base.i>0?(last.i/base.i-1)*100:null;
     const ready=!stale&&foreign!=='資料不足'&&retail!=='資料不足'&&indexChange!==null;
-    const tone=!ready?'insufficient':foreign==='偏空'&&indexChange<0?'defensive':foreign==='偏多'&&indexChange>0?'constructive':'mixed';
+    const tone=!ready?'insufficient':foreign==='偏空'&&indexChange<0?'defensive':foreign==='偏多'&&indexChange>0&&retailWarning!=='反向偏空警訊'?'constructive':'mixed';
     const title={insufficient:'資料不足，暫不判斷進場環境',defensive:'偏空，近期進場宜謹慎',constructive:'偏多，可觀察分批進場條件',mixed:'多空分歧，先等待確認'}[tone];
-    const reason=stale?'最新資料已超過 4 天，暫不以舊籌碼判斷目前進場環境。':{insufficient:'外資、散戶或指數資料未齊；請核對下方各項資料日。',defensive:'外資現貨與期貨同向偏空，近 5 個交易日指數也走弱。',constructive:'外資現貨與期貨同向偏多，近 5 個交易日指數同步走強。',mixed:'外資部位與指數走勢尚未同向確認，單看散戶方向不足以判斷買點。'}[tone];
-    return `<section class="fc-summary fc-card" aria-label="大戶散戶多空與進場環境總結"><div class="fc-summary-head"><div><small>籌碼總結 · ${e(last.d)}</small><h2>現在的多空力道</h2></div><strong class="fc-summary-verdict ${tone}">${title}</strong></div><div class="fc-summary-grid"><div><small>大戶代理：外資</small><strong class="${foreign==='偏多'?'fc-up':foreign==='偏空'?'fc-down':''}">${foreign}</strong><p>近 5 日外資現貨 ${signed(spotNet,1)} 億（${spot.length} 日有效）<br>台指期淨部位 ${signed(futures)} 口</p></div><div><small>散戶：小台／微台</small><strong class="${retail==='偏多'?'fc-up':retail==='偏空'?'fc-down':''}">${retail}</strong><p>小台多空比 ${signed(small,1)}% · 微台 ${signed(micro,1)}%<br>上市融資近 5 日 ${signed(margin,1)} 億</p></div><div><small>市場價格確認</small><strong class="${color(indexChange)}">${indexChange===null?'資料不足':indexChange>0?'走強':indexChange<0?'走弱':'持平'}</strong><p>加權指數近 5 個交易日 ${signed(indexChange,2)}%</p></div></div><p class="fc-summary-reason">${reason}</p><p class="fc-summary-note">外資僅作大戶代理，並非所有大戶持股；散戶期貨部位可能含避險。此摘要判讀市場環境，不是個股買點或保證報酬；進場仍需核對個股型態與風險。</p></section>`;
+    const reason=stale?'最新資料已超過 4 天，暫不以舊籌碼判斷目前進場環境。':retailWarning==='反向偏空警訊'&&tone==='mixed'?'小台與微台散戶同時加碼多方，形成反向偏空警訊；即使外資與指數走強，仍先等待確認。':{insufficient:'外資、散戶或指數資料未齊；請核對下方各項資料日。',defensive:'外資現貨與期貨同向偏空，近 5 個交易日指數也走弱。',constructive:'外資現貨與期貨同向偏多，近 5 個交易日指數同步走強。',mixed:'外資部位與指數走勢尚未同向確認，單看散戶方向不足以判斷買點。'}[tone];
+    return `<section class="fc-summary fc-card" aria-label="大戶散戶多空與進場環境總結"><div class="fc-summary-head"><div><small>籌碼總結 · ${e(last.d)}</small><h2>現在的多空力道</h2></div><strong class="fc-summary-verdict ${tone}">${title}</strong></div><div class="fc-summary-grid"><div><small>大戶代理：外資</small><strong class="${foreign==='偏多'?'fc-up':foreign==='偏空'?'fc-down':''}">${foreign}</strong><p>近 5 日外資現貨 ${signed(spotNet,1)} 億（${spot.length} 日有效）<br>台指期淨部位 ${signed(futures)} 口</p></div><div><small>散戶：小台／微台</small><strong class="${retailWarning==='反向偏空警訊'?'fc-down':retailWarning==='反向偏多觀察'?'fc-up':''}">${retailWarning}</strong><p>持倉方向：${retail} · 小台 ${signed(small,1)}%（日變 ${signed(smallChange,1)} pp）<br>微台 ${signed(micro,1)}%（日變 ${signed(microChange,1)} pp）<br>上市融資近 5 日 ${signed(margin,1)} 億</p></div><div><small>市場價格確認</small><strong class="${color(indexChange)}">${indexChange===null?'資料不足':indexChange>0?'走強':indexChange<0?'走弱':'持平'}</strong><p>加權指數近 5 個交易日 ${signed(indexChange,2)}%</p></div></div><p class="fc-summary-reason">${reason}</p><p class="fc-summary-note">散戶欄分開顯示持倉方向與反向觀察：小台、微台多空比同時增加且均為淨多時，標為偏空警訊；單一指標不作買賣判定。外資僅作大戶代理，並非所有大戶持股；期貨部位可能含避險。進場仍需核對個股型態與風險。</p></section>`;
   }
   let all=[], months=6, report=null, loading=false, lastLoad=0;const panelOpen=new Map();
   const definitions = [
