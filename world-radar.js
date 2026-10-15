@@ -39,7 +39,7 @@
     .world-chain{display:flex;flex-wrap:wrap;gap:5px;max-width:380px;text-align:left}.world-chain span{display:inline-block;background:#1c4b42;border:1px solid #477e70;color:#c8eee0;border-radius:999px;padding:3px 7px;font-size:12px;white-space:nowrap}
     .world-mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.world-mini article{border:1px solid #4d625e;border-radius:12px;padding:14px;background:#122a2b}.world-mini small{color:#abbdbc;display:block}.world-mini strong{display:block;font-size:24px;color:#f0d28c;margin-top:5px}.world-mini em{font-style:normal;font-size:14px}
     .world-fail{color:#f2ae8a}.world-source a{color:#8edaca}
-    .world-ma{display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-weight:700}.world-ma span{white-space:nowrap}
+    .world-ma,.world-move{display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-weight:700}.world-ma span,.world-move span{white-space:nowrap}.world-move small{font-size:12px;color:inherit;opacity:.84}
     @media(max-width:680px){.world-head,.world-panel{padding:16px;margin:12px 0}.world-table{font-size:13px}.world-table td,.world-table th{padding:8px 5px}}
   `;
   document.head.appendChild(style);
@@ -55,25 +55,30 @@
   const pct = n => Number.isFinite(n) ? `${n>0?'+':''}${n.toFixed(2)}%` : '—';
   const cls = n => Number.isFinite(n) ? n>0?'world-pos':n<0?'world-neg':'world-muted' : 'world-muted';
   const val = n => Number.isFinite(n) ? n.toLocaleString('en-US',{maximumFractionDigits:2,minimumFractionDigits:2}) : '—';
+  const signedVal = n => Number.isFinite(n) ? `${n>0?'+':''}${n.toLocaleString('en-US',{minimumFractionDigits:Math.abs(n)<1?3:2,maximumFractionDigits:Math.abs(n)<1?3:2})}` : '—';
+  const unit = (symbol,currency) => symbol==='^TNX'?'個百分點':symbol.startsWith('^')||symbol==='000001.SS'?'點':currency||'';
+  const move = (amount,percent,symbol,currency) => `<div class="world-move ${cls(percent)}"><span>${signedVal(amount)} ${esc(unit(symbol,currency))}</span><small>${pct(percent)}</small></div>`;
   const maPosition = (close,average,label) => Number.isFinite(average) ? `<span class="${cls(close-average)}">${label} ${close>average?'站上':close<average?'跌破':'持平'}</span>` : `<span class="world-muted">${label} 資料不足</span>`;
   function metric(data) {
     const b=data.bars, latest=b.at(-1), close=latest.close, previous=b.at(-2)?.close;
     const change=previous ? (close/previous-1)*100 : NaN;
-    const period=n => b.length>n ? (close/b.at(-1-n).close-1)*100 : NaN;
+    const base=n => b.length>n ? b.at(-1-n).close : NaN;
+    const period=n => Number.isFinite(base(n)) ? (close/base(n)-1)*100 : NaN;
     const ma=n => b.length>=n ? b.slice(-n).reduce((sum,x)=>sum+x.close,0)/n : NaN;
     const high=Math.max(...b.map(x=>x.close));
-    return { close, change, week:period(5), month:period(20), quarter:period(60), ytd:(()=>{const year=new Date(latest.time*1000).getUTCFullYear(), prior=b.filter(x=>new Date(x.time*1000).getUTCFullYear()<year).at(-1);return prior?(close/prior.close-1)*100:NaN})(), fromHigh:(close/high-1)*100, ma20:ma(20), ma60:ma(60), date:new Intl.DateTimeFormat('zh-TW',{timeZone:data.exchangeTimezone||'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(latest.time*1000)), currency:data.currency };
+    const year=new Date(latest.time*1000).getUTCFullYear(), yearBase=b.filter(x=>new Date(x.time*1000).getUTCFullYear()<year).at(-1)?.close;
+    return { close, change, changeValue:close-previous, week:period(5), weekValue:close-base(5), month:period(20), monthValue:close-base(20), quarter:period(60), quarterValue:close-base(60), ytd:yearBase?(close/yearBase-1)*100:NaN, ytdValue:close-yearBase, fromHigh:(close/high-1)*100, fromHighValue:close-high, ma20:ma(20), ma60:ma(60), date:new Intl.DateTimeFormat('zh-TW',{timeZone:data.exchangeTimezone||'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(latest.time*1000)), currency:data.currency };
   }
   function row(item, groupId) {
     const [symbol,name]=item, data=cache.get(symbol), m=data?.bars?.length?metric(data):null;
     const supply=groupId==='leaders'?`<td><div class="world-chain">${(chain[symbol]||[]).map(x=>`<span>${esc(x)}</span>`).join('')}</div></td>`:'';
     if (!m) return `<tr><td><span class="world-name">${esc(name)}</span><span class="world-sym">${esc(symbol)}</span></td><td colspan="${groupId==='leaders'?9:8}" class="world-fail">${data?.error?esc(data.error):'讀取中…'}</td></tr>`;
-    return `<tr><td><span class="world-name">${esc(name)}</span><span class="world-sym">${esc(symbol)} · ${esc(m.currency)} · <span class="world-date">${esc(m.date)}</span></span></td><td><strong>${val(m.close)}</strong></td><td class="${cls(m.change)}">${pct(m.change)}</td><td class="${cls(m.week)}">${pct(m.week)}</td><td class="${cls(m.month)}">${pct(m.month)}</td><td class="${cls(m.quarter)}">${pct(m.quarter)}</td><td class="${cls(m.ytd)}">${pct(m.ytd)}</td><td class="${cls(m.fromHigh)}">${pct(m.fromHigh)}</td><td><div class="world-ma">${maPosition(m.close,m.ma20,'MA20')}${maPosition(m.close,m.ma60,'MA60')}</div></td>${supply}</tr>`;
+    return `<tr><td><span class="world-name">${esc(name)}</span><span class="world-sym">${esc(symbol)} · ${esc(m.currency)} · <span class="world-date">${esc(m.date)}</span></span></td><td><strong>${val(m.close)}</strong></td><td>${move(m.changeValue,m.change,symbol,m.currency)}</td><td>${move(m.weekValue,m.week,symbol,m.currency)}</td><td>${move(m.monthValue,m.month,symbol,m.currency)}</td><td>${move(m.quarterValue,m.quarter,symbol,m.currency)}</td><td>${move(m.ytdValue,m.ytd,symbol,m.currency)}</td><td>${move(m.fromHighValue,m.fromHigh,symbol,m.currency)}</td><td><div class="world-ma">${maPosition(m.close,m.ma20,'MA20')}${maPosition(m.close,m.ma60,'MA60')}</div></td>${supply}</tr>`;
   }
   function paintGroup(g) {
     const node=root.querySelector(`[data-world-table="${g.id}"]`);if(node)node.innerHTML=g.items.map(item=>row(item,g.id)).join('');
   }
-  function paintBrief(){const node=root.querySelector('#world-brief');if(!node)return;node.innerHTML=[['^SOX','費城半導體'],['^IXIC','那斯達克'],['NVDA','輝達'],['TSM','台積電 ADR'],['^VIX','VIX'],['TWD=X','美元／新台幣']].map(([symbol,name])=>{const data=cache.get(symbol),m=data?.bars?.length?metric(data):null;return `<article><small>${esc(name)} · ${esc(symbol)}</small><strong>${m?val(m.close):'—'}</strong><em class="${m?cls(m.change):'world-muted'}">${m?pct(m.change):'等待行情'}</em><small>${m?esc(m.date):''}</small></article>`}).join('')}
+  function paintBrief(){const node=root.querySelector('#world-brief');if(!node)return;node.innerHTML=[['^DJI','道瓊工業'],['^SOX','費城半導體'],['^IXIC','那斯達克'],['NVDA','輝達'],['TSM','台積電 ADR'],['^VIX','VIX'],['^TNX','美國 10 年債殖利率'],['TWD=X','美元／新台幣']].map(([symbol,name])=>{const data=cache.get(symbol),m=data?.bars?.length?metric(data):null;return `<article><small>${esc(name)} · ${esc(symbol)}</small><strong>${m?val(m.close):'—'}</strong><em class="${m?cls(m.change):'world-muted'}">${m?`${signedVal(m.changeValue)} ${esc(unit(symbol,m.currency))} (${pct(m.change)})`:'等待行情'}</em><small>${m?esc(m.date):''}</small></article>`}).join('')}
   async function load(g) {
     const pending=g.items.filter(([symbol])=>!cache.has(symbol));
     await Promise.all(pending.map(async ([symbol])=>{try{const response=await queuedFetch(`/api/world?symbol=${encodeURIComponent(symbol)}`);const data=await response.json();cache.set(symbol,response.ok?data:{error:data.error||'行情來源無法讀取'});}catch(error){cache.set(symbol,{error:'連線失敗，請稍後重試'});}paintGroup(g);paintBrief()}));
