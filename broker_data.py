@@ -63,7 +63,7 @@ def parse_report(text, code, start, end):
         raise ValueError('Buy-side arithmetic mismatch')
     if any(abs(r['sell_lots']-r['buy_lots']-r['net_lots'])>1.1 for r in sellers):
         raise ValueError('Sell-side arithmetic mismatch')
-    if any(side[i]['net_lots']<side[i+1]['net_lots'] for side in (buyers,sellers) for i in range(14)):
+    if any(side[i+1]['net_lots']-side[i]['net_lots']>1.1 for side in (buyers,sellers) for i in range(14)):
         raise ValueError('Top-15 report is not ordered')
     # The public report rounds individual lots. Use its explicit aggregate totals.
     totals = [r for r in parser.rows if len(r) == 4 and '合計買超張數' in r[0] and '合計賣超張數' in r[2]]
