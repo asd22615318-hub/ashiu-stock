@@ -1,0 +1,28 @@
+const assert=require('node:assert/strict');
+const {calculate,percentileScores}=require('./chipburst-radar.js');
+const dates=['2026-10-05','2026-10-06'];
+const stock=code=>({code,bars:dates.map(date=>({date,volume:600}))});
+const stocks=['1111','2222','3333'].map(stock);
+const holdings={weeks:[{date:'2026-10-02',stocks:Object.fromEntries(stocks.map(s=>[s.code,{'400':20}]))},{date:'2026-10-06',stocks:{'1111':{'400':22},'2222':{'400':21},'3333':{'400':23}}}]};
+const report=net=>({daily_history:[{date:'2026-10-02',total:-9999},...dates.map(date=>({date,total:net})),{date:'2026-10-07',total:-9999}]});
+const institution={report_dates:dates,stocks:{'1111':report(100),'2222':report(50)}};
+let result=calculate(stocks,holdings,institution,'2026-10-06');
+assert.equal(result.complete,2);
+assert.equal(result.excluded,1);
+assert.equal(result.rows[0].code,'1111');
+assert.equal(result.rows[0].institutionalNet,200,'Only the aligned week may contribute');
+assert.equal(result.rows[0].score,100);
+assert.equal(result.rows[1].score,0,'Score is a relative rank, not a positive-flow percentage');
+assert.equal(percentileScores([{code:'a',x:1},{code:'b',x:1}],'x').get('a'),50,'Ties use midrank');
+assert.equal(percentileScores([{code:'a',x:1}],'x').get('a'),50,'A single observation cannot prove relative strength');
+const missing=structuredClone(institution);missing.stocks['1111'].daily_history=missing.stocks['1111'].daily_history.filter(h=>h.date!==dates[0]);
+assert.equal(calculate(stocks,holdings,missing,'2026-10-06').rows.some(r=>r.code==='1111'),false,'Missing daily flow must not be filled with zero');
+assert.ok(calculate(stocks,holdings,{...institution,report_dates:[dates[0]]},'2026-10-06').error,'A missing market report blocks the whole interval');
+const selling=structuredClone(institution);selling.stocks['1111']=report(-1);
+assert.equal(calculate(stocks,holdings,selling,'2026-10-06').rows.some(r=>r.code==='1111'),false,'Only dual-positive observations are ranked');
+const lowVolume=structuredClone(stocks);lowVolume[0].bars.at(-1).volume=500;
+assert.equal(calculate(lowVolume,holdings,institution,'2026-10-06').rows.some(r=>r.code==='1111'),false,'Exactly 500 lots must be excluded');
+const noVolume=structuredClone(stocks);noVolume[0].bars[0].volume=null;
+assert.equal(calculate(noVolume,holdings,institution,'2026-10-06').rows.some(r=>r.code==='1111'),false,'Missing volume is not zero volume');
+console.log('Chipburst tests passed: aligned intervals, missing data, signs, ties and volume threshold.');
+
