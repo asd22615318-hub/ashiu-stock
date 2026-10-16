@@ -25,4 +25,21 @@ assert.equal(calculate(lowVolume,holdings,institution,'2026-10-06').rows.some(r=
 const noVolume=structuredClone(stocks);noVolume[0].bars[0].volume=null;
 assert.equal(calculate(noVolume,holdings,institution,'2026-10-06').rows.some(r=>r.code==='1111'),false,'Missing volume is not zero volume');
 console.log('Chipburst tests passed: aligned intervals, missing data, signs, ties and volume threshold.');
-
+const branch=(net)=>({start:dates[0],end:dates[1],unit:'lots',top_n:15,buy_lots:net+100,sell_lots:100,net_lots:net,buyers:Array(15).fill({}),sellers:Array(15).fill({})});
+const broker={version:1,periods:[{start:dates[0],end:dates[1],dates,stocks:{'1111':branch(80),'2222':branch(20)}}]};
+result=calculate(stocks,holdings,institution,'2026-10-06',broker);
+assert.equal(result.threeFactor,true);assert.equal(result.rows[0].score,100);assert.equal(result.rows[0].brokerNet,80);
+assert.equal(result.rows[0].brokerRatio,80/1200*100);
+const inverse=structuredClone(broker);inverse.periods[0].stocks['1111']=branch(20);inverse.periods[0].stocks['2222']=branch(80);
+assert.equal(calculate(stocks,holdings,institution,'2026-10-06',inverse).rows[0].score,70,'Holder 40% + institution 30% + branch 30%');
+const wrongDate=structuredClone(broker);wrongDate.periods[0].start='2026-10-02';
+assert.ok(calculate(stocks,holdings,institution,'2026-10-06',wrongDate).error);
+const partial=structuredClone(broker);delete partial.periods[0].stocks['1111'];
+assert.equal(calculate(stocks,holdings,institution,'2026-10-06',partial).excluded,1);
+const truncated=structuredClone(broker);truncated.periods[0].stocks['1111'].buyers.pop();
+assert.equal(calculate(stocks,holdings,institution,'2026-10-06',truncated).rows.some(s=>s.code==='1111'),false);
+const outflow=structuredClone(broker);outflow.periods[0].stocks['1111']=branch(-10);
+assert.equal(calculate(stocks,holdings,institution,'2026-10-06',outflow).rows.some(s=>s.code==='1111'),false);
+const badNet=structuredClone(broker);badNet.periods[0].stocks['1111'].net_lots=999;
+assert.equal(calculate(stocks,holdings,institution,'2026-10-06',badNet).rows.some(s=>s.code==='1111'),false);
+console.log('Three-factor tests passed: weights, matching periods, partial coverage, truncation and outflows.');
