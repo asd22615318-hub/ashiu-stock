@@ -58,6 +58,18 @@ export default {
         return Response.json({ symbol, currency: result.meta?.currency || '', exchangeTimezone: result.meta?.exchangeTimezoneName || '', source: 'Yahoo Finance', bars }, { headers: { ...headers, 'Cache-Control': 'private, max-age=1800' } });
       } catch (error) { return Response.json({ symbol, error: error.message || '國際行情讀取失敗' }, { status: 502, headers }); }
     }
+    if (url.pathname === '/api/margin-maintenance') {
+      try {
+        const source='https://www.twse.com.tw/rwd/zh/marginTrading/BFIJ3U_TREND?days=120&response=json';
+        const upstream=await fetch(source,{headers:{'User-Agent':'Mozilla/5.0',Accept:'application/json'},signal:AbortSignal.timeout(15000),cf:{cacheTtl:1800,cacheEverything:true}});
+        if(!upstream.ok)throw new Error('官方維持率資料暫時無法讀取');
+        const raw=await upstream.json();
+        if(raw.stat!=='OK'||!Array.isArray(raw.data))throw new Error('官方維持率格式已變更');
+        const rows=raw.data.filter(r=>/^\d{8}$/.test(r.date)&&Number.isFinite(r.keepRate)&&r.keepRate>0).map(r=>({date:r.date.slice(0,4)+'-'+r.date.slice(4,6)+'-'+r.date.slice(6,8),value:r.keepRate})).sort((a,b)=>a.date.localeCompare(b.date)).slice(-120);
+        if(!rows.length)throw new Error('官方維持率資料尚未公布');
+        return Response.json({version:1,source,scope:'全市場融資融券合併擔保維持率',rows},{headers:{...headers,'Cache-Control':'private, max-age=1800'}});
+      }catch(error){return Response.json({error:error.message||'維持率讀取失敗'},{status:502,headers});}
+    }
     if (url.pathname === '/api/futchip') {
       try {
         const upstream = await fetch('https://zhuang.tw/futchip', {
