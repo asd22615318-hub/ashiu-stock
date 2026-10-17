@@ -11,5 +11,8 @@ assert.ok(hot.includes('data-hot-stock="3707"'));assert.ok(hot.includes('data-ho
 assert.ok(!hot.includes('NaN'));assert.ok(hot.includes('站上 20MA'));
 console.log('snapshot hot groups:',(hot.match(/data-hot-group=/g)||[]).length);
 console.log('Top groups:',[...hot.matchAll(/<strong>([^<]+)<\/strong><small>強度/g)].slice(0,5).map(x=>x[1]));
-assert.ok(panels.get('#sector-daily-strength').innerHTML.includes('每日強勢族群排名'));
-console.log('Existing ranking, requested groups, members, and data metrics verified.');
+assert.equal(panels.has('#sector-daily-strength'),false);
+assert.ok(!root.innerHTML.includes('sector-taxonomy'));
+assert.ok(!root.innerHTML.includes('台股主要產業細分類'));
+assert.ok(!root.innerHTML.includes('sector-theme'));
+console.log('Hot ranking only, BBU and defense, members, and data metrics verified.');

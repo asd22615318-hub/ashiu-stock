@@ -1,6 +1,5 @@
 /* Relative sector activity from the site's existing official market, institutional and TDCC snapshots. */
 (() => {
-  const originalRender = renderSectors;
   let dailyRankingOpen = true, hotRankingOpen = true;
   const hotMemberOpen = new Set();
   function hotGroups() {
@@ -95,11 +94,14 @@
   window.renderSectorFlow = function renderSectorFlow() {
     const root = $("sectors");
     if (!root || root.hidden) return;
-    renderDailyStrength(root);
     renderDailyStrength(root,true);
     root.querySelectorAll('[data-hot-group]').forEach(el=>el.addEventListener('toggle',()=>{if(el.open)hotMemberOpen.add(el.dataset.hotGroup);else hotMemberOpen.delete(el.dataset.hotGroup);}));
     root.querySelectorAll('[data-hot-stock]').forEach(button=>button.addEventListener('click',()=>{const stock=analyses.find(s=>s.code===button.dataset.hotStock);if(stock)openStockDetail(stock,button);}));
   };
-  renderSectors = function () { originalRender(); window.renderSectorFlow(); };
+  renderSectors = function () {
+    const root=$('sectors');
+    root.innerHTML='<div class="sector-heading"><h1>族群輪動雷達</h1><p>依每日價量追蹤熱門細分族群，展開可查看相關個股。</p></div>';
+    window.renderSectorFlow();
+  };
 })();
 
