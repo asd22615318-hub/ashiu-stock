@@ -6,7 +6,6 @@
   let market = 'all';
   let query = '';
   let leadersOpen = true;
-  const groupName = theme => theme.replace(' 印刷電路板產業', '').replace(/產業$/, '');
   const percent = value => value == null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
   const average = values => values.reduce((sum, value) => sum + value, 0) / values.length;
   const stockCard = stock => `<button class="revenue-stock" type="button" data-code="${esc(stock.code)}" ${stock.quote ? '' : 'disabled'}><span class="revenue-stock-name"><strong>${esc(stock.name)}</strong><small>${esc(stock.code)} · ${esc(stock.revenue.market)}</small></span><span class="revenue-stock-metric revenue-stock-score"><small>均線分數</small><b>${stock.quote?.score == null ? '待補' : `${stock.quote.score}/15`}</b></span><span class="revenue-stock-metric revenue-stock-yoy"><small>年增</small><b>${percent(stock.revenue.yoy)}</b></span><span class="revenue-stock-metric revenue-stock-mom"><small>月增</small><b>${percent(stock.revenue.mom)}</b></span><span class="revenue-stock-metric"><small>累計年增</small><b class="${stock.revenue.ytd_yoy >= 0 ? 'up' : 'down'}">${percent(stock.revenue.ytd_yoy)}</b></span></button>`;
@@ -15,13 +14,7 @@
   window.renderRevenue = function renderRevenueRadar() {
     const root = $('revenue');
     if (!root) return;
-    const groups = new Map();
-    for (const group of STOCK_GROUPS) {
-      if (group.theme === '自訂族群') continue;
-      const title = groupName(group.theme);
-      if (!groups.has(title)) groups.set(title, new Set());
-      group.codes.forEach(code => groups.get(title).add(code));
-    }
+    const groups = window.getHotSectorGroups?.() || new Map();
     const stockIndex = new Map(analyses.map(stock => [stock.code, stock]));
     const sectors = [...groups].map(([name, codes]) => {
       const members = [...codes].map(code => {
@@ -45,8 +38,8 @@
     const visible = sectors.filter(sector => !term || sector.name.toLowerCase().includes(term)
       || sector.members.some(stock => `${stock.name} ${stock.code}`.toLowerCase().includes(term)));
     const ranked = sectors.filter(sector => sector.coverage >= 3).slice(0, 5);
-    root.innerHTML = `<div class="sector-heading"><h1>營收成長雷達</h1><p>最新官方月報 ${esc(report?.month || '載入中')} · 族群按成員平均年增率排序</p></div>
-      <div class="revenue-note">${report ? `涵蓋 ${Object.keys(report.stocks).length} 檔上市、上櫃公司；比較同一資料月份。族群平均採有公布成員的簡單平均，重複出現在細分族群的個股只計一次。` : esc(error || '正在讀取官方月營收…')}</div>
+    root.innerHTML = `<div class="sector-heading"><h1>營收成長雷達</h1><p>最新官方月報 ${esc(report?.month || '載入中')} · 沿用族群輪動雷達的細分族群 · 按成員平均年增率排序</p></div>
+      <div class="revenue-note">${report ? `涵蓋 ${Object.keys(report.stocks).length} 檔上市、上櫃公司；比較同一資料月份。族群平均採有公布成員的簡單平均，同一族群內的個股代號只計一次；同股可屬於不同主題。` : esc(error || '正在讀取官方月營收…')}</div>
       ${report ? `<details class="revenue-leaders" ${leadersOpen ? 'open' : ''}><summary>營收成長前五名族群 <small>依平均年增率排序</small></summary><div class="revenue-leader-grid">${ranked.map((sector, rank) => `<div><small>第 ${rank + 1} 名</small><strong>${esc(sector.name)}</strong><span>平均年增 <b>${percent(sector.avg)}</b></span><span>平均月增 <b>${percent(sector.avgMom)}</b></span><span>${sector.coverage} 家公布 · ${sector.positiveShare.toFixed(0)}% 年增為正</span></div>`).join('')}</div></details>` : ''}
       <div class="revenue-toolbar"><button type="button" id="revenue-positive" class="${positiveOnly ? 'active' : ''}">${positiveOnly ? '只看年增為正' : '顯示全部已公布'}</button><label>市場 <select id="revenue-market"><option value="all">上市＋上櫃</option><option value="上市">上市</option><option value="上櫃">上櫃</option></select></label><form id="revenue-search-form" class="revenue-search-form"><label for="revenue-search">搜尋</label><input id="revenue-search" type="search" placeholder="族群、股號或名稱" value="${esc(query)}"><button type="submit" id="revenue-search-confirm">確認</button></form></div>
       <dialog id="revenue-search-dialog" class="revenue-search-dialog" aria-labelledby="revenue-search-title"><div class="revenue-search-dialog-head"><div><h2 id="revenue-search-title">個股營收資訊</h2><p>官方月報 ${esc(report?.month || '—')} · ${matchingStocks.length} 筆結果</p></div><button type="button" id="revenue-search-close" aria-label="關閉營收資訊">× 返回</button></div><div class="revenue-members">${matchingStocks.length ? matchingStocks.map(searchCard).join('') : `<p>${report ? `目前官方月報沒有符合「${esc(query)}」的營收資料。` : '正在讀取官方月營收…'}</p>`}</div></dialog>

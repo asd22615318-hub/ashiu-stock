@@ -113,6 +113,8 @@
     return `<p>站上 20MA：${eligible.length ? fmt(above/eligible.length*100,0)+'%（'+above+'/'+eligible.length+' 檔）' : '歷史不足'} · 有效日線 ${eligible.length}/${row.count} 檔</p><details class="sector-subgroup" data-hot-group="${esc(row.theme)}" ${hotMemberOpen.has(row.theme)?'open':''}><summary>相關個股 · 展開查看 ${row.count} 檔（依均線排名）</summary><div class="sector-members">${[...row.members].sort((a,b)=>{const aa=analyses.find(s=>s.code===a.code),bb=analyses.find(s=>s.code===b.code);return (aa?.rank??Infinity)-(bb?.rank??Infinity)||(bb?.score??-1)-(aa?.score??-1)||a.code.localeCompare(b.code);}).map(s=>{const t=s.bars.at(-1),change=(t.close/s.bars.at(-2).close-1)*100,analysis=analyses.find(a=>a.code===s.code);return `<div class="sector-member"><button type="button" class="sector-stock" data-hot-stock="${esc(s.code)}"><strong>${esc(s.name||s.code)}</strong><small>${esc(s.code)} · 收盤 ${fmt(t.close)}</small><span class="hot-stock-change">${signed(change,2)}%</span><span class="hot-stock-ma" title="市場排名以全市場成交量大於 500 張、均線資料完整者比較">均線 ${analysis?.score!=null?analysis.score+' / 15':'待補資料'} · <span class="hot-stock-rank">${analysis?.rank?'市場均線排名 #'+analysis.rank:'未排名'}</span></span></button></div>`;}).join('')}</div></details>`;
   }
 
+  window.getHotSectorGroups = hotGroups;
+
   window.renderSectorFlow = function renderSectorFlow() {
     const root = $("sectors");
     if (!root || root.hidden) return;
