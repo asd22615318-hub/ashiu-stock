@@ -19,3 +19,14 @@ assert.ok(!root.innerHTML.includes('sector-taxonomy'));
 assert.ok(!root.innerHTML.includes('台股主要產業細分類'));
 assert.ok(!root.innerHTML.includes('sector-theme'));
 console.log('Hot ranking only, defense retained and BBU removed, members, and data metrics verified.');
+
+// A rank of 1 is strongest; members without a rank must follow ranked members.
+ctx.analyses=records.map((stock,index)=>({code:stock.code,score:15-index%16,rank:index%5===0?null:index+1}));
+ctx.renderSectors();
+const sortedHtml=panels.get('#sector-hot-strength').innerHTML;
+for(const group of sortedHtml.matchAll(/data-hot-group="[^"]+"[^>]*>([\s\S]*?)<\/details>/g)){
+ const codes=[...group[1].matchAll(/data-hot-stock="([^"]+)"/g)].map(m=>m[1]);
+ const ranks=codes.map(code=>ctx.analyses.find(s=>s.code===code)?.rank??Infinity);
+ for(let i=1;i<ranks.length;i++)assert.ok(ranks[i]>=ranks[i-1],'MA ranks must be ascending, unranked last');
+}
+console.log('All member lists follow strongest MA rank first, unranked last.');
