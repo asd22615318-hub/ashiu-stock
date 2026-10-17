@@ -8,6 +8,7 @@ on:
       - convertible_data.py
       - cb_daily.py
       - institutional_data.py
+      - taiwan_sentiment_data.py
       - broker_data.py
       - ownership_data.py
       - cb_chip_data.py
@@ -43,6 +44,7 @@ jobs:
           Copy-Item -LiteralPath dist/valuation-data.json -Destination valuation-seed.json
           Copy-Item -LiteralPath dist/institutional-data.json -Destination institutional-seed.json
           Copy-Item -LiteralPath dist/ownership-data.json -Destination ownership-seed.json
+          Copy-Item -LiteralPath dist/taiwan-sentiment-data.json -Destination taiwan-sentiment-seed.json
           Copy-Item -LiteralPath dist/broker-data.json -Destination broker-seed.json
           Copy-Item -LiteralPath dist/cb-chip-data.json -Destination cb-chip-seed.json
           Copy-Item -LiteralPath dist/regulatory-data.json -Destination regulatory-seed.json
@@ -50,7 +52,7 @@ jobs:
           Copy-Item -LiteralPath dist/convertible-data.json -Destination convertible-seed.json
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          $snapshots = @('seed.json.gz', 'valuation-seed.json', 'institutional-seed.json', 'ownership-seed.json', 'broker-seed.json', 'cb-chip-seed.json', 'regulatory-seed.json', 'revenue-seed.json', 'convertible-seed.json', 'etf-seed.json', 'prison-seed.json')
+          $snapshots = @('seed.json.gz', 'valuation-seed.json', 'institutional-seed.json', 'ownership-seed.json', 'broker-seed.json', 'taiwan-sentiment-seed.json', 'cb-chip-seed.json', 'regulatory-seed.json', 'revenue-seed.json', 'convertible-seed.json', 'etf-seed.json', 'prison-seed.json')
           $saved = Join-Path $env:RUNNER_TEMP 'market-snapshots'
           New-Item -ItemType Directory -Path $saved -Force | Out-Null
           foreach ($file in $snapshots) { Copy-Item -LiteralPath $file -Destination (Join-Path $saved $file) }

@@ -1,3 +1,4 @@
+import { CNN_SOURCE, CNN_ARCHIVE, normalizeFearGreed } from './fear-greed-data.mjs';
 const encoder = new TextEncoder();
 const sessionCookie = '__Host-ashiu_session';
 const lifetime = 8 * 60 * 60;
@@ -57,6 +58,17 @@ export default {
         if (!bars.length) throw new Error('暫無有效收盤資料');
         return Response.json({ symbol, currency: result.meta?.currency || '', exchangeTimezone: result.meta?.exchangeTimezoneName || '', source: 'Yahoo Finance', bars }, { headers: { ...headers, 'Cache-Control': 'private, max-age=1800' } });
       } catch (error) { return Response.json({ symbol, error: error.message || '國際行情讀取失敗' }, { status: 502, headers }); }
+    }
+    if (url.pathname === '/api/fear-greed') {
+      for (const source of [CNN_SOURCE,CNN_ARCHIVE]) {
+        try {
+          const upstream=await fetch(source,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(source===CNN_SOURCE?8000:10000),cf:{cacheTtl:1800,cacheEverything:true}});
+          if(!upstream.ok)continue;
+          const data=normalizeFearGreed(await upstream.json(),source);
+          return Response.json(data,{headers:{...headers,'Cache-Control':'private, max-age=1800'}});
+        }catch{}
+      }
+      return Response.json({error:'恐懼貪婪指數來源暫時無法取得'},{status:502,headers});
     }
     if (url.pathname === '/api/margin-maintenance') {
       try {

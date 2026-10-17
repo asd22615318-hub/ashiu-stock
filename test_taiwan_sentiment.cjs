@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict');
+const {computeTaiwanSentiment}=require('./taiwan-sentiment-model.js');
+const {emotion}=require('./fear-greed.js');
+const input={rows:Array.from({length:180},(_,n)=>({d:new Date(Date.UTC(2025,8,n+1)).toISOString().slice(0,10),i:20000+n*10+Math.sin(n)*100,o:200+n*.3,mt:2000+n,mo:800+n*.5,sf:Math.cos(n)*100}))};
+const full=computeTaiwanSentiment(input),prefix=computeTaiwanSentiment({rows:input.rows.slice(0,130)});
+assert.deepEqual(full.rows.filter(r=>r.date<=input.rows[129].d),prefix.rows,'Future observations must never change past scores');
+assert.ok(full.rows.length>60);
+assert.ok(full.rows.every(r=>r.score>=0&&r.score<=100));
+const missing=structuredClone(input);delete missing.rows.at(-1).sf;
+assert.notEqual(computeTaiwanSentiment(missing).rows.at(-1).date,missing.rows.at(-1).d,'An incomplete factor cannot be replaced with zero or reweighted');
+const flat={rows:input.rows.map(r=>({...r,i:1000,o:100,mt:100,mo:100,sf:0}))};
+assert.equal(computeTaiwanSentiment(flat).rows.at(-1).score,50,'Tied observations must be neutral');
+assert.equal(computeTaiwanSentiment({rows:input.rows.slice(0,80)}).rows.length,0,'Warm-up is required');
+assert.equal(emotion(0)[2],'極度恐懼');assert.equal(emotion(100)[2],'極度貪婪');assert.equal(emotion(null),null);
+console.log('Taiwan sentiment: walk-forward invariance, missing factors, warm-up, ties and score limits verified.');

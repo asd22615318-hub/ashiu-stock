@@ -6,7 +6,7 @@ if '--offline' in sys.argv:
     saved_root=Path(__file__).resolve().parent
     saved_public=saved_root/'dist'
     saved_public.mkdir(exist_ok=True)
-    for source,target in [('seed.json.gz','market-data.json.gz'),('valuation-seed.json','valuation-data.json'),('institutional-seed.json','institutional-data.json'),('ownership-seed.json','ownership-data.json'),('cb-chip-seed.json','cb-chip-data.json'),('regulatory-seed.json','regulatory-data.json'),('revenue-seed.json','revenue-data.json'),('convertible-seed.json','convertible-data.json'),('futchip-radar.js','futchip-radar.js'),('margin-maintenance.js','margin-maintenance.js'),('margin-maintenance-seed.json','margin-maintenance-data.json'),('world-radar.js','world-radar.js'),('chipburst-radar.js','chipburst-radar.js'),('broker-seed.json','broker-data.json'),('futchip-seed.json','futchip-data.json'),('index.html','index.html'),('app.js','app.js'),('revenue-radar.js','revenue-radar.js'),('convertible-radar.js','convertible-radar.js'),('sector-capital.js','sector-capital.js'),('style.css','style.css'),('structure-patterns.js','structure-patterns.js'),('rule-diagrams.js','rule-diagrams.js'),('detail-chart.js','detail-chart.js'),('detail-collapse.js','detail-collapse.js'),('smc-zones.js','smc-zones.js'),('etf-radar.js','etf-radar.js'),('etf-seed.json','etf-data.json'),('prison-seed.json','prison-data.json'),('prison.js','prison.js')]:
+    for source,target in [('seed.json.gz','market-data.json.gz'),('valuation-seed.json','valuation-data.json'),('institutional-seed.json','institutional-data.json'),('ownership-seed.json','ownership-data.json'),('cb-chip-seed.json','cb-chip-data.json'),('regulatory-seed.json','regulatory-data.json'),('revenue-seed.json','revenue-data.json'),('convertible-seed.json','convertible-data.json'),('futchip-radar.js','futchip-radar.js'),('margin-maintenance.js','margin-maintenance.js'),('fear-greed.js','fear-greed.js'),('taiwan-sentiment-model.js','taiwan-sentiment-model.js'),('tw-fear-greed.js','tw-fear-greed.js'),('taiwan-sentiment-seed.json','taiwan-sentiment-data.json'),('fear-greed-seed.json','fear-greed-data.json'),('margin-maintenance-seed.json','margin-maintenance-data.json'),('world-radar.js','world-radar.js'),('chipburst-radar.js','chipburst-radar.js'),('broker-seed.json','broker-data.json'),('futchip-seed.json','futchip-data.json'),('index.html','index.html'),('app.js','app.js'),('revenue-radar.js','revenue-radar.js'),('convertible-radar.js','convertible-radar.js'),('sector-capital.js','sector-capital.js'),('style.css','style.css'),('structure-patterns.js','structure-patterns.js'),('rule-diagrams.js','rule-diagrams.js'),('detail-chart.js','detail-chart.js'),('detail-collapse.js','detail-collapse.js'),('smc-zones.js','smc-zones.js'),('etf-radar.js','etf-radar.js'),('etf-seed.json','etf-data.json'),('prison-seed.json','prison-data.json'),('prison.js','prison.js')]:
         shutil.copy2(saved_root/source,saved_public/target)
     (saved_public/'market-data.json').unlink(missing_ok=True)
     print('Protected site built from saved official snapshots.')
@@ -59,6 +59,10 @@ except Exception as e:
     if (root/'etf-seed.json').exists():shutil.copy2(root/'etf-seed.json',m.PUBLIC/'etf-data.json')
 shutil.copy2(root/'futchip-seed.json',m.PUBLIC/'futchip-data.json')
 shutil.copy2(root/'margin-maintenance.js',m.PUBLIC/'margin-maintenance.js')
+shutil.copy2(root/'fear-greed.js',m.PUBLIC/'fear-greed.js')
+shutil.copy2(root/'taiwan-sentiment-model.js',m.PUBLIC/'taiwan-sentiment-model.js')
+shutil.copy2(root/'tw-fear-greed.js',m.PUBLIC/'tw-fear-greed.js')
+shutil.copy2(root/'fear-greed-seed.json',m.PUBLIC/'fear-greed-data.json')
 shutil.copy2(root/'margin-maintenance-seed.json',m.PUBLIC/'margin-maintenance-data.json')
 for name in ['futchip-radar.js','world-radar.js','chipburst-radar.js','index.html','style.css','app.js','revenue-radar.js','convertible-radar.js','sector-capital.js','structure-patterns.js','detail-chart.js','detail-collapse.js','smc-zones.js','etf-radar.js','rule-diagrams.js','prison.js']:shutil.copy2(root/name,m.PUBLIC/name)
 with gzip.GzipFile(filename=str(m.PUBLIC/'market-data.json.gz'),mode='wb',mtime=0) as f:
@@ -68,6 +72,11 @@ try: broker_data.update(root,m.PUBLIC,1)
 except Exception as e:
     print('Branch update failed; preserving previous snapshot:',e)
     if (root/'broker-seed.json').exists():shutil.copy2(root/'broker-seed.json',m.PUBLIC/'broker-data.json')
+import taiwan_sentiment_data
+try: taiwan_sentiment_data.update(root,m.PUBLIC)
+except Exception as e:
+    print('Taiwan sentiment update failed; preserving snapshot:',e)
+    if (root/'taiwan-sentiment-seed.json').exists():shutil.copy2(root/'taiwan-sentiment-seed.json',m.PUBLIC/'taiwan-sentiment-data.json')
 import cb_chip_data
 cb_chip_data.update(root,m.PUBLIC)
 m.SNAPSHOT.unlink()
