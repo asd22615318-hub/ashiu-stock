@@ -36,6 +36,7 @@
       ['CoWoS', sub('先進封裝 CoWoS')],
       ['功率半導體', custom('功率元件').concat(sub('功率半導體','第三代半導體 SiC／GaN'))],
       ['PMIC', custom('PMIC')],
+      ['MCU', custom('MCU概念')],
       ['矽智財', custom('IP股').concat(sub('IP 矽智財'))],
       ['連接器', custom('連接器').concat(sub('高速連接器'))],
       ['金融', industry('金融保險業')],
