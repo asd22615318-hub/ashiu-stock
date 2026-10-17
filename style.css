@@ -205,11 +205,13 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 
 #detail-price{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}.detail-volume{display:inline-flex;align-items:baseline;gap:6px;font-size:15px;color:#dce5e0;white-space:nowrap}.detail-volume b{font-size:17px;font-weight:700;color:#f0d795;font-variant-numeric:tabular-nums}
 
-/* Hot subgroup members: horizontal, gold text with full-width MA information. */
+/* Hot subgroup members: horizontal; gold names, orange ranks, white other text. */
 #sector-hot-strength .sector-member{min-width:0}
-#sector-hot-strength .sector-stock{display:flex;flex-flow:row wrap;align-items:center;gap:8px 18px;width:100%;min-width:0;padding:12px 14px;writing-mode:horizontal-tb;color:#ffe298}
+#sector-hot-strength .sector-stock{display:flex;flex-flow:row wrap;align-items:center;gap:8px 18px;width:100%;min-width:0;padding:12px 14px;writing-mode:horizontal-tb;color:#fff}
 #sector-hot-strength .sector-stock strong{flex:0 0 auto;white-space:nowrap;font-size:15px;color:#ffe298}
-#sector-hot-strength .sector-stock small{flex:1 1 155px;white-space:nowrap;font-size:13px;color:#ffe298}
-#sector-hot-strength .sector-stock .hot-stock-change{flex:0 0 auto;white-space:nowrap;color:#ffe298}
-#sector-hot-strength .sector-stock .hot-stock-ma{flex:1 0 100%;text-align:left;font-size:13px;font-weight:600;color:#ffe298;line-height:1.6;overflow-wrap:normal;word-break:normal}
+#sector-hot-strength .sector-stock small{flex:1 1 155px;white-space:nowrap;font-size:13px;color:#fff}
+#sector-hot-strength .sector-stock .hot-stock-change{flex:0 0 auto;white-space:nowrap;color:#fff}
+#sector-hot-strength .sector-stock .hot-stock-ma{flex:1 0 100%;text-align:left;font-size:13px;font-weight:600;color:#fff;line-height:1.6;overflow-wrap:normal;word-break:normal}
 @media(max-width:480px){#sector-hot-strength .sector-subgroup>.sector-members{padding:8px}#sector-hot-strength .sector-stock{gap:7px 12px;padding:10px}#sector-hot-strength .sector-stock small{flex-basis:135px}}
+
+#sector-hot-strength .sector-stock .hot-stock-rank{color:#ffad66;font-size:inherit;font-weight:inherit;text-align:left}
