@@ -36,10 +36,7 @@
       ['功率半導體', custom('功率元件').concat(sub('功率半導體','第三代半導體 SiC／GaN'))],
       ['矽智財', custom('IP股').concat(sub('IP 矽智財'))],
       ['連接器', custom('連接器').concat(sub('高速連接器'))],
-      ['觀光', industry('觀光餐旅')],
-      ['紡織纖維', industry('紡織纖維')],
       ['金融', industry('金融保險業')],
-      ['遊戲', codes('5478','6180','3083','3546','3293','6169','4994')],
       ['ASIC', sub('ASIC 客製化晶片')],
       ['鈣鈦礦', custom('鈣鈦礦')],
       ['紙類', industry('造紙工業')],
@@ -47,7 +44,7 @@
       ['安全監控', custom('安全監控')],
       ['系統整合', custom('資訊')],
       ['面板', custom('面板').concat(sub('面板製造','面板驅動 IC'))],
-      ['生技', industry('生技醫療業')]
+
 
     ];
     return new Map(definitions.map(([name,groups]) => [name,new Set(groups.flatMap(g => g.codes))]));
@@ -105,13 +102,13 @@
     }
     rows.forEach(row => { row.score = row.changeRank * .5 + row.breadthRank * .3 + row.volumeRatioRank * .2; });
     rows.sort((a, b) => b.score - a.score || b.change - a.change);
-    panel.innerHTML = `<details class="sector-capital-details" ${(hot ? hotRankingOpen : dailyRankingOpen) ? 'open' : ''}><summary class="sector-capital-head"><div><h2>${title}</h2><p>行情日期 ${esc(marketDate)} · ${rows.length} 個可比較族群</p></div><small>當日強弱</small></summary><p class="sector-capital-note">依族群成員等權平均漲幅 50%、上漲家數比例 30%、今日成交量／前 5 日均量 20% 的名次百分位排序。至少 3 檔有當日及前日價格、且可計算量能才列入；族群成員可能重疊。${hot ? '熱門細分排名至少 80% 有效成員須具完整量能。本表為當日相對熱度，不代表全部族群都在上漲；石英另列，PCB 製板與載板分開比較。觀光、紡織、金融、紙類與生技採官方產業分類，其餘為主題及相關供應鏈名單；玻璃基板含材料與設備，資安含服務與通路，FOPLP 與 CoWoS 分開觀察。' : ''}</p><div class="sector-capital-list">${(hot ? rows : rows.slice(0, 10)).map((row, index) => `<article class="sector-capital-row"><div class="sector-capital-title"><b>${index + 1}</b><strong>${esc(row.theme)}</strong><small>強度 ${row.score.toFixed(0)} 分</small></div><div class="sector-capital-metrics sector-daily-metrics"><span><small>平均漲幅</small><strong class="${row.change >= 0 ? 'positive' : 'negative'}">${signed(row.change, 2)}%</strong></span><span><small>上漲比例</small><strong>${fmt(row.breadth, 0)}%</strong></span><span><small>量／前 5 日</small><strong>${fmt(row.volumeRatio, 2)} 倍</strong></span><span><small>有效個股</small><strong>${row.count}${hot ? ' / ' + row.total : ''} 檔</strong></span></div><p>領漲：${row.leaders.map(({stock, change}) => `${esc(stock.name || stock.code)} ${signed(change, 1)}%`).join(' · ')}</p>${hot ? hotMembersHtml(row) : ''}</article>`).join('') || '<p>目前沒有足夠的當日行情可排名。</p>'}</div></details>`;
+    panel.innerHTML = `<details class="sector-capital-details" ${(hot ? hotRankingOpen : dailyRankingOpen) ? 'open' : ''}><summary class="sector-capital-head"><div><h2>${title}</h2><p>行情日期 ${esc(marketDate)} · ${rows.length} 個可比較族群</p></div><small>當日強弱</small></summary><p class="sector-capital-note">依族群成員等權平均漲幅 50%、上漲家數比例 30%、今日成交量／前 5 日均量 20% 的名次百分位排序。至少 3 檔有當日及前日價格、且可計算量能才列入；族群成員可能重疊。${hot ? '熱門細分排名至少 80% 有效成員須具完整量能。本表為當日相對熱度，不代表全部族群都在上漲；石英另列，PCB 製板與載板分開比較。金融與紙類採官方產業分類，其餘為主題及相關供應鏈名單；玻璃基板含材料與設備，資安含服務與通路，FOPLP 與 CoWoS 分開觀察。' : ''}</p><div class="sector-capital-list">${(hot ? rows : rows.slice(0, 10)).map((row, index) => `<article class="sector-capital-row"><div class="sector-capital-title"><b>${index + 1}</b><strong>${esc(row.theme)}</strong><small>強度 ${row.score.toFixed(0)} 分</small></div><div class="sector-capital-metrics sector-daily-metrics"><span><small>平均漲幅</small><strong class="${row.change >= 0 ? 'positive' : 'negative'}">${signed(row.change, 2)}%</strong></span><span><small>上漲比例</small><strong>${fmt(row.breadth, 0)}%</strong></span><span><small>量／前 5 日</small><strong>${fmt(row.volumeRatio, 2)} 倍</strong></span><span><small>有效個股</small><strong>${row.count}${hot ? ' / ' + row.total : ''} 檔</strong></span></div><p>領漲：${row.leaders.map(({stock, change}) => `${esc(stock.name || stock.code)} ${signed(change, 1)}%`).join(' · ')}</p>${hot ? hotMembersHtml(row) : ''}</article>`).join('') || '<p>目前沒有足夠的當日行情可排名。</p>'}</div></details>`;
     panel.querySelector('.sector-capital-details').addEventListener('toggle', event => { if(hot)hotRankingOpen=event.target.open;else dailyRankingOpen = event.target.open; });
   }
 
   function hotMembersHtml(row) {
     const eligible=row.maMembers, above=eligible.filter(s=>s.bars.at(-1).close>average(s.bars.slice(-20).map(b=>b.close))).length;
-    return `<p>站上 20MA：${eligible.length ? fmt(above/eligible.length*100,0)+'%（'+above+'/'+eligible.length+' 檔）' : '歷史不足'} · 有效日線 ${eligible.length}/${row.count} 檔</p><details class="sector-subgroup" data-hot-group="${esc(row.theme)}" ${hotMemberOpen.has(row.theme)?'open':''}><summary>相關個股 · 展開查看 ${row.count} 檔</summary><div class="sector-members">${[...row.members].sort((a,b)=>(b.bars.at(-1).close/b.bars.at(-2).close)-(a.bars.at(-1).close/a.bars.at(-2).close)).map(s=>{const t=s.bars.at(-1),change=(t.close/s.bars.at(-2).close-1)*100;return `<div class="sector-member"><button type="button" class="sector-stock" data-hot-stock="${esc(s.code)}"><strong>${esc(s.name||s.code)}</strong><small>${esc(s.code)} · 收盤 ${fmt(t.close)}</small><span class="${change>=0?'up':'down'}">${signed(change,2)}%</span></button></div>`;}).join('')}</div></details>`;
+    return `<p>站上 20MA：${eligible.length ? fmt(above/eligible.length*100,0)+'%（'+above+'/'+eligible.length+' 檔）' : '歷史不足'} · 有效日線 ${eligible.length}/${row.count} 檔</p><details class="sector-subgroup" data-hot-group="${esc(row.theme)}" ${hotMemberOpen.has(row.theme)?'open':''}><summary>相關個股 · 展開查看 ${row.count} 檔</summary><div class="sector-members">${[...row.members].sort((a,b)=>(b.bars.at(-1).close/b.bars.at(-2).close)-(a.bars.at(-1).close/a.bars.at(-2).close)).map(s=>{const t=s.bars.at(-1),change=(t.close/s.bars.at(-2).close-1)*100,analysis=analyses.find(a=>a.code===s.code);return `<div class="sector-member"><button type="button" class="sector-stock" data-hot-stock="${esc(s.code)}"><strong>${esc(s.name||s.code)}</strong><small>${esc(s.code)} · 收盤 ${fmt(t.close)}</small><span class="hot-stock-change">${signed(change,2)}%</span><span class="hot-stock-ma" title="市場排名以全市場成交量大於 500 張、均線資料完整者比較">均線 ${analysis?.score!=null?analysis.score+' / 15':'待補資料'} · ${analysis?.rank?'市場均線排名 #'+analysis.rank:'未排名'}</span></button></div>`;}).join('')}</div></details>`;
   }
 
   window.renderSectorFlow = function renderSectorFlow() {
