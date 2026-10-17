@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm'),zlib=require('zlib'),assert=require('assert/strict');
+const groups=JSON.parse(fs.readFileSync('app.js','utf8').match(/const STOCK_GROUPS=(.*?);/)[1]);
+const records=JSON.parse(zlib.gunzipSync(fs.readFileSync('seed.json.gz'))).stocks;
+const panels=new Map();const root={hidden:false,querySelector:s=>s==='.sector-heading'?{after:p=>panels.set('#'+p.id,p)}:panels.get(s),querySelectorAll:()=>[]};
+const ctx={STOCK_GROUPS:groups,records,mode:'live',analyses:[],window:{},renderSectors:()=>{},$:()=>root,fmt:(v,n=2)=>v.toFixed(n),esc:s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),document:{createElement:()=>({innerHTML:'',querySelector:()=>({addEventListener:()=>{}})})}};
+vm.createContext(ctx);vm.runInContext(fs.readFileSync('sector-capital.js','utf8'),ctx);ctx.renderSectors();
+const hot=panels.get('#sector-hot-strength').innerHTML;
+for(const name of ['散熱','航運','被動元件','石英','矽晶圓','記憶體','PCB 製板','PCB 載板','台塑四寶'])assert.ok(hot.includes('data-hot-group="'+name+'"'),name);
+assert.equal((hot.match(/data-hot-group="矽晶圓"/g)||[]).length,1);
+assert.ok(hot.includes('data-hot-stock="3707"'));assert.ok(hot.includes('data-hot-stock="2342"'));
+assert.ok(!hot.includes('NaN'));assert.ok(hot.includes('站上 20MA'));
+console.log('snapshot hot groups:',(hot.match(/data-hot-group=/g)||[]).length);
+console.log('Top groups:',[...hot.matchAll(/<strong>([^<]+)<\/strong><small>強度/g)].slice(0,5).map(x=>x[1]));
+assert.ok(panels.get('#sector-daily-strength').innerHTML.includes('每日強勢族群排名'));
+console.log('Existing ranking, requested groups, members, and data metrics verified.');
