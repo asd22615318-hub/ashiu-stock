@@ -17,6 +17,7 @@
   root.innerHTML = `
     <div class="sector-heading"><h1>可轉債雷達</h1><p>CB 領先正股 · 觀察可轉債量價與正股的連動</p></div>
     <div class="cb-data-status" id="cb-data-status" role="status"><strong>正在載入可轉債資料…</strong><span>確認每日價量與集保月報中。</span></div>
+    <details class="cb-panel cb-issuance-panel" open><summary class="cb-panel-heading"><h2>即將／近期發行可轉債</h2><small>官方已公告日期</small></summary><div id="cb-issuance-list" class="cb-watch-list"><p>正在載入發行資料…</p></div><p class="cb-data-note">即將發行：已公告未來發行日期；近期發行：近 30 天（含今天）。發行日與上櫃日分別顯示，日期可能依後續公告調整。此區轉換價為「發行時轉換價」，不當作目前轉換價；未確定日期的董事會發行計畫不列入。</p><p class="cb-data-note">來源：<a href="https://www.tpex.org.tw/zh-tw/bond/issue/cbond/listed.html" target="_blank" rel="noopener">櫃買中心發行資料 ↗</a></p></details>
     <section class="cb-panel cb-strategy-panel"><div class="cb-panel-heading"><div><span class="cb-kicker">CB 領先正股 · 波段觀察</span><h2>三個領先訊號</h2></div></div><div class="cb-strategy-steps"><div><strong>① CB 放量</strong><span>當日量 ≥ 前 20 日均量 3 倍，或近 3 日總量 ≥ 前 3 日總量 2 倍。</span></div><div><strong>② CB 價格上行</strong><span>比較已取得的每日收市價；尚無日價量時標示待資料，不推測訊號。</span></div><div><strong>③ 對照正股</strong><span>查看正股與目前轉換價距離、MA20／MA60 和近 20 日高點，再判斷是否仍在整理。</span></div></div><p class="cb-data-note">這是觀察順序；個股未同時符合時仍可搜尋查看，不代表進場訊號。</p></section>
     <section class="cb-panel cb-watch-panel"><div class="cb-panel-heading"><div><span class="cb-kicker">波段策略 · 正股觀察</span><h2>CB 對照正股蓄勢名單</h2></div><small id="cb-watch-count">資料載入中</small></div><p class="cb-data-note">CB 異常放量＝當日成交單位 ÷ 前 20 個交易日均量 ≥ 3；連續放量＝近 3 日總量 ÷ 再前 3 日總量 ≥ 2。等價與議價成交單位加總；無成交日計 0，均量不含當日。價差篩選只採用集保公布的目前轉換價格；沒有目前價格的可轉債不列入。</p><div class="cb-watch-controls"><label>顯示 <select id="cb-watch-filter"><option value="gap0to10">正股低於轉換價 0～10%</option><option value="gap11to20">正股低於轉換價 11～20%</option><option value="gap21to50">正股低於轉換價 21～50%</option><option value="gapAbove0to5">正股高於轉換價 0～5%</option><option value="watch">正股蓄勢</option><option value="all">全部有 CB 正股</option></select></label><form id="cb-search-form" class="cb-search-form"><label for="cb-watch-search">搜尋</label><input id="cb-watch-search" type="search" placeholder="代號、名稱或 CB 代號"><button type="submit" id="cb-search-confirm">確認</button></form></div><div id="cb-watch-list" class="cb-watch-list" aria-live="polite"><p>正在對照可轉債與正股行情…</p></div></section>
     <dialog id="cb-search-dialog" class="cb-search-dialog" aria-labelledby="cb-search-title"><div class="cb-search-dialog-head"><h2 id="cb-search-title">個股與可轉債資訊</h2><button id="cb-search-close" type="button">× 返回</button></div><div id="cb-search-results" class="cb-watch-list"></div></dialog><section class="cb-panel" id="cb-data-panel" hidden><div class="cb-panel-heading"><div><span class="cb-kicker">官方資料</span><h2>可轉債保管月報</h2></div><small id="cb-data-period"></small></div><p class="cb-data-note">按本月底集保保管張數排序；月資料不代表今日成交量。發行張數為發行規模，並非剩餘流通張數。</p><label class="cb-search-label">搜尋代號或名稱 <input id="cb-data-search" type="search" placeholder="輸入可轉債或正股代號"></label><div class="cb-table-wrap"><table class="cb-table"><thead><tr><th>可轉債／正股</th><th>本月底保管</th><th>較前月</th><th>發行張數</th><th>集保戶數</th></tr></thead><tbody id="cb-data-rows"></tbody></table></div><p class="cb-data-note">資料來源：<a href="https://data.gov.tw/dataset/11462" target="_blank" rel="noopener">集保結算所可轉換公司債月分析表</a>。缺值以「—」表示。</p></section><button id="cb-watch-return" class="cb-watch-return" type="button" hidden>↑ 返回</button>`;
@@ -27,6 +28,20 @@
   const today = () => { const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(part => [part.type,part.value])); return `${parts.year}-${parts.month}-${parts.day}`; };
   window.convertibleDataStatus = 'loading';
   window.activeConvertibleBonds = code => allBonds.filter(bond => bond.underlying_code === String(code) && bond.maturity_date && bond.maturity_date >= today() && bond.conversion_price_kind === 'current_official' && Number(bond.conversion_price) > 0 && (bond.outstanding_amount == null || Number(bond.outstanding_amount) > 0));
+  let issuanceData=null;
+  function renderIssuance(){
+    const target=root.querySelector('#cb-issuance-list');
+    if(!issuanceData){target.innerHTML='<p>尚未取得官方發行資料，請稍後重新整理。</p>';return;}
+    const asOf=today(),cutoff=new Date(asOf+'T00:00:00Z');cutoff.setUTCDate(cutoff.getUTCDate()-30);
+    const since=cutoff.toISOString().slice(0,10),bonds=issuanceData.bonds||[];
+    const upcoming=bonds.filter(b=>b.issue_date>asOf).sort((a,b)=>a.issue_date.localeCompare(b.issue_date)||a.code.localeCompare(b.code));
+    const recent=bonds.filter(b=>b.issue_date<=asOf&&b.issue_date>=since).sort((a,b)=>b.issue_date.localeCompare(a.issue_date)||a.code.localeCompare(b.code));
+    const stocks=window.cbStockSnapshot?.().analyses||[];
+    const card=b=>`<article class="cb-watch-item"><h3>${esc(b.name)} <small>${esc(b.code)}</small></h3><p>${stocks.some(s=>s.code===b.underlying_code)?`<button type="button" class="ghost cb-issuance-stock" data-code="${esc(b.underlying_code)}">${esc(b.issuer_name)} ${esc(b.underlying_code)} ↗</button>`:esc(b.issuer_name)+' '+esc(b.underlying_code)}</p><p>發行日 <strong>${esc(b.issue_date)}</strong> · 上櫃日 ${esc(b.listing_date||'尚未公告')}</p><p>發行金額 ${b.issue_amount==null?'—':fmt(b.issue_amount)} ${b.currency_code==='1'?'元（新台幣）':'（原幣）'} · 發行時轉換價 <strong>${b.issue_conversion_price==null?'尚未公告':fmt(b.issue_conversion_price)+' 元'}</strong></p>${b.underwriter?`<p>主辦承銷商 ${esc(b.underwriter)}</p>`:''}</article>`;
+    target.innerHTML=`<p class="cb-data-note">官方資料日 ${esc(issuanceData.source_date||'—')} · 快照擷取 ${esc(issuanceData.updated_at?new Date(issuanceData.updated_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false})+'（台灣時間）':'—')}</p><h3>即將發行 · ${upcoming.length} 檔</h3>${upcoming.map(card).join('')||'<p>目前官方資料沒有已公告未來發行日的可轉債。</p>'}<details><summary>近 30 天已發行 · ${recent.length} 檔</summary>${recent.map(card).join('')||'<p>目前沒有符合的近期發行資料。</p>'}</details>`;
+    target.querySelectorAll('.cb-issuance-stock').forEach(button=>button.addEventListener('click',()=>{const stock=stocks.find(s=>s.code===button.dataset.code);if(stock)openStockDetail(stock,button);}));
+  }
+  window.addEventListener('stock-data-ready',()=>{if(issuanceData)renderIssuance();});
   const status = root.querySelector('#cb-data-status');
   const panel = root.querySelector('#cb-data-panel');
   const watchList = root.querySelector('#cb-watch-list');
@@ -148,7 +163,9 @@
     .then(data => {
       if (!Array.isArray(data.bonds) || !data.bonds.length || !data.period) throw Error('月資料尚未取得');
       const bonds = [...data.bonds].sort((a,b) => (b.custody ?? -1) - (a.custody ?? -1) || a.code.localeCompare(b.code));
-      allBonds = bonds;
+      issuanceData=data.issuance||null;
+      renderIssuance();
+      allBonds = bonds.filter(bond=>!bond.issue_date||bond.issue_date<=today());
       window.convertibleDataStatus = 'ready';
       window.dispatchEvent(new Event('convertible-data-ready'));
       renderWatchlist();
@@ -165,7 +182,7 @@
       search.addEventListener('input', render);
       render();
     })
-    .catch(error => { window.convertibleDataStatus = 'error'; window.dispatchEvent(new Event('convertible-data-ready')); renderWatchlist(); status.innerHTML = `<strong>集保可轉債月資料暫時無法顯示</strong><span>${esc(error.message)}；研究規則仍可查看，未產生任何推估排行。</span>`; });
+    .catch(error => { root.querySelector('#cb-issuance-list').textContent='發行資料讀取失敗，請稍後重新整理。';window.convertibleDataStatus = 'error'; window.dispatchEvent(new Event('convertible-data-ready')); renderWatchlist(); status.innerHTML = `<strong>集保可轉債月資料暫時無法顯示</strong><span>${esc(error.message)}；研究規則仍可查看，未產生任何推估排行。</span>`; });
 })();
 
 

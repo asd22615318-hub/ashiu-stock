@@ -3,7 +3,8 @@ import json
 import os
 import re
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 URL = 'https://openapi.tdcc.com.tw/v1/opendata/2-8'
@@ -61,6 +62,8 @@ def enrich(bonds, issues, changes, today=None):
                           'custody': None, 'prior': None, 'change': None, 'issued': None, 'holders': None})
             existing.add(code)
         issue_by_code[code] = {
+            'issue_date': date(row.get('IssueDate')),
+            'listing_date': date(row.get('ListingDate')),
             'maturity_date': maturity,
             'conversion_end_date': date(row.get('Conversion/ExchangePeriodEndDate')),
             'issue_conversion_price': issue_price,
@@ -90,6 +93,32 @@ def enrich(bonds, issues, changes, today=None):
             bond['conversion_price'] = issue['issue_conversion_price']
             bond['conversion_price_kind'] = 'at_issuance'
     return bonds
+
+
+def issuance_schedule(issues, today=None):
+    """Confirmed domestic CB dates; keep future issues separate from active bonds."""
+    today = today or datetime.now(ZoneInfo('Asia/Taipei')).date().isoformat()
+    cutoff = (datetime.fromisoformat(today).date() - timedelta(days=30)).isoformat()
+    result = {}
+    for row in issues:
+        code = str(row.get('BondCode', '')).strip()
+        issuer = str(row.get('IssuerCode', '')).strip()
+        issued = date(row.get('IssueDate'))
+        if str(row.get('BondType')) != '5' or not re.fullmatch(r'\d{4}[0-9A-Z]{1,3}', code) or not re.fullmatch(r'\d{4}', issuer):
+            continue
+        if not issued or issued < cutoff:
+            continue
+        result[code] = {'code': code, 'name': str(row.get('ShortName') or code).strip(),
+                        'underlying_code': issuer, 'issuer_name': str(row.get('IssuerName') or issuer).strip(),
+                        'issue_date': issued, 'listing_date': date(row.get('ListingDate')),
+                        'maturity_date': date(row.get('MaturityDate')),
+                        'issue_amount': number(row.get('IssueAmount')), 'currency_code': str(row.get('Currency', '')),
+                        'issue_conversion_price': price(row.get('Conversion/ExchangePriceAtIssuance')),
+                        'underwriter': str(row.get('Underwriter') or '').strip()}
+    return {'as_of': today, 'source': ISSUES_URL,
+            'source_date': max((date(row.get('Date')) for row in issues), default=''),
+            'updated_at': datetime.now(timezone.utc).isoformat(),
+            'bonds': sorted(result.values(), key=lambda bond: (bond['issue_date'], bond['code']))}
 
 
 def number(value):
@@ -148,6 +177,7 @@ def update(root: Path, public: Path):
     if not isinstance(issues, list) or not isinstance(changes, list):
         raise ValueError('Convertible bond issue or price response is not a list')
     enrich(data['bonds'], issues, changes)
+    data['issuance'] = issuance_schedule(issues)
     import cb_daily
     import market_data
     market = market_data.read_snapshot()
