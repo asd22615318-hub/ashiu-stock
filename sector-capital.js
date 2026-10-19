@@ -16,7 +16,7 @@
       ['矽晶圓', STOCK_GROUPS.filter(g => g.theme === '半導體產業' && g.sub === '矽晶圓')],
       ['記憶體', custom('記憶體').concat(sub('DRAM 製造','DRAM 模組','NAND Flash 控制晶片','NOR Flash','記憶體 IC 設計','工業級記憶體'))],
       ['PCB 製板', sub('PCB 製板族群','AI 伺服器 PCB','高速網通 PCB','HDI 高密度板','FPC 軟板')],
-      ['PCB鑽孔鑽針頭概念', codes('8021','5498','3167')],
+      ['PCB鑽孔鑽針頭概念', codes('8021','5498','3167','4526','1528','4577','2406','6706','8074')],
       ['PCB 載板', sub('IC 載板族群','ABF 載板','BT 載板')],
       ['台塑四寶', sub('塑化四寶')],
       ['銅箔基板 CCL', sub('CCL 銅箔基板與高階材料')],
@@ -43,6 +43,7 @@
       ['連接器', custom('連接器').concat(sub('高速連接器'))],
       ['金融', industry('金融保險業')],
       ['ASIC', sub('ASIC 客製化晶片')],
+      ['半導體探針卡', sub('探針卡／測試介面')],
       ['鈣鈦礦', custom('鈣鈦礦')],
       ['工業電腦', sub('工業電腦').concat(codes('6166','6206','8234','6579'))],
       ['安全監控', custom('安全監控')],
@@ -114,7 +115,7 @@
 
   function hotMembersHtml(row) {
     const eligible=row.maMembers, above=eligible.filter(s=>s.bars.at(-1).close>average(s.bars.slice(-20).map(b=>b.close))).length;
-    return `${row.theme==='PCB鑽孔鑽針頭概念'?'<p>尖點、凱崴：鑽針／鑽孔加工；大量：鑽孔設備供應鏈。</p>':''}<p class="hot-ma20-status">站上 20MA：${eligible.length ? fmt(above/eligible.length*100,0)+'%（'+above+'/'+eligible.length+' 檔）' : '歷史不足'} · 有效日線 ${eligible.length}/${row.count} 檔</p><details class="sector-subgroup" data-hot-group="${esc(row.theme)}" ${hotMemberOpen.has(row.theme)?'open':''}><summary>相關個股 · 展開查看 ${row.count} 檔（依均線排名）</summary><div class="sector-members">${[...row.members].sort((a,b)=>{const aa=analyses.find(s=>s.code===a.code),bb=analyses.find(s=>s.code===b.code);return (aa?.rank??Infinity)-(bb?.rank??Infinity)||(bb?.score??-1)-(aa?.score??-1)||a.code.localeCompare(b.code);}).map(s=>{const t=s.bars.at(-1),change=(t.close/s.bars.at(-2).close-1)*100,analysis=analyses.find(a=>a.code===s.code);return `<div class="sector-member"><button type="button" class="sector-stock" data-hot-stock="${esc(s.code)}"><strong>${esc(s.name||s.code)}</strong><small>${esc(s.code)} · 收盤 ${fmt(t.close)}</small><span class="hot-stock-change ${change>0?'hot-change-up':change<0?'hot-change-down':'hot-change-flat'}">${signed(change,2)}%</span><span class="hot-stock-ma" title="市場排名以全市場成交量大於 500 張、均線資料完整者比較">均線 ${analysis?.score!=null?analysis.score+' / 15':'待補資料'} · <span class="hot-stock-rank">${analysis?.rank?'市場均線排名 #'+analysis.rank:'未排名'}</span></span></button></div>`;}).join('')}</div></details>`;
+    return `${row.theme==='PCB鑽孔鑽針頭概念'?'<p>尖點、凱崴：鑽針／加工；大量、東台、恩德、達航：鑽孔設備／加工；惠特：雷射鑽孔；國碩：鑽針鍍膜；鉅橡：鑽孔墊板。</p>':''}${row.theme==='半導體探針卡'?'<p>旺矽、精測：探針卡；穎崴：測試座／介面；中探針：IC 測試探針。含相關測試介面供應鏈。</p>':''}<p class="hot-ma20-status">站上 20MA：${eligible.length ? fmt(above/eligible.length*100,0)+'%（'+above+'/'+eligible.length+' 檔）' : '歷史不足'} · 有效日線 ${eligible.length}/${row.count} 檔</p><details class="sector-subgroup" data-hot-group="${esc(row.theme)}" ${hotMemberOpen.has(row.theme)?'open':''}><summary>相關個股 · 展開查看 ${row.count} 檔（依均線排名）</summary><div class="sector-members">${[...row.members].sort((a,b)=>{const aa=analyses.find(s=>s.code===a.code),bb=analyses.find(s=>s.code===b.code);return (aa?.rank??Infinity)-(bb?.rank??Infinity)||(bb?.score??-1)-(aa?.score??-1)||a.code.localeCompare(b.code);}).map(s=>{const t=s.bars.at(-1),change=(t.close/s.bars.at(-2).close-1)*100,analysis=analyses.find(a=>a.code===s.code);return `<div class="sector-member"><button type="button" class="sector-stock" data-hot-stock="${esc(s.code)}"><strong>${esc(s.name||s.code)}</strong><small>${esc(s.code)} · 收盤 ${fmt(t.close)}</small><span class="hot-stock-change ${change>0?'hot-change-up':change<0?'hot-change-down':'hot-change-flat'}">${signed(change,2)}%</span><span class="hot-stock-ma" title="市場排名以全市場成交量大於 500 張、均線資料完整者比較">均線 ${analysis?.score!=null?analysis.score+' / 15':'待補資料'} · <span class="hot-stock-rank">${analysis?.rank?'市場均線排名 #'+analysis.rank:'未排名'}</span></span></button></div>`;}).join('')}</div></details>`;
   }
 
   function renderStockSearch(root){
