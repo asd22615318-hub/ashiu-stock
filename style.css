@@ -227,3 +227,5 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 #cb-issuance-list .cb-issue-price,#cb-issuance-list .cb-issue-price strong{color:#ffe298}
 
 .sector-search-form{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:16px 0}.sector-search-form input{flex:1;min-width:160px}.sector-search-form button{background:#123c35;color:#ffe298;border:1px solid #69b9a8;border-radius:9px;padding:10px 20px;font-weight:700}.sector-search-stock{background:transparent;border:0;color:#ffe298;font-size:17px;font-weight:700;text-align:left;padding:0;cursor:pointer}.sector-capital-row p.sector-search-ma{color:#ffad66;font-size:14px}.sector-search-groups p{font-size:14px;line-height:1.7;color:#fff}.sector-search-groups strong{color:#ffe298}
+
+.sector-group-filter select{flex:1;min-width:0;width:100%;max-width:440px;padding:10px 14px;border:1px solid #69b9a8;border-radius:9px;background:#123c35;color:#ffe298;font-size:16px}.sector-group-filter label{font-size:16px;color:#fff}.sector-group-filter select:focus-visible{outline:2px solid #ffe298;outline-offset:2px}
