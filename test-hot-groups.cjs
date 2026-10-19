@@ -5,7 +5,7 @@ const panels=new Map();const root={hidden:false,querySelector:s=>s==='.sector-he
 const ctx={STOCK_GROUPS:groups,records,mode:'live',analyses:[],window:{},renderSectors:()=>{},$:()=>root,fmt:(v,n=2)=>v.toFixed(n),esc:s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),document:{createElement:()=>({innerHTML:'',querySelector:()=>({addEventListener:()=>{}})})}};
 vm.createContext(ctx);vm.runInContext(fs.readFileSync('sector-capital.js','utf8'),ctx);ctx.renderSectors();
 const hot=panels.get('#sector-hot-strength').innerHTML;
-for(const name of ['散熱','航運','被動元件','石英','矽晶圓','記憶體','PCB 製板','PCB鑽孔鑽針頭概念','PCB 載板','台塑四寶','軍工','特用化學','化學股','LED','玻璃基板','資安','FOPLP 扇出型封裝','CoWoS','功率半導體','PMIC','MCU','矽智財','連接器','金融','ASIC','半導體探針卡','鈣鈦礦','工業電腦','安全監控','系統整合','面板'])assert.ok(hot.includes('data-hot-group="'+name+'"'),name);
+for(const name of ['散熱','航運','被動元件','石英','矽晶圓','記憶體','PCB 製板','PCB鑽孔鑽針頭概念','PCB 載板','PTFE（聚四氟乙烯）概念股','台塑四寶','軍工','特用化學','化學股','LED','玻璃基板','資安','FOPLP 扇出型封裝','CoWoS','功率半導體','PMIC','MCU','矽智財','連接器','金融','ASIC','半導體探針卡','鈣鈦礦','工業電腦','安全監控','系統整合','面板'])assert.ok(hot.includes('data-hot-group="'+name+'"'),name);
 assert.equal((hot.match(/data-hot-group="矽晶圓"/g)||[]).length,1);
 assert.ok(!hot.includes('data-hot-group="BBU"'));
 assert.ok(!hot.includes('data-hot-group="資訊服務"'));
@@ -36,3 +36,5 @@ assert.equal(definitions.get('PCB鑽孔鑽針頭概念').size,9);
 for(const code of ['8021','5498','3167','4526','1528','4577','2406','6706','8074'])assert.ok(definitions.get('PCB鑽孔鑽針頭概念').has(code));
 assert.equal(definitions.get('半導體探針卡').size,4);
 
+
+assert.equal(definitions.get('PTFE（聚四氟乙烯）概念股').size,5);

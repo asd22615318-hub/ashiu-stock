@@ -40,3 +40,16 @@
 - [力成永續報告中的 FOPLP 說明](https://www.pti.com.tw/Handlers/CsrDownload.ashx?id=50e1290a-309f-4232-a5a3-0b4e88af67ef&lang=zh)
 
 新公司加入官方產業時，產業型族群會隨每日快照變動；主題型族群需維護成員名單。BBU 不設獨立排名，依使用者要求保留電池模組。
+
+
+## 2026-10-19 PTFE 概念
+
+新增 PTFE（聚四氟乙烯）概念股：台虹 8039、亞電 4939、騰輝電子-KY 6672、南亞 1303、台郡 6269。前四家為基板材料相關，台郡為相關電路板應用。產品形態與驗證、量產階段不同，不推定全部均已量產 AI 用 PTFE 材料，也不將全部 CCL 廠自動歸入。
+
+核對公司產品與公開資料：
+
+- [台虹 ESG 資料中的 PTFE CCL 事業](https://www.taiflex.com.tw/english/download/csr/ESG_2024.pdf)
+- [亞電產品介紹中的 PTFE 產品](https://www.aemg.com.tw/big5/Products_02_1.php)
+- [Ventec PTFE 材料型錄](https://www.ventec-group.com/media/114524/231010-ventec_tecthermal-a5-brochure_final.pdf)
+- [南亞微波材料與 PTFE 產品](https://ccl.npc.com.tw/ccl/zh_TW/Product/Microwave.do)
+- [台郡產品路線圖中的 PTFE](https://www.flexium.com.tw/UploadFiles/csrEn/2023ESGEN.pdf)
