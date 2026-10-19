@@ -11,7 +11,7 @@ vm.runInContext(fs.readFileSync('revenue-radar.js','utf8'),ctx);
 setImmediate(()=>{
  const expected=[...ctx.getHotSectorGroups().keys()].sort();
  const actual=[...root.innerHTML.matchAll(/class="sector-theme revenue-theme"[^>]*><summary>(.*?) <small>/g)].map(m=>m[1]).sort();
- assert.equal(expected.length,38);assert.deepEqual(actual,Array.from(expected));
+ assert.equal(expected.length,39);assert.deepEqual(actual,Array.from(expected));
  for(const removed of ['生技','遊戲','觀光','紡織纖維','紙類','資訊服務','BBU'])assert.ok(!actual.includes(removed));
  assert.ok(!actual.includes('半導體'));assert.ok(actual.includes('PMIC'));assert.ok(actual.includes('MCU'));
  // Search remains market-wide, including companies outside the curated themes.
@@ -19,6 +19,6 @@ setImmediate(()=>{
  const outside=Object.entries(report.stocks).find(([code])=>!codes.has(code));assert.ok(outside);
  root.querySelector('#revenue-search').value=outside[0];nodes.get('#revenue-search-form').onsubmit({preventDefault(){}});
  assert.ok(root.innerHTML.includes(`data-code="${outside[0]}"`));
- console.log('Revenue uses exactly the same 38 subgroups; old categories removed; full-market search retained.');
+ console.log('Revenue uses exactly the same 39 subgroups; old categories removed; full-market search retained.');
 });
 
