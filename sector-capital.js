@@ -36,7 +36,7 @@
       ['玻璃基板', codes('3149','4768','3583')],
       ['資安', codes('6690','3029','6214','6811','6689')],
       ['FOPLP 扇出型封裝', custom('扇形封裝').concat(codes('3481','6239'))],
-      ['CoWoS', sub('先進封裝 CoWoS').concat(codes('2467','6640','5443'))],
+      ['CoWoS', sub('先進封裝 CoWoS').concat(codes('2467','6640','5443','4542','3680'))],
       ['功率半導體', custom('功率元件').concat(sub('功率半導體','第三代半導體 SiC／GaN'))],
       ['PMIC（電源管理IC）', custom('PMIC')],
       ['MCU（微控制器）', custom('MCU概念')],
