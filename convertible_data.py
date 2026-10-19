@@ -4,7 +4,6 @@ import os
 import re
 import urllib.request
 from datetime import datetime, timezone, timedelta
-from zoneinfo import ZoneInfo
 from pathlib import Path
 
 URL = 'https://openapi.tdcc.com.tw/v1/opendata/2-8'
@@ -97,7 +96,7 @@ def enrich(bonds, issues, changes, today=None):
 
 def issuance_schedule(issues, today=None):
     """Confirmed domestic CB dates; keep future issues separate from active bonds."""
-    today = today or datetime.now(ZoneInfo('Asia/Taipei')).date().isoformat()
+    today = today or datetime.now(timezone(timedelta(hours=8))).date().isoformat()
     cutoff = (datetime.fromisoformat(today).date() - timedelta(days=30)).isoformat()
     result = {}
     for row in issues:

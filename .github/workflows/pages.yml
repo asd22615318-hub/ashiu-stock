@@ -19,6 +19,8 @@ on:
     # 17:10 Asia/Taipei; retries at 17:20 and 17:35 (GitHub may delay schedules).
     - cron: '10,20,35 9 * * *'
     - cron: '40 10 * * *'
+env:
+  PYTHONUTF8: '1'
 permissions:
   contents: write
 concurrency:

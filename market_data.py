@@ -166,13 +166,14 @@ def update(*, fast=False):
         previous=read_snapshot()
         fast=fast and len(previous.get('stocks',[]))>=100
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-            futures={k:pool.submit(get_json,u) for k,u in URLS.items() if not fast or not k.endswith('_names')}
+            futures={k:pool.submit(get_json,u) for k,u in URLS.items() if not fast or k in ('listed_daily','otc')}
             data={k:f.result() for k,f in futures.items() if k not in ('listed_daily','otc')}
             try:data['listed_daily']=listed_daily_rows(futures['listed_daily'].result())
             except Exception as error:
                 print(f'TWSE daily report unavailable; using official OpenAPI quote: {error}',flush=True)
                 data['listed_daily']=[]
         if fast:
+            data['listed']=data['listed_daily'] or get_json(URLS['listed'])
             data['listed_names']=[{'公司代號':stock['code']} for stock in previous['stocks'] if stock['market']=='上市']
             data['otc_names']=[{'SecuritiesCompanyCode':stock['code']} for stock in previous['stocks'] if stock['market']=='上櫃']
         if not all(isinstance(v,list) and v for k,v in data.items() if k!='listed_daily'):raise ValueError('Official source returned an empty or invalid response; previous snapshot kept.')
