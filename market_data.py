@@ -161,15 +161,20 @@ def otc_daily_rows(day):
         if len(rows)>=100:return rows
     raise ValueError('TPEx daily report missing stock quotes')
 
-def update():
+def update(*, fast=False):
     with snapshot_lock():
+        previous=read_snapshot()
+        fast=fast and len(previous.get('stocks',[]))>=100
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-            futures={k:pool.submit(get_json,u) for k,u in URLS.items()}
+            futures={k:pool.submit(get_json,u) for k,u in URLS.items() if not fast or not k.endswith('_names')}
             data={k:f.result() for k,f in futures.items() if k not in ('listed_daily','otc')}
             try:data['listed_daily']=listed_daily_rows(futures['listed_daily'].result())
             except Exception as error:
                 print(f'TWSE daily report unavailable; using official OpenAPI quote: {error}',flush=True)
                 data['listed_daily']=[]
+        if fast:
+            data['listed_names']=[{'公司代號':stock['code']} for stock in previous['stocks'] if stock['market']=='上市']
+            data['otc_names']=[{'SecuritiesCompanyCode':stock['code']} for stock in previous['stocks'] if stock['market']=='上櫃']
         if not all(isinstance(v,list) and v for k,v in data.items() if k!='listed_daily'):raise ValueError('Official source returned an empty or invalid response; previous snapshot kept.')
         listed_api_date=max(date_iso(r['Date']) for r in data['listed'])
         listed_daily_date=max((date_iso(r['Date']) for r in data['listed_daily']),default='')
@@ -184,7 +189,7 @@ def update():
         otc={str(r['SecuritiesCompanyCode']).strip() for r in data['otc_names']}
         previous=read_snapshot()
         old={s['code']:s for s in previous['stocks']}
-        try:industries=get_industries()
+        try:industries={code:s.get('industry','未分類') for code,s in old.items()} if fast else get_industries()
         except Exception:industries={code:s.get('industry','未分類') for code,s in old.items()}
         stocks=[]
         counts={}
@@ -219,7 +224,7 @@ def update():
             counts[market]=count
         missing_otc_dates={b['date'] for s in stocks if s['market']=='上櫃' for b in s['bars'][-3:]
                            if b.get('volume',0)>0 and not b.get('amount')}
-        for day in sorted(missing_otc_dates):
+        for day in ([] if fast else sorted(missing_otc_dates)):
             try:
                 amounts=otc_daily_amounts(day)
                 filled=0

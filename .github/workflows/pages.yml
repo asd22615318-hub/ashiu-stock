@@ -3,6 +3,9 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - .github/workflows/pages.yml
+      - refresh_quotes.py
+      - publish_snapshots.py
       - market_data.py
       - valuation_data.cjs
       - convertible_data.py
@@ -13,8 +16,8 @@ on:
       - ownership_data.py
       - cb_chip_data.py
   schedule:
-    # 17:10 Asia/Taipei (UTC+8).
-    - cron: '10 9 * * *'
+    # 17:10 Asia/Taipei; retries at 17:20 and 17:35 (GitHub may delay schedules).
+    - cron: '10,20,35 9 * * *'
     - cron: '40 10 * * *'
 permissions:
   contents: write
@@ -31,6 +34,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Refresh quotes before auxiliary reports
+        run: python refresh_quotes.py
+      - name: Publish latest quotes immediately
+        run: python publish_snapshots.py seed.json.gz taiwan-sentiment-seed.json
       - name: Update official reports and preserve history
         env:
           ASHIU_SKIP_CB_DAILY: '1'
@@ -50,30 +57,8 @@ jobs:
           Copy-Item -LiteralPath dist/regulatory-data.json -Destination regulatory-seed.json
           Copy-Item -LiteralPath dist/revenue-data.json -Destination revenue-seed.json
           Copy-Item -LiteralPath dist/convertible-data.json -Destination convertible-seed.json
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          $snapshots = @('seed.json.gz', 'valuation-seed.json', 'institutional-seed.json', 'ownership-seed.json', 'broker-seed.json', 'taiwan-sentiment-seed.json', 'cb-chip-seed.json', 'regulatory-seed.json', 'revenue-seed.json', 'convertible-seed.json', 'etf-seed.json', 'prison-seed.json')
-          $saved = Join-Path $env:RUNNER_TEMP 'market-snapshots'
-          New-Item -ItemType Directory -Path $saved -Force | Out-Null
-          foreach ($file in $snapshots) { Copy-Item -LiteralPath $file -Destination (Join-Path $saved $file) }
-          for ($attempt = 0; $attempt -lt 3; $attempt++) {
-            git fetch origin main
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            git reset --hard origin/main
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            foreach ($file in $snapshots) { Copy-Item -LiteralPath (Join-Path $saved $file) -Destination $file }
-            git add -- $snapshots
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            git diff --cached --quiet
-            if ($LASTEXITCODE -eq 0) { exit 0 }
-            if ($LASTEXITCODE -ne 1) { exit $LASTEXITCODE }
-            git commit -m 'Update official market snapshots'
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            git push origin HEAD:main
-            if ($LASTEXITCODE -eq 0) { exit 0 }
-          }
-          throw 'Could not publish market snapshots after three attempts.'
-          exit 0
+          python publish_snapshots.py seed.json.gz valuation-seed.json institutional-seed.json ownership-seed.json broker-seed.json taiwan-sentiment-seed.json cb-chip-seed.json regulatory-seed.json revenue-seed.json convertible-seed.json etf-seed.json prison-seed.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   disposal:
     if: github.event.schedule == '40 10 * * *'
