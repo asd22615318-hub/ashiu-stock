@@ -13,7 +13,7 @@ setImmediate(()=>{
  const actual=[...root.innerHTML.matchAll(/class="sector-theme revenue-theme"[^>]*><summary>(.*?) <small>/g)].map(m=>m[1]).sort();
  assert.equal(expected.length,41);assert.deepEqual(actual,Array.from(expected));
  for(const removed of ['生技','遊戲','觀光','紡織纖維','紙類','資訊服務','BBU'])assert.ok(!actual.includes(removed));
- assert.ok(!actual.includes('半導體'));assert.ok(actual.includes('PMIC'));assert.ok(actual.includes('MCU'));
+ assert.ok(!actual.includes('半導體'));assert.ok(actual.includes('PMIC（電源管理IC）'));assert.ok(actual.includes('MCU'));
  // Search remains market-wide, including companies outside the curated themes.
  const codes=new Set([...ctx.getHotSectorGroups().values()].flatMap(s=>[...s]));
  const outside=Object.entries(report.stocks).find(([code])=>!codes.has(code));assert.ok(outside);
