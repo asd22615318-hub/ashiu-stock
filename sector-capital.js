@@ -111,9 +111,19 @@
     rows.forEach(row => { row.score = row.changeRank * .5 + row.breadthRank * .3 + row.volumeRatioRank * .2; });
     rows.sort((a, b) => b.score - a.score || b.change - a.change);
     if(hot)latestHotRows=rows;
-    panel.innerHTML = `<details class="sector-capital-details" ${(hot ? hotRankingOpen : dailyRankingOpen) ? 'open' : ''}><summary class="sector-capital-head"><div><h2>${title}</h2><p>行情日期 ${esc(marketDate)} · ${rows.length} 個可比較族群</p></div><small>當日強弱</small></summary><p class="sector-capital-note">依族群成員等權平均漲幅 50%、上漲家數比例 30%、今日成交量／前 5 日均量 20% 的名次百分位排序。至少 3 檔有當日及前日價格、且可計算量能才列入；族群成員可能重疊。${hot ? '熱門細分排名至少 80% 有效成員須具完整量能。本表為當日相對熱度，不代表全部族群都在上漲；石英另列，PCB 製板與載板分開比較。金融、化學股與電子通路採官方產業分類，其餘為主題及相關供應鏈名單；玻璃基板含材料與設備，資安含服務與通路，FOPLP 與 CoWoS 分開觀察。' : ''}</p>${hot ? `<div class="sector-search-form sector-group-filter"><label for="sector-group-select">族群篩選</label><select id="sector-group-select"><option value="">全部族群</option>${[...hotGroups().keys()].map(name=>`<option value="${esc(name)}" ${selectedGroup===name?'selected':''}>${esc(name)}</option>`).join('')}</select></div>` : ''}<div class="sector-capital-list">${(hot ? rows.filter(row=>!selectedGroup||row.theme===selectedGroup) : rows.slice(0, 10)).map((row, index) => `<article class="sector-capital-row"><div class="sector-capital-title"><b>${rows.indexOf(row) + 1}</b><strong>${esc(row.theme)}</strong><small>強度 ${row.score.toFixed(0)} 分</small></div><div class="sector-capital-metrics sector-daily-metrics"><span><small>平均漲幅</small><strong class="${row.change >= 0 ? 'positive' : 'negative'}">${signed(row.change, 2)}%</strong></span><span><small>上漲比例</small><strong>${fmt(row.breadth, 0)}%</strong></span><span><small>量／前 5 日</small><strong>${fmt(row.volumeRatio, 2)} 倍</strong></span><span><small>有效個股</small><strong>${row.count}${hot ? ' / ' + row.total : ''} 檔</strong></span></div><p class="hot-leaders">領漲：${row.leaders.map(({stock, change}) => `${esc(stock.name || stock.code)} ${signed(change, 1)}%`).join(' · ')}</p>${hot ? hotMembersHtml(row) : ''}</article>`).join('') || (hot&&selectedGroup?'<p>此族群目前沒有足夠的當日行情可排名，請選擇其他族群。</p>':'<p>目前沒有足夠的當日行情可排名。</p>')}</div></details>`;
+    panel.innerHTML = `<details class="sector-capital-details" ${(hot ? hotRankingOpen : dailyRankingOpen) ? 'open' : ''}><summary class="sector-capital-head"><div><h2>${title}</h2><p>行情日期 ${esc(marketDate)} · ${rows.length} 個可比較族群</p></div><small class="sector-expand-hint">${(hot ? hotRankingOpen : dailyRankingOpen) ? '收合 −' : '展開 ＋'}</small></summary><p class="sector-capital-note">依族群成員等權平均漲幅 50%、上漲家數比例 30%、今日成交量／前 5 日均量 20% 的名次百分位排序。至少 3 檔有當日及前日價格、且可計算量能才列入；族群成員可能重疊。${hot ? '熱門細分排名至少 80% 有效成員須具完整量能。本表為當日相對熱度，不代表全部族群都在上漲；石英另列，PCB 製板與載板分開比較。金融、化學股與電子通路採官方產業分類，其餘為主題及相關供應鏈名單；玻璃基板含材料與設備，資安含服務與通路，FOPLP 與 CoWoS 分開觀察。' : ''}</p>${hot ? `<div class="sector-search-form sector-group-filter"><label for="sector-group-select">族群篩選</label><select id="sector-group-select"><option value="">全部族群</option>${[...hotGroups().keys()].map(name=>`<option value="${esc(name)}" ${selectedGroup===name?'selected':''}>${esc(name)}</option>`).join('')}</select></div>` : ''}<div class="sector-capital-list">${(hot ? rows.filter(row=>!selectedGroup||row.theme===selectedGroup) : rows.slice(0, 10)).map((row, index) => `<article class="sector-capital-row"><div class="sector-capital-title"><b>${rows.indexOf(row) + 1}</b><strong><button type="button" class="sector-group-toggle" data-toggle-group="${esc(row.theme)}" aria-expanded="${hotMemberOpen.has(row.theme)}">${esc(row.theme)} <span aria-hidden="true">${hotMemberOpen.has(row.theme)?'−':'＋'}</span></button></strong><small>強度 ${row.score.toFixed(0)} 分</small></div><div class="sector-capital-metrics sector-daily-metrics"><span><small>平均漲幅</small><strong class="${row.change >= 0 ? 'positive' : 'negative'}">${signed(row.change, 2)}%</strong></span><span><small>上漲比例</small><strong>${fmt(row.breadth, 0)}%</strong></span><span><small>量／前 5 日</small><strong>${fmt(row.volumeRatio, 2)} 倍</strong></span><span><small>有效個股</small><strong>${row.count}${hot ? ' / ' + row.total : ''} 檔</strong></span></div><p class="hot-leaders">領漲：${row.leaders.map(({stock, change}) => `${esc(stock.name || stock.code)} ${signed(change, 1)}%`).join(' · ')}</p>${hot ? hotMembersHtml(row) : ''}</article>`).join('') || (hot&&selectedGroup?'<p>此族群目前沒有足夠的當日行情可排名，請選擇其他族群。</p>':'<p>目前沒有足夠的當日行情可排名。</p>')}</div></details>`;
     panel.querySelector('#sector-group-select')?.addEventListener('change', event=>{selectedGroup=event.target.value;window.renderSectorFlow();});
-    panel.querySelector('.sector-capital-details').addEventListener('toggle', event => { if(hot)hotRankingOpen=event.target.open;else dailyRankingOpen = event.target.open; });
+    const details=panel.querySelector('.sector-capital-details');
+    panel.querySelector('.sector-capital-head')?.addEventListener('click', event=>{
+      event.preventDefault();details.open=!details.open;
+      if(hot)hotRankingOpen=details.open;else dailyRankingOpen=details.open;
+      const hint=panel.querySelector('.sector-expand-hint');if(hint)hint.textContent=details.open?'收合 −':'展開 ＋';
+    });
+    details.addEventListener('toggle', event => {
+      if(!event.target.isConnected)return;
+      if(hot)hotRankingOpen=event.target.open;else dailyRankingOpen=event.target.open;
+      const hint=panel.querySelector('.sector-expand-hint');if(hint)hint.textContent=event.target.open?'收合 −':'展開 ＋';
+    });
   }
 
   function hotMembersHtml(row) {
@@ -140,7 +150,18 @@
     if (!root || root.hidden) return;
     renderDailyStrength(root,true);
     renderStockSearch(root);
-    root.querySelectorAll('[data-hot-group]').forEach(el=>el.addEventListener('toggle',()=>{if(el.open)hotMemberOpen.add(el.dataset.hotGroup);else hotMemberOpen.delete(el.dataset.hotGroup);}));
+    root.querySelectorAll('[data-hot-group]').forEach(el=>el.addEventListener('toggle',()=>{
+      if(!el.isConnected)return;
+      if(el.open)hotMemberOpen.add(el.dataset.hotGroup);else hotMemberOpen.delete(el.dataset.hotGroup);
+      const button=[...root.querySelectorAll('[data-toggle-group]')].find(b=>b.dataset.toggleGroup===el.dataset.hotGroup);
+      if(button){button.setAttribute('aria-expanded',String(el.open));button.querySelector('span').textContent=el.open?'−':'＋';}
+    }));
+    root.querySelectorAll('[data-toggle-group]').forEach(button=>button.addEventListener('click',()=>{
+      const detail=[...root.querySelectorAll('[data-hot-group]')].find(el=>el.dataset.hotGroup===button.dataset.toggleGroup);
+      if(!detail)return;detail.open=!detail.open;
+      if(detail.open)hotMemberOpen.add(detail.dataset.hotGroup);else hotMemberOpen.delete(detail.dataset.hotGroup);
+      button.setAttribute('aria-expanded',String(detail.open));button.querySelector('span').textContent=detail.open?'−':'＋';
+    }));
     root.querySelectorAll('[data-hot-stock]').forEach(button=>button.addEventListener('click',()=>{const stock=analyses.find(s=>s.code===button.dataset.hotStock);if(stock)openStockDetail(stock,button);}));
   };
   renderSectors = function () {
