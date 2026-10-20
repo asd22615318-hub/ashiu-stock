@@ -6,6 +6,7 @@ import time
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+from decimal import Decimal, ROUND_FLOOR
 from pathlib import Path
 from broker_data import BASE, parse_report
 
@@ -45,15 +46,28 @@ def match_name(name):
     return value
 
 
+def limit_up(previous):
+    """Standard common-stock tick rounding; previous close is an estimate of reference."""
+    cap=Decimal(str(previous))*Decimal('1.10')
+    tick=next(Decimal(step) for bound,step in [(10,'.01'),(50,'.05'),(100,'.1'),(500,'.5'),(1000,'1'),(float('inf'),'5')] if cap<bound)
+    return (cap/tick).to_integral_value(rounding=ROUND_FLOOR)*tick
+
+
 def signals(report, stock, day):
     if report['start'] != day or report['end'] != day or report['unit'] != 'lots':
         raise ValueError('Not a single-session lot report')
-    bar = next(b for b in stock['bars'] if b['date'] == day)
+    index=next(i for i,b in enumerate(stock['bars']) if b['date']==day)
+    bar=stock['bars'][index]
+    if bar['close']<20 or index==0 or stock['bars'][index-1]['close']<=0:return None
+    previous=stock['bars'][index-1]['close']
+    estimated_limit=limit_up(previous)
+    if Decimal(str(bar['close']))!=estimated_limit:return None
     found = [b for b in report['buyers'] if match_name(b['name']) in WATCH and b['net_lots'] > 0]
     if not found:
         return None
     net = sum(b['net_lots'] for b in found)
     return dict(code=stock['code'],name=stock['name'],date=day,close=bar['close'],volume=bar['volume'],
+                change_pct=(bar['close']/previous-1)*100,estimated_limit=float(estimated_limit),
                 net_lots=net,ratio=net/bar['volume']*100,branches=found,source=report['source'])
 
 
@@ -94,13 +108,13 @@ def update(root, market_path=None):
     cache_path.write_text(json.dumps({'date':day,'reports':reports},ensure_ascii=False,separators=(',',':')),encoding='utf-8')
     rows=[row for s in universe if s['code'] in reports
           if (row:=signals(reports[s['code']],s,day))]
-    rows.sort(key=lambda r:(-r['ratio'],-r['net_lots'],r['code']))
+    rows.sort(key=lambda r:r['code'])
     seen={match_name(b['name']) for report in reports.values() for side in ('buyers','sellers') for b in report[side]}
     data=dict(version=1,date=day,updated_at=datetime.now(timezone.utc).isoformat(),watch=WATCH,
               core_watch=CORE_WATCH,custom_watch=CUSTOM_WATCH,public_watch=PUBLIC_WATCH,sources=SOURCES+PUBLIC_GROUPS,
               unseen_watch=[name for name in WATCH if name not in seen],
-              scope='Latest-session stocks with volume > 500 lots; each stock Top-15 net-buy branches only',
-              requested=len(universe),available=len(reports),errors=errors,matched=len(rows),rows=rows[:30],unit='lots')
+              scope='Close >= 20 + estimated limit-up close + volume > 500 lots + positive watch-branch net buy; Top-15 only',
+              filter_rule='estimated_limit_up',requested=len(universe),available=len(reports),errors=errors,matched=len(rows),rows=rows,unit='lots')
     if prior.get('date','')>day: raise ValueError('Refuse older daily snapshot')
     text=json.dumps(data,ensure_ascii=False,separators=(',',':'))
     target.write_text(text,encoding='utf-8')

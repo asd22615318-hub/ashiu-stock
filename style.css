@@ -238,3 +238,5 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 .overnight-panel .overnight-ratio{color:#ffad66;font-size:21px;font-weight:800}
 
 .overnight-standalone #overnight-entry{margin:0;padding:0 22px 22px;border:0;border-radius:0;background:transparent}.overnight-standalone h2{color:#fff}.overnight-standalone #overnight-entry p{line-height:1.8}.overnight-standalone .overnight-date{color:#ffad66;font-weight:700}.overnight-standalone .overnight-ratio{color:#ffad66;font-size:21px;font-weight:800}.overnight-standalone a{color:#b0dcd1}@media(max-width:680px){.overnight-standalone #overnight-entry{padding:0 14px 16px}}
+
+.overnight-standalone #overnight-screen-mode{max-width:100%;min-width:0;background:#123c35;color:#fff;border:1px solid #69b9a8;border-radius:9px;padding:10px;font-size:16px}
