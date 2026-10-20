@@ -9,7 +9,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from broker_data import BASE, parse_report
 
-WATCH = ['凱基-台北', '凱基-松山', '元大-土城永寧', '富邦-虎尾', '凱基-虎尾']
+CORE_WATCH = ['凱基-台北', '凱基-松山', '元大-土城永寧', '富邦-虎尾', '凱基-虎尾']
+CUSTOM_WATCH = ['凱基-城中', '元大-台南', '元大-向上', '元大-文心', '玉山-嘉義',
+                '統一-嘉義', '永豐金-市政', '富邦-建國', '元富-松德', '美林', '摩根大通', '美商高盛']
+WATCH = CORE_WATCH + CUSTOM_WATCH
 SOURCES = [
     {'title':'CMoney：常見隔日沖分點', 'url':'https://www.cmoney.tw/learn/course/chipsanalysisfast/topic/1619'},
     {'title':'雷風學院：分點分類教材（操作風格可能改變）', 'url':'https://school.thunderwind.com.tw/file/novice.pdf'}
@@ -18,7 +21,8 @@ SOURCES = [
 
 def match_name(name):
     # Normalize punctuation only; do not merge a broker's different branches.
-    return name.replace('－','-').replace('–','-').replace(' ','').strip()
+    value=name.replace('－','-').replace('–','-').replace(' ','').strip()
+    return value
 
 
 def signals(report, stock, day):
@@ -42,7 +46,9 @@ def update(root, market_path=None):
                 and s['bars'][-1].get('volume',0)>500]
     target = root/'overnight-seed.json'
     prior = json.loads(target.read_text(encoding='utf-8')) if target.exists() else {}
-    reports = prior.get('reports',{}) if prior.get('date')==day else {}
+    cache_path=root/'overnight-cache.json'
+    cached=json.loads(cache_path.read_text(encoding='utf-8')) if cache_path.exists() else {}
+    reports = cached.get('reports',{}) if cached.get('date')==day else {}
     reports = {s['code']:reports[s['code']] for s in universe if s['code'] in reports}
     errors = {}
     def fetch(stock):
@@ -65,10 +71,11 @@ def update(root, market_path=None):
             if i%50==0: print('Daily branch reports',i,'/',len(pending),'valid',len(reports),flush=True)
     if not reports:
         raise ValueError('No valid single-session reports; preserve previous snapshot')
+    cache_path.write_text(json.dumps({'date':day,'reports':reports},ensure_ascii=False,separators=(',',':')),encoding='utf-8')
     rows=[row for s in universe if s['code'] in reports
           if (row:=signals(reports[s['code']],s,day))]
     rows.sort(key=lambda r:(-r['ratio'],-r['net_lots'],r['code']))
-    data=dict(version=1,date=day,updated_at=datetime.now(timezone.utc).isoformat(),watch=WATCH,sources=SOURCES,
+    data=dict(version=1,date=day,updated_at=datetime.now(timezone.utc).isoformat(),watch=WATCH,core_watch=CORE_WATCH,custom_watch=CUSTOM_WATCH,sources=SOURCES,
               scope='Latest-session stocks with volume > 500 lots; each stock Top-15 net-buy branches only',
               requested=len(universe),available=len(reports),errors=errors,matched=len(rows),rows=rows[:30],unit='lots')
     if prior.get('date','')>day: raise ValueError('Refuse older daily snapshot')
