@@ -5,11 +5,8 @@
   const e=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const n=v=>Number.isFinite(v)?v.toLocaleString('zh-TW',{maximumFractionDigits:2}):'—';
   function render(){
-    if(ownershipMode!=='chipburst')return;
-    const parent=document.getElementById('chipburst-info');if(!parent)return;
-    let root=parent.querySelector('#overnight-entry');
-    if(!root){root=document.createElement('section');root.id='overnight-entry';root.className='overnight-panel';parent.appendChild(root);}
-    root.innerHTML='<h3>隔日沖分點進場｜觀察</h3>';
+    const root=document.getElementById('overnight-entry');if(!root)return;
+    root.innerHTML='';
     if(!snapshot){root.innerHTML+=`<p role="status">${e(error||'正在載入單日分點資料…')}</p>`;return;}
     const latest=records.map(s=>s.bars.at(-1)?.date||'').sort().at(-1),today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei'}).format(new Date());
     const usable=snapshot.date===latest;
@@ -19,8 +16,14 @@
   }
   const original=renderOwnership;
   renderOwnership=function(...args){original.apply(this,args);render();};
-  const parent=document.getElementById('chipburst-info');
-  if(parent)new MutationObserver(()=>{if(ownershipMode==='chipburst'&&!parent.querySelector('#overnight-entry'))render();}).observe(parent,{childList:true});
+  const toggle=document.getElementById('overnight-toggle');
+  toggle?.addEventListener('click',()=>{
+    const content=document.getElementById('overnight-entry');
+    content.hidden=!content.hidden;
+    toggle.setAttribute('aria-expanded',String(!content.hidden));
+    toggle.textContent=content.hidden?'展開分點名單 ▾':'收合分點名單 ▴';
+    if(!content.hidden)render();
+  });
   window.addEventListener('cb-chip-data-ready',render);
   fetch('overnight-data.json',{cache:'no-cache'}).then(async r=>{if(!r.ok)throw Error('單日分點資料尚未發布。');const data=await r.json();if(data.version!==1||data.unit!=='lots'||!Array.isArray(data.rows))throw Error('單日分點資料格式不符。');snapshot=data;render();}).catch(err=>{error=err.message;render();});
 })();
