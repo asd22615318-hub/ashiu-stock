@@ -17,6 +17,14 @@
     root.querySelector('#overnight-screen-mode').addEventListener('change',event=>{screenMode=event.target.value;render();});
     root.querySelectorAll('[data-overnight-code]').forEach(b=>b.addEventListener('click',()=>{const stock=analyses.find(s=>s.code===b.dataset.overnightCode);if(stock)openStockDetail(stock,b);}));
   }
+  const badgeDateFormatter=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei'});
+  window.overnightStockBadge=stock=>{
+    const flow=snapshot?.flows?.[stock.code];
+    if(!flow)return '';
+    const today=badgeDateFormatter.format(new Date());
+    if(mode!=='live'||snapshot?.date!==today||stock.t?.date!==snapshot.date||!flow||!Number.isFinite(flow.ratio)||flow.net_lots<=0)return '';
+    return '<span class="observation-overnight" title="觀察分點當日正向淨買超合計 '+e(n(flow.net_lots))+' 張 ÷ 當日成交量；僅涵蓋前 15 大買超分點，非已確認隔日沖交易比例">'+e(snapshot.date.slice(5).replace('-','/'))+' 隔日沖觀察分點 '+e(n(flow.ratio))+'%</span>';
+  };
   const original=renderOwnership;
   renderOwnership=function(...args){original.apply(this,args);render();};
   const toggle=document.getElementById('overnight-toggle');
@@ -28,5 +36,5 @@
     if(!content.hidden)render();
   });
   window.addEventListener('cb-chip-data-ready',render);
-  fetch('overnight-data.json',{cache:'no-cache'}).then(async r=>{if(!r.ok)throw Error('單日分點資料尚未發布。');const data=await r.json();if(data.version!==1||data.unit!=='lots'||!Array.isArray(data.rows))throw Error('單日分點資料格式不符。');snapshot=data;render();}).catch(err=>{error=err.message;render();});
+  fetch('overnight-data.json',{cache:'no-cache'}).then(async r=>{if(!r.ok)throw Error('單日分點資料尚未發布。');const data=await r.json();if(data.version!==1||data.unit!=='lots'||!Array.isArray(data.rows))throw Error('單日分點資料格式不符。');snapshot=data;render();window.dispatchEvent(new Event('overnight-data-ready'));}).catch(err=>{error=err.message;render();});
 })();

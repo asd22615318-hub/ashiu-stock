@@ -114,12 +114,20 @@ def update(root, market_path=None):
     rows=[row for s in universe if s['code'] in reports
           if (row:=signals(reports[s['code']],s,day))]
     rows.sort(key=lambda r:r['code'])
+    flows={}
+    for stock in universe:
+        report=reports.get(stock['code'])
+        if not report:continue
+        positive=[b for b in report['buyers'] if match_name(b['name']) in WATCH and b['net_lots']>0]
+        net=sum(b['net_lots'] for b in positive)
+        if net>0:
+            flows[stock['code']]={'net_lots':net,'ratio':net/stock['bars'][-1]['volume']*100}
     seen={match_name(b['name']) for report in reports.values() for side in ('buyers','sellers') for b in report[side]}
     data=dict(version=1,date=day,updated_at=datetime.now(timezone.utc).isoformat(),watch=WATCH,
               core_watch=CORE_WATCH,custom_watch=CUSTOM_WATCH,public_watch=PUBLIC_WATCH,image_watch=IMAGE_WATCH,sources=SOURCES+PUBLIC_GROUPS,
               unseen_watch=[name for name in WATCH if name not in seen],
               scope='Close >= 20 + estimated limit-up close + volume > 500 lots + positive watch-branch net buy; Top-15 only',
-              filter_rule='estimated_limit_up',requested=len(universe),available=len(reports),errors=errors,matched=len(rows),rows=rows,unit='lots')
+              filter_rule='estimated_limit_up',requested=len(universe),available=len(reports),errors=errors,matched=len(rows),rows=rows,flows=flows,unit='lots')
     if prior.get('date','')>day: raise ValueError('Refuse older daily snapshot')
     text=json.dumps(data,ensure_ascii=False,separators=(',',':'))
     target.write_text(text,encoding='utf-8')
