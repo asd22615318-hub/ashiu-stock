@@ -1,0 +1,31 @@
+name: Update single-session watch branches
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - overnight_data.py
+      - broker_data.py
+      - .github/workflows/overnight.yml
+  schedule:
+    # Taiwan 18:20 / 19:20, after the first closing quote snapshot.
+    - cron: '20 10,11 * * 1-5'
+env:
+  PYTHONUTF8: '1'
+permissions:
+  contents: write
+concurrency:
+  group: overnight-branch-update
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Collect single-session Top-15 reports
+        run: python overnight_data.py
+      - name: Publish dated branch snapshot
+        run: python publish_snapshots.py overnight-seed.json

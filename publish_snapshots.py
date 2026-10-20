@@ -18,6 +18,8 @@ def market_dates(content):
 
 
 def can_replace(name,current,candidate):
+    if name=='overnight-seed.json':
+        return json.loads(candidate).get('date','')>=json.loads(current).get('date','')
     if name=='seed.json.gz':
         old,new=market_dates(current),market_dates(candidate)
         return all(new.get(market,'')>=day for market,day in old.items())
