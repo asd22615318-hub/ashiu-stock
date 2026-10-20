@@ -33,7 +33,12 @@ PUBLIC_GROUPS = [
      'branches':['凱基-城中','富邦-南屯','群益金鼎-館前']}
 ]
 PUBLIC_WATCH = list(dict.fromkeys(b for source in PUBLIC_GROUPS for b in source['branches']))
-WATCH = list(dict.fromkeys(CORE_WATCH + CUSTOM_WATCH + PUBLIC_WATCH))
+IMAGE_WATCH = ['凱基-城中','凱基-敦北','凱基-站前','凱基','凱基-台北',
+               '統一-城中','統一','統一-南京','元大-林森','元大-竹科','元大-台中','元大-土城永寧',
+               '華南永昌','華南永昌-小港','元富-松德','富邦證券','富邦-嘉義','富邦-彰化','富邦-板橋',
+               '台新-建北','台新','國票-敦北法人','國票-安和','康和','群益金鼎','港商野村',
+               '新加坡商瑞銀','美商高盛','美林']
+WATCH = list(dict.fromkeys(CORE_WATCH + CUSTOM_WATCH + PUBLIC_WATCH + IMAGE_WATCH))
 SOURCES = [
     {'title':'CMoney：常見隔日沖分點', 'url':'https://www.cmoney.tw/learn/course/chipsanalysisfast/topic/1619'},
     {'title':'雷風學院：分點分類教材（操作風格可能改變）', 'url':'https://school.thunderwind.com.tw/file/novice.pdf'}
@@ -111,7 +116,7 @@ def update(root, market_path=None):
     rows.sort(key=lambda r:r['code'])
     seen={match_name(b['name']) for report in reports.values() for side in ('buyers','sellers') for b in report[side]}
     data=dict(version=1,date=day,updated_at=datetime.now(timezone.utc).isoformat(),watch=WATCH,
-              core_watch=CORE_WATCH,custom_watch=CUSTOM_WATCH,public_watch=PUBLIC_WATCH,sources=SOURCES+PUBLIC_GROUPS,
+              core_watch=CORE_WATCH,custom_watch=CUSTOM_WATCH,public_watch=PUBLIC_WATCH,image_watch=IMAGE_WATCH,sources=SOURCES+PUBLIC_GROUPS,
               unseen_watch=[name for name in WATCH if name not in seen],
               scope='Close >= 20 + estimated limit-up close + volume > 500 lots + positive watch-branch net buy; Top-15 only',
               filter_rule='estimated_limit_up',requested=len(universe),available=len(reports),errors=errors,matched=len(rows),rows=rows,unit='lots')
