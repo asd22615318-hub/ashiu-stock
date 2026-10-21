@@ -1,0 +1,14 @@
+(() => {
+  'use strict';
+  const root=document.getElementById('warrant-content');if(!root)return;
+  const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const num=v=>v==null?'—':Number(v).toLocaleString('zh-TW',{maximumFractionDigits:2});
+  const toggle=document.getElementById('warrant-toggle');
+  toggle.addEventListener('click',()=>{root.hidden=!root.hidden;toggle.setAttribute('aria-expanded',String(!root.hidden));toggle.textContent=root.hidden?'展開權證資訊 ▾':'收合權證資訊 ▴';});
+  fetch('warrant-data.json',{cache:'no-cache'}).then(async response=>{if(!response.ok)throw Error('權證資料暫時無法載入');return response.json();}).then(data=>{
+    if(data.version!==1||data.groups?.length!==4)throw Error('權證資料格式不符');
+    root.innerHTML=`<p>資料日：${escape(data.date)} · <a href="https://histock.tw/stock/warrantstats.aspx" target="_blank" rel="noopener noreferrer">HiStock 投資人權證買賣超排名 ↗</a></p><p>依標的歸類，各類最多 20 名；不是全市場完整交易明細。認購買超可觀察偏多需求，認售買超可觀察避險或偏空需求；賣超可能包含平倉，不直接視為反向訊號。</p><details><summary>MARS 關鍵大戶／分點資料狀態</summary><p>尚未接入可核對的 MARS 訂閱資料或匯出檔。下方為 HiStock 投資人彙總，無法辨識大戶身分、關鍵分點或開倉／平倉，暫不提供大戶排名。</p></details><label class="field">權證分類<select id="warrant-category">${data.groups.map(g=>`<option value="${escape(g.key)}">${escape(g.label)}</option>`).join('')}</select></label><div id="warrant-ranking"></div>`;
+    const draw=()=>{const group=data.groups.find(g=>g.key===root.querySelector('select').value);root.querySelector('#warrant-ranking').innerHTML=`<h3>${escape(group.label)}</h3><div class="chipburst-table-wrap"><table class="chipburst-table"><thead><tr><th>排名</th><th>標的股票</th><th>權證買賣超金額（元）</th><th>權證買賣超（張）</th><th>約當買賣避險現股</th><th>流通張數</th><th>當日買成交比</th><th>自營比重</th></tr></thead><tbody>${group.rows.map(r=>`<tr><td>${r.rank}</td><td><button type="button" data-warrant-code="${escape(r.code)}">${escape(r.name)} ${escape(r.code)}</button></td><td style="color:${r.amount>=0?'#ff647b':'#4dd5bd'}">${num(r.amount)}</td><td>${num(r.lots)}</td><td>${num(r.hedge)}</td><td>${num(r.outstanding)}</td><td>${num(r.buy_ratio)}%</td><td>${num(r.dealer_ratio)}%</td></tr>`).join('')}</tbody></table></div>`;root.querySelectorAll('[data-warrant-code]').forEach(button=>button.addEventListener('click',()=>{const stock=typeof analyses!=='undefined'&&analyses.find(s=>s.code===button.dataset.warrantCode);if(stock)openStockDetail(stock,button);else{window.open('https://histock.tw/stock/warrant.aspx?no='+encodeURIComponent(button.dataset.warrantCode),'_blank','noopener');}}));};
+    root.querySelector('select').addEventListener('change',draw);draw();
+  }).catch(error=>{root.textContent=error.message+'，請稍後重新整理。';});
+})();

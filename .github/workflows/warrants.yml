@@ -1,0 +1,25 @@
+name: Update public warrant rankings
+on:
+  workflow_dispatch:
+  push:
+    paths: [warrant_data.py, .github/workflows/warrants.yml]
+  schedule:
+    - cron: '30 10,12 * * 1-5'
+permissions:
+  contents: write
+concurrency:
+  group: warrant-update
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python warrant_data.py
+      - run: python publish_snapshots.py warrant-seed.json
