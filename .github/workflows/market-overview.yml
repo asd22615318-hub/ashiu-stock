@@ -1,0 +1,25 @@
+name: Update Taiwan market overview
+on:
+  workflow_dispatch:
+  push:
+    paths: [market_overview_data.py, .github/workflows/market-overview.yml]
+  schedule:
+    - cron: '15 9,10 * * 1-5'
+permissions:
+  contents: write
+concurrency:
+  group: market-overview
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python market_overview_data.py
+      - run: python publish_snapshots.py market-overview-seed.json
