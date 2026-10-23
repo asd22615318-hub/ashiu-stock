@@ -60,6 +60,13 @@ def update():
         for result in pool.map(otcmonth,range(2 if otc else 24)):
             for b in result:otc[b['date']]=b
     items.append(dict(code='TWO',name='櫃買指數',bars=sorted(otc.values(),key=lambda b:b['date']),source='櫃買中心日成交量值、指數',url='https://www.tpex.org.tw/zh-tw/mainboard/trading/info/daily-indices.html'))
+    try:
+        payload=dict(MarketType='1',SymbolType='F',KindID='1',CID='TXF',ExpireMonth='',RowSize='全部',PageNo='',SortColumn='',AscDesc='A')
+        request=urllib.request.Request('https://mis.taifex.com.tw/futures/api/getQuoteList',data=json.dumps(payload).encode(),headers={'Content-Type':'application/json','User-Agent':'Mozilla/5.0'})
+        quotes=json.load(urllib.request.urlopen(request,timeout=30))['RtData']['QuoteList']
+        quote=next(q for q in quotes if q.get('CLastPrice') and q.get('SymbolID','').startswith('TXF') and q.get('SymbolID')!='TXF-P')
+        items[0]['latest_quote']=dict(price=float(quote['CLastPrice']),change=float(quote['CDiff']),change_pct=float(quote['CDiffRate']),source_date=quote['CDate'],source_time=quote['CTime'],symbol=quote['SymbolID'],name=quote['DispCName'],status=quote.get('Status'),retrieved_at=dt.datetime.now(dt.timezone.utc).isoformat(),source='期交所行情資訊網站（夜盤）')
+    except Exception as e:items[0]['quote_error']=str(e)
     target.write_text(json.dumps(dict(version=1,updated_at=dt.datetime.now(dt.timezone.utc).isoformat(),items=items),ensure_ascii=False,separators=(',',':')),encoding='utf-8')
     print([(x['name'],len(x['bars']),x['bars'][-1]['date'] if x['bars'] else x.get('error')) for x in items])
 if __name__=='__main__':update()
