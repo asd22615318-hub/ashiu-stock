@@ -1,4 +1,4 @@
-"""Daily cash indices and unadjusted TX nearest-month day-session history."""
+"""Daily cash indices and unadjusted TX nearest-month full-session history (night belongs to the following trading date)."""
 import csv,io,json,urllib.request,urllib.parse,datetime as dt,concurrent.futures,calendar
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
@@ -8,13 +8,20 @@ def get(url,body=None):
 def month(year,mon,today):
     end=min(dt.date(year,mon,calendar.monthrange(year,mon)[1]),today)
     data=get('https://www.taifex.com.tw/cht/3/futDataDown',dict(down_type='1',commodity_id='TX',commodity_id2='',queryStartDate=f'{year}/{mon:02}/01',queryEndDate=end.strftime('%Y/%m/%d'))).decode('cp950')
-    result={}
+    contracts={}
     for r in csv.reader(io.StringIO(data)):
-        if len(r)<18 or r[1].strip()!='TX' or r[17].strip()!='一般' or not r[2].strip().isdigit() or len(r[2].strip())!=6:continue
-        try:close=float(r[6]);contract=r[2].strip();date=r[0].replace('/','-')
+        if len(r)<18 or r[1].strip()!='TX' or r[17].strip() not in ('一般','盤後') or not r[2].strip().isdigit() or len(r[2].strip())!=6:continue
+        try:
+            close=float(r[6]);contract=r[2].strip();date=r[0].replace('/','-')
+            bar=dict(open=float(r[3]),high=float(r[4]),low=float(r[5]),close=close,volume=float(r[9]))
         except ValueError:continue
-        if close>0 and (date not in result or contract<result[date]['contract']):result[date]={'date':date,'close':close,'contract':contract}
-    return list(result.values())
+        if close<=0:continue
+        contracts.setdefault(date,{}).setdefault(contract,{})[r[17].strip()]=bar
+    result=[]
+    for date,choices in contracts.items():
+        contract=min(choices);sessions=choices[contract];day=sessions.get('一般');night=sessions.get('盤後');last=day or night
+        result.append(dict(date=date,contract=contract,open=(night or day)['open'],high=max(x['high'] for x in sessions.values()),low=min(x['low'] for x in sessions.values()),close=last['close'],volume=sum(x['volume'] for x in sessions.values()),session='日夜盤完成' if day and night else '日盤完成（無夜盤資料）' if day else '夜盤完成／日盤待更新',night_close=night['close'] if night else None))
+    return result
 def cash(symbol):
     data=json.loads(get('https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(symbol,safe='')+'?range=2y&interval=1d'))['chart']['result'][0]
     close=data['indicators']['quote'][0]['close'];zone=dt.timezone(dt.timedelta(hours=8))
@@ -28,7 +35,7 @@ def update():
         except Exception as e:
             if code in saved:items.append(saved[code])
             else:items.append(dict(code=code,name=name,bars=[],error=str(e)))
-    bars={b['date']:b for b in saved.get('TX',{}).get('bars',[])};months=[]
+    bars={b['date']:b for b in saved.get('TX',{}).get('bars',[]) if 'session' in b};months=[]
     for offset in range(23,-1,-1):
         total=today.year*12+today.month-1-offset;y,m=divmod(total,12)
         if bars and offset>1:continue
@@ -40,7 +47,7 @@ def update():
             try:
                 for bar in job.result():bars[bar['date']]=bar
             except Exception as e:errors.append(str(e))
-    items.insert(0,dict(code='TX',name='台指近月',bars=sorted(bars.values(),key=lambda b:b['date']),source='期交所一般交易時段收盤；每日最近月串接，未還原換月價差',url='https://www.taifex.com.tw/cht/3/futDailyMarketReport',errors=errors))
+    items.insert(0,dict(code='TX',name='台指近全',bars=sorted(bars.values(),key=lambda b:b['date']),source='期交所日盤＋夜盤；依官方交易日合併，夜盤歸次一交易日，日盤完成後以日盤收盤計分；最近月未還原串接',url='https://www.taifex.com.tw/cht/3/futDailyMarketReport',errors=errors))
     otc={b['date']:b for b in saved.get('TWO',{}).get('bars',[])}
     def otcmonth(offset):
         total=today.year*12+today.month-1-offset;y,m=divmod(total,12)
