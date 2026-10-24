@@ -21,7 +21,7 @@
     if (!dates.length) return {error:'此集保區間的日線資料尚未補齊。',rows:[],prior,current,dates};
     const published=new Set(institutionalData?.report_dates || []);
     if (dates.some(d=>!published.has(d))) return {error:'此區間法人日報尚未齊全，請選其他週別或待資料更新。',rows:[],prior,current,dates};
-    const universe=stocks.filter(s=>s.bars?.length && Number.isFinite(s.bars.at(-1).volume) && s.bars.at(-1).volume>500);
+    const universe=stocks.filter(s=>!['4155','6173'].includes(s.code)&&s.bars?.length && Number.isFinite(s.bars.at(-1).volume) && s.bars.at(-1).volume>500);
     const complete=[];
     for (const stock of universe) {
       const now=current.stocks?.[stock.code]?.['400'], old=prior.stocks?.[stock.code]?.['400'];
