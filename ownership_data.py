@@ -63,6 +63,10 @@ def update(root,public,site='',offline=False):
         try:data['weeks']=backfill_archive_weeks(data['weeks'])
         except Exception as exc:print('Ownership archive backfill unavailable:',exc)
     data['weeks']=sorted({w['date']:w for w in data['weeks']}.values(),key=lambda w:w['date'])[-54:]
+    for week in data['weeks']:
+        if week['date']=='2026-10-16':
+            week.setdefault('invalid_stocks',{}).update({code:'原始資料僅 1 戶持有 100%，暫停比較' for code in ('4155','6173')})
+            for code in ('4155','6173'):week['stocks'].pop(code,None)
     (public/'ownership-data.json').write_text(json.dumps(data,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
     print('Ownership weeks:',[w['date'] for w in data['weeks']])
 
