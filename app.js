@@ -24,7 +24,7 @@ function featuredConditions(s,date){
  const pullback=[m5,m10].some(line=>t.low<=line*1.01&&t.high>=line*.99&&t.close>=line*.99&&t.close<=line*1.03);
  const normalVolume=Number.isFinite(v20)&&t.volume>=v20,shrink=Number.isFinite(v5)&&t.volume<=v5*.8;
  const priorHigh=max(bars.slice(i-10,i),'high');
- if((normalVolume||pullback&&shrink)&&net!==null&&net>0&&strength?.rs5>0&&t.close>=priorHigh&&group&&t.close>m20&&t.close>m60&&m20>previous)return {group,net,route:normalVolume?'量達20日均量':'回踩MA5／MA10縮量',v20,v5,priorHigh,rs5:strength.rs5};return null;
+ if((normalVolume||pullback&&shrink)&&net!==null&&net>0&&strength?.rs5>0&&t.close>=priorHigh&&group&&t.close>m10&&t.close>m20&&t.close>m60&&m20>previous)return {group,net,route:normalVolume?'量達20日均量':'回踩MA5／MA10縮量',v20,v5,priorHigh,rs5:strength.rs5};return null;
 }
 function matchesFeaturedStock(s,date){return !!featuredConditions(s,date);}
 function featuredEvidenceHtml(s){if(!$('featured-stocks').checked)return '';const item=featuredConditions(s,s.t.date);return item?'<small class="featured-evidence" style="color:#ffcf70">'+esc(item.group.name)+' 近5日族群排名 '+item.group.rank+'/'+item.group.groupCount+'（前20%）<br>法人近5日 +'+fmt(item.net)+' 張 · '+esc(item.route)+'</small>':'';}
