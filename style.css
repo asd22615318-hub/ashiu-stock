@@ -247,3 +247,11 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 
 /* Keep the pattern selector on the same surface as adjacent workbench topics. */
 .selection-panel,.selection-panel .filters,.selection-panel .results{background:#201824}
+
+/* Featured stock filter: prominent title, border and checked state. */
+.featured-stock-filter{margin:18px 0;padding:14px 16px;border:2px solid #efa74e;border-radius:12px;background:linear-gradient(135deg,#3a2b1d,#241e29);box-shadow:0 0 0 3px #efa74e14}
+.featured-stock-filter>summary{color:#ffe39b;font-size:20px;font-weight:800;cursor:pointer;padding:3px 0;letter-spacing:1px}
+.featured-stock-filter .weekly-ma-filter{font-size:16px;font-weight:700;color:#fff1cb;padding:12px 0;margin:0;display:flex;align-items:center;gap:10px}
+.featured-stock-filter input[type=checkbox]{width:21px;height:21px;flex-shrink:0;accent-color:#ffb34d}
+.featured-stock-filter:has(input:checked){border-color:#ffcf70;background:linear-gradient(135deg,#49351c,#30232b);box-shadow:0 0 0 3px #ffcf7024}
+.featured-stock-filter .weekly-ma-note{color:#e3d8c7;line-height:1.8}
