@@ -25,8 +25,9 @@ function featuredConditions(s,date){
  const m5=ma(bars,i,5),m10=ma(bars,i,10),m20=ma(bars,i,20),m60=ma(bars,i,60),previous=ma(bars,i-1,20),v5=avg(bars.slice(i-5,i).map(b=>b.volume)),strength=window.marketStrength.get(s,date),group=featuredContext.get(s.code),net=featuredFiveDayNet(s);
  const pullback=[m5,m10].some(line=>t.low<=line*1.01&&t.high>=line*.99&&t.close>=line*.99&&t.close<=line*1.03);
  const normalVolume=Number.isFinite(v5)&&t.volume>v5,shrink=Number.isFinite(v5)&&t.volume<=v5*.8;
+ const yesterday=bars[i-1],priorPullback=[ma(bars,i-1,5),ma(bars,i-1,10)].some(line=>yesterday.low<=line*1.01&&yesterday.high>=line*.99&&yesterday.close>=line*.99&&yesterday.close<=line*1.03),rebound=priorPullback&&t.close>yesterday.close&&Number.isFinite(v5)&&t.volume<v5;
  const recentSurge=bars.slice(i-9,i+1).some((bar,offset)=>{const prev=bars[i-10+offset];return Number.isFinite(prev?.close)&&prev.close>0&&(bar.close/prev.close-1)*100>5+1e-9;});
- if((normalVolume||pullback&&shrink)&&strength?.rs5>0&&recentSurge&&group&&t.close>m20&&t.close>m60&&m20>previous)return {group,net,route:normalVolume?'量大於5日均量':'回踩MA5／MA10縮量',v5,recentSurge,rs5:strength.rs5};return null;
+ if((normalVolume||pullback&&shrink||rebound)&&strength?.rs5>0&&recentSurge&&group&&t.close>m20&&t.close>m60&&m20>previous)return {group,net,route:normalVolume?'量大於5日均量':pullback&&shrink?'回踩MA5／MA10縮量':'昨日回踩MA5／MA10、今日縮量反彈',v5,recentSurge,rs5:strength.rs5};return null;
 }
 function matchesFeaturedStock(s,date){return !!featuredConditions(s,date);}
 function featuredEvidenceHtml(s){if(!$('featured-stocks').checked)return '';const item=featuredConditions(s,s.t.date);if(!item)return '';const bonus=item.net===null?'法人近5日資料待補（不影響入選）':item.net>0?'法人買超加分：近5日 +'+fmt(item.net)+' 張':'法人近5日 '+fmt(item.net)+' 張（未加分）';return '<small class="featured-evidence" style="color:#ffcf70">'+(item.group.unclassified?'未分類族群（依其他條件納入）':esc(item.group.name)+' 近5日族群排名 '+item.group.rank+'/'+item.group.groupCount+'（前20%）')+'<br>'+esc(bonus)+' · '+esc(item.route)+'</small>';}
