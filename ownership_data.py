@@ -6,7 +6,10 @@ URL='https://openapi.tdcc.com.tw/v1/opendata/1-5'
 ARCHIVE='https://api.github.com/repos/wirelessr/tdcc-opendata-archive/contents/snapshots/'
 def aggregate(rows,source):
     weeks={}
+    rows=list(rows)
+    singleton={(date,code.strip()) for date,code,level,count,shares,percent in rows if int(level)==17 and int(count)==1 and float(percent)>=99.99}
     for date,code,level,count,shares,percent in rows:
+        if (date,code.strip()) in singleton:continue
         if int(level) not in (*range(1,10),12,13,14,15):continue
         code=code.strip()
         date=f'{date[:4]}-{date[4:6]}-{date[6:8]}'
