@@ -8,8 +8,8 @@
   const dates=new Map(bars.map(b=>[b.date,b]));
   const entry=dates.get(entryDate),exit=dates.get(exitDate);
   if(!entry||!exit||calendar.slice(pos+1,pos+days+1).some(d=>!dates.has(d)))return {status:'missing'};
-  if(!Number.isFinite(entry.close)||entry.open<=0||!Number.isFinite(exit.close)||exit.close<=0)return {status:'missing'};
-  return {status:'complete',value:netReturn(entry.open,exit.close),entryDate,exitDate};
+  if(!Number.isFinite(entry.close)||entry.close<=0||!Number.isFinite(exit.close)||exit.close<=0)return {status:'missing'};
+  return {status:'complete',value:netReturn(entry.close,exit.close),entryDate,exitDate};
  }
  if(typeof module==='object'&&module.exports){module.exports={netReturn,evaluate};return;}
  const root=document.getElementById('pattern-backtest-content'),toggle=document.getElementById('pattern-backtest-toggle');if(!root||!toggle)return;
