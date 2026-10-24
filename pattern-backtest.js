@@ -17,7 +17,7 @@
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const fmt=v=>Number.isFinite(v)?v.toFixed(2):'—';
  toggle.addEventListener('click',()=>{root.hidden=!root.hidden;toggle.setAttribute('aria-expanded',String(!root.hidden));toggle.textContent=root.hidden?'展開型態回測 ▾':'收合型態回測 ▴';});
- function setup(){root.innerHTML='<p>近兩個月訊號 · 訊號當日收盤價模擬尾盤進場 · 持有 5／10／20 個交易日。</p><button id="pattern-backtest-run" class="ghost" type="button">開始回測</button><p id="pattern-backtest-progress" role="status"></p><div id="pattern-backtest-results"></div>';root.querySelector('button').onclick=run;}
+ function setup(){root.innerHTML='<p>近三個月訊號 · 訊號當日收盤價模擬尾盤進場 · 持有 5／10／20 個交易日。</p><button id="pattern-backtest-run" class="ghost" type="button">開始回測</button><p id="pattern-backtest-progress" role="status"></p><div id="pattern-backtest-results"></div>';root.querySelector('button').onclick=run;}
  async function run(){
   if(running)return;if(typeof records==='undefined'||mode!=='live'||!records.length){root.querySelector('#pattern-backtest-progress').textContent='請先載入正式盤後個股資料。';return;}
   running=true;const own=++token,button=root.querySelector('button'),progress=root.querySelector('#pattern-backtest-progress');button.disabled=true;
@@ -25,7 +25,7 @@
    const response=await fetch('taiwan-sentiment-data.json',{cache:'no-cache'});if(!response.ok)throw Error('交易日資料無法讀取');const data=await response.json();
    const sourceRecords=records,asOf=records.map(s=>s.bars.at(-1)?.date||'').sort().at(-1),calendar=[...new Set(data.rows.filter(x=>x.d<=asOf&&Number.isFinite(x.i)).map(x=>x.d))].sort();
    if(calendar.at(-1)!==asOf)throw Error('大盤交易日尚未更新至個股最新日期，請待資料同步後再試。');
-   const end=new Date(asOf+'T00:00:00Z'),day=end.getUTCDate();end.setUTCDate(1);end.setUTCMonth(end.getUTCMonth()-2);const maxDay=new Date(Date.UTC(end.getUTCFullYear(),end.getUTCMonth()+1,0)).getUTCDate();end.setUTCDate(Math.min(day,maxDay));const start=end.toISOString().slice(0,10);
+   const end=new Date(asOf+'T00:00:00Z'),day=end.getUTCDate();end.setUTCDate(1);end.setUTCMonth(end.getUTCMonth()-3);const maxDay=new Date(Date.UTC(end.getUTCFullYear(),end.getUTCMonth()+1,0)).getUTCDate();end.setUTCDate(Math.min(day,maxDay));const start=end.toISOString().slice(0,10);
    const results=TYPES.map(([key,name])=>({key,name,signals:0,stocks:new Set(),horizons:[5,10,20].map(days=>({days,returns:[],pending:0,missing:0}))}));
    const p={score:0,volPeriod:5,shrinkRatio:1,burstRatio:2,tolerance:2.5,highPeriod:20,wick:40};let unavailable=0,errors=0;
    for(let n=0;n<sourceRecords.length;n++){
