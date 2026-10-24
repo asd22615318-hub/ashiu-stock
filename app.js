@@ -21,7 +21,7 @@ function featuredFiveDayNet(s){
  for(const date of dates){const row=byDate.get(date);if(!row||!Number.isFinite(row.total))return null;net+=row.total;}return net;
 }
 function featuredConditions(s,date){
- const bars=s.bars,i=bars.length-1,t=s.t;if(mode!=='live'||i<60||t.date!==date||s.score===null||!Number.isFinite(s.score)||s.score<7||t.close<20||t.volume<=500)return null;
+ const bars=s.bars,i=bars.length-1,t=s.t;if(mode!=='live'||i<60||t.date!==date||s.score===null||!Number.isFinite(s.score)||s.score<10||t.close<20||t.volume<=500)return null;
  const m5=ma(bars,i,5),m10=ma(bars,i,10),m20=ma(bars,i,20),m60=ma(bars,i,60),previous=ma(bars,i-1,20),v5=avg(bars.slice(i-5,i).map(b=>b.volume)),strength=window.marketStrength.get(s,date),group=featuredContext.get(s.code),net=featuredFiveDayNet(s);
  const pullback=[m5,m10].some(line=>t.low<=line*1.01&&t.high>=line*.99&&t.close>=line*.99&&t.close<=line*1.03);
  const normalVolume=Number.isFinite(v5)&&t.volume>v5,shrink=Number.isFinite(v5)&&t.volume<=v5*.8;
