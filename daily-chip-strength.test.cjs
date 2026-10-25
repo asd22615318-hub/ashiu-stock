@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),{calculate}=require('./daily-chip-strength.js');
+const date='2026-10-22',stocks=['a','b','c'].map(code=>({code,bars:[{date,volume:100}]}));
+const ownership={weeks:[{date:'2026-10-16',stocks:{a:{400:30},b:{400:30},c:{400:30}}},{date,stocks:{a:{400:29},b:{400:30},c:{400:31}}},{date:'2026-10-23',stocks:{a:{400:90}}}]};
+const institutions={report_dates:[date],stocks:Object.fromEntries(stocks.map((s,i)=>[s.code,{daily_history:[{date,total:i-1}]}]))};
+const snapshot={sessions:[{date,stocks:Object.fromEntries(stocks.map((s,i)=>[s.code,{date,unit:'lots',top_n:15,buy_lots:3-i,sell_lots:1,net_lots:2-i,volume_lots:100}]))}]};
+const run=()=>calculate(stocks,ownership,institutions,snapshot,date);
+let r=run();assert.equal(r.week,date);assert.equal(r.complete,3);assert.equal(r.rows.get('a').score,30);assert.equal(r.rows.get('b').score,50);assert.equal(r.rows.get('c').score,70);
+snapshot.sessions[0].stocks.a.date='2026-10-21';r=run();assert.equal(r.rows.get('a').score,null);assert.equal(r.rows.get('a').holderNow,29);
+snapshot.sessions[0].stocks.a.date=date;ownership.weeks[0].invalid_stocks={a:'bad'};r=run();assert.equal(r.rows.get('a').score,null);assert.equal(r.rows.get('a').institutionalNet,-1);
+delete ownership.weeks[0].invalid_stocks;institutions.stocks.a.daily_history[0].date='2026-10-21';assert.equal(run().rows.get('a').score,null);
+console.log('Daily 40/30/30 weights, future-week exclusion, dates and missing factors passed.');
