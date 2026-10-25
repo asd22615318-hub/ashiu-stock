@@ -156,11 +156,11 @@ function chipMetrics(code,weekDate=''){
  const d=mode==='live'?institutional?.stocks[code]:null,flow=institutionalFlow(code),percent=flow?.percent;
  const weeks=mode==='live'?ownership?.weeks||[]:[],i=weekDate?weeks.findIndex(w=>w.date===weekDate):weeks.length-1,w=weeks[i],prior=weeks[i-1];
  const current=w?.stocks[code]?.['400'],old=prior?.stocks[code]?.['400'];
- const delta=Number.isFinite(current)&&Number.isFinite(old)?Math.round((current-old)*100)/100:null;
+ const delta=Number.isFinite(current)&&Number.isFinite(old)&&!w?.invalid_stocks?.[code]&&!prior?.invalid_stocks?.[code]?Math.round((current-old)*100)/100:null;
  const value=(v,unit)=>v==null?'—':(v>0?'+':'')+fmt(v)+unit;
  const color=v=>v==null?'chip-missing':v>0?'chip-positive':v<0?'chip-negative':'chip-neutral';
  const reason=!flow?'近 5 個交易日法人日報或同期成交量未齊':'近 5 日'+(INCLUDE_FOREIGN?'三大法人（含外資及陸資）':'投信＋自營商')+'淨買賣超 ÷ 同期成交量 × 100%；'+flow.dates.at(-1)+' → '+flow.dates[0];
- return `<span class="stock-chip-metrics" data-chip-code="${esc(code)}" data-chip-week="${esc(weekDate)}"><span title="${esc(reason)}">法人 5 日 <b class="${color(percent)}">${value(percent,'%')}</b></span><span title="400 張以上大戶持股比例變化；${w&&prior?esc(prior.date)+' → '+esc(w.date):'週資料未齊'}">大戶週增 <b class="${color(delta)}">${value(delta,' pp')}</b></span></span>`;
+ return `<span class="stock-chip-metrics" data-chip-code="${esc(code)}" data-chip-week="${esc(weekDate)}"><span title="${esc(reason)}">法人 5 日 <b class="${color(percent)}">${value(percent,'%')}</b></span><span title="集保資料週 ${w?esc(w.date):'未載入'}">400 張以上 <b style="color:#ffe298">${Number.isFinite(current)&&!w?.invalid_stocks?.[code]?fmt(current)+'%':'待補'}</b></span><span title="400 張以上大戶持股比例變化；${w&&prior?esc(prior.date)+' → '+esc(w.date):'週資料未齊'}">大戶週增 <b class="${color(delta)}">${value(delta,' pp')}</b></span></span>`;
 }
 function refreshChipMetrics(){document.querySelectorAll('[data-chip-code]').forEach(el=>{el.outerHTML=chipMetrics(el.dataset.chipCode,el.dataset.chipWeek);});}
 function lights(values,kind){return values.map((v,i)=>`<i class="light ${kind} ${v?'on':''}" title="第 ${i+1} 項：${v===null?'資料不足':v?'符合':'未符合'}"></i>`).join('');}
