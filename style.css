@@ -281,3 +281,28 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 
 /* Remove inherited blue divider above individual ownership search. */
 #ownership-stock-search > details{border-top:0;padding-top:0}
+
+/* Keep ownership data and scores inside each responsive card. */
+#ownership-stock-search{min-width:0;max-width:100%;box-sizing:border-box}
+#ownership-stock-search .ownership-search-grid{gap:16px}
+#ownership-stock-search .ownership-search-grid>section{box-sizing:border-box;max-width:100%;padding:12px}
+#ownership-stock-search .ownership-flow-row{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}
+#ownership-stock-search .ownership-flow-row>*{min-width:0;max-width:100%;overflow-wrap:anywhere}
+#ownership-stock-search .ownership-flow-bar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;max-width:100%;min-width:0}
+#ownership-stock-search .ownership-flow-track{min-width:0;width:100%}
+#ownership-stock-search .ownership-flow-bar strong{min-width:0;max-width:100%;font-size:13px;white-space:normal;overflow-wrap:anywhere}
+#ownership-stock-search .ownership-flow-missing{display:block;min-width:0;max-width:100%;overflow-wrap:anywhere;line-height:1.7}
+#ownership-stock-search .ownership-flow-period{min-width:0;overflow-wrap:anywhere;line-height:1.8}
+#ownership-stock-search .ownership-search-head{flex-wrap:wrap}
+#ownership-stock-search p,#ownership-stock-search h3{overflow-wrap:anywhere}
+#ownership-stock-search .ownership-note{padding:8px 0}
+#ownership-stock-search .sector-search-form{min-width:0;max-width:100%;flex-wrap:wrap}
+#ownership-stock-search .sector-search-form input{min-width:0;max-width:100%}
+@media(max-width:1000px){#ownership-stock-search .ownership-search-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:520px){
+ #ownership-stock-search{margin:0 8px 12px;padding:10px}
+ #ownership-stock-search .ownership-flow-row{grid-template-columns:minmax(0,1fr);gap:7px}
+ #ownership-stock-search .ownership-flow-bar{grid-template-columns:minmax(0,1fr) auto}
+ #ownership-stock-search .ownership-search-grid>section{padding:10px}
+ #ownership-stock-search .ownership-flow-stock{width:100%;text-align:left}
+}
