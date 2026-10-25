@@ -4,6 +4,7 @@
  function calculate(stocks,ownership,institutional,weekDate,broker){
   const weeks=(ownership?.weeks||[]).slice().sort((a,b)=>a.date.localeCompare(b.date)),index=weeks.findIndex(w=>w.date===weekDate),current=weeks[index],prior=weeks[index-1],rows=new Map();if(!prior||!current)return {rows,complete:0,reason:'需要相鄰兩週集保資料'};
   const dates=[...new Set(stocks.flatMap(s=>s.bars.filter(b=>b.date>prior.date&&b.date<=current.date).map(b=>b.date)))].sort();
+  const branchPeriod=broker?.periods?.find(p=>dates.length&&p.start===dates[0]&&p.end===dates.at(-1)&&JSON.stringify(p.dates)===JSON.stringify(dates));
   const published=new Set(institutional?.report_dates||[]),allReports=dates.length>0&&dates.every(d=>published.has(d));
   for(const s of stocks){
    const now=current.stocks?.[s.code]?.['400'],old=prior.stocks?.[s.code]?.['400'];
@@ -11,6 +12,14 @@
    const bars=new Map(s.bars.map(b=>[b.date,b])),history=new Map((institutional?.stocks?.[s.code]?.daily_history||[]).filter(Boolean).map(b=>[b.date,b]));let volume=0,net=0,valid=allReports;
    for(const date of dates){const b=bars.get(date),h=history.get(date);if(!Number.isFinite(b?.volume)||b.volume<0||!Number.isFinite(h?.total)){valid=false;break;}volume+=b.volume;net+=h.total;}
    if(valid&&volume>0){r.institutionalNet=net;r.institutionalRatio=net/volume*100;r.volume=volume;}
+
+   const branch=branchPeriod?.stocks?.[s.code],volumeBars=dates.map(date=>bars.get(date)),branchVolume=volumeBars.length&&volumeBars.every(b=>Number.isFinite(b?.volume)&&b.volume>=0)?volumeBars.reduce((sum,b)=>sum+b.volume,0):0;
+   const branchValid=branch&&branch.start===dates[0]&&branch.end===dates.at(-1)&&branch.unit==='lots'&&branch.top_n===15&&branch.buyers?.length===15&&branch.sellers?.length===15&&Number.isFinite(branch.buy_lots)&&Number.isFinite(branch.sell_lots)&&branch.buy_lots>=0&&branch.sell_lots>=0&&Number.isFinite(branch.net_lots)&&Math.abs(branch.net_lots-(branch.buy_lots-branch.sell_lots))<=.01;
+   r.brokerRatio=branchValid&&branchVolume>0?branch.net_lots/branchVolume*100:null;
+   r.brokerNet=branchValid?branch.net_lots:null;
+   r.brokerSource=branchValid?branch.source:null;
+   r.brokerFrom=dates[0];r.brokerTo=dates.at(-1);
+   r.brokerIssue=!broker?'分點資料尚未載入':!branchPeriod?'此期間分點報表尚未收錄':!branch?'此股同期分點資料尚未收錄':!branchValid?'分點報表不完整或合計無法核對':!branchVolume?'同期成交量資料不足':'';
    rows.set(s.code,r);
   }
 
