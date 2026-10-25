@@ -2,7 +2,7 @@
  'use strict';
  const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
  function ma(bars,i,n){return i>=n-1?mean(bars.slice(i-n+1,i+1).map(b=>b.close)):null;}
- function score(bars,i){if(i<359)return null;const t=bars[i],stand=[5,10,20,60,120,240].map(n=>t.close>=ma(bars,i,n)),fresh=[5,10,20,60,120,360].map(n=>t.close>Math.max(...bars.slice(i-n+1,i-2).map(b=>b.close))),order=[[20,60],[60,120],[120,360]].map(([a,b])=>ma(bars,i,a)>ma(bars,i,b));return [...stand,...fresh,...order].filter(Boolean).length;}
+ function score(bars,i){if(i<359)return null;const t=bars[i],stand=[5,10,20,60,120,240].map(n=>t.close+1e-9>=ma(bars,i,n)),fresh=[5,10,20,60,120,360].map(n=>t.close>Math.max(...bars.slice(i-n+1,i-2).map(b=>b.close))),order=[[20,60],[60,120],[120,360]].map(([a,b])=>ma(bars,i,a)>ma(bars,i,b)+1e-9);return [...stand,...fresh,...order].filter(Boolean).length;}
  function evaluate(bars,date,strength=null){
   if(!Array.isArray(bars)||bars.length<361||bars.at(-1).date!==date)return null;
   const i=bars.length-1,t=bars[i],prev=bars[i-1];if(bars.some(b=>![b.close,b.high,b.low,b.volume].every(Number.isFinite)||b.close<=0||b.low<=0))return null;

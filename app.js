@@ -91,9 +91,9 @@ function analyze(stock,p){const a=stock.bars,i=a.length-1,t=a[i],prev=a[i-1],m5=
  const signals={extremeDance:!!prevHigh&&black&&shrink&&(t.open-t.close)/t.open>=.03&&m10!==null&&Math.abs(t.close/m10-1)<=.025,nearCross:w20!==null&&m20!==null&&m60!==null&&t.close>w20&&t.close>m60&&t.close<m20,dragon,dance:!!prev&&i>=6&&prev.close<prev.open&&prev.high>prev.open&&prev.volume>avg(a.slice(i-6,i-1).map(b=>b.volume))&&t.volume<avg(a.slice(i-5,i).map(b=>b.volume))&&m5!==null&&t.close>=m5*.975&&t.close<=m5*1.03,sword:t.close>t.open&&upper>=p.wick/100&&burst,mother:prev&&t.high<=prev.high&&t.low>=prev.low&&shrink&&t.volume<prev.volume,shadow:prev&&t.low<prev.low&&lower>=p.wick/100&&!!shadowStrength,panther:black&&t.high>t.open&&i>=5&&t.volume>avg(a.slice(i-5,i).map(b=>b.volume)),swordDance:dragon&&prevWick>=p.wick/100,smallDance:dragon&&prev.close<prev.open&&prevShort&&!prevHigh};
  const structure=structurePatterns(a);Object.assign(signals,{headShoulders:structure.headShoulders,triangle:structure.triangle,vcp:structure.vcp});
  const periods=[5,10,20,60,120,240],highs=[5,10,20,60,120,360];
- const stand=periods.map(n=>{let m=ma(a,i,n);return m===null?null:t.close>=m;});
+ const stand=periods.map(n=>{let m=ma(a,i,n);return m===null?null:t.close+1e-9>=m;});
  const fresh=highs.map(n=>i>=n-1?t.close>max(a.slice(i-n+1,i-2),'close'):null);
- const order=[[20,60],[60,120],[120,360]].map(([x,y])=>{let one=ma(a,i,x),two=ma(a,i,y);return one===null||two===null?null:one>two;});
+ const order=[[20,60],[60,120],[120,360]].map(([x,y])=>{let one=ma(a,i,x),two=ma(a,i,y);return one===null||two===null?null:one>two+1e-9;});
  const all=[...stand,...fresh,...order],score=all.includes(null)?null:all.filter(Boolean).length;
  const change=Number.isFinite(t.quote_change_pct)?t.quote_change_pct:prev?(t.close/prev.close-1)*100:null;
  signals.highDragon=score!==null&&score>=10&&black&&change!==null&&change>=-10&&change<=3;
