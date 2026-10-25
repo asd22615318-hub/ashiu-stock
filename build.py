@@ -1,6 +1,7 @@
 """Build the Pages artifact from public quotes only. Requires Windows Python."""
 import gzip,json,os,shutil,sys,urllib.request,urllib.error
 from pathlib import Path
+from history_supplement import merge as merge_verified_history
 if '--offline' in sys.argv:
     # The Cloudflare Linux builder deploys saved snapshots; the Windows job fetches reports.
     saved_root=Path(__file__).resolve().parent
@@ -9,6 +10,9 @@ if '--offline' in sys.argv:
     for source,target in [('seed.json.gz','market-data.json.gz'),('valuation-seed.json','valuation-data.json'),('institutional-seed.json','institutional-data.json'),('ownership-seed.json','ownership-data.json'),('cb-chip-seed.json','cb-chip-data.json'),('regulatory-seed.json','regulatory-data.json'),('revenue-seed.json','revenue-data.json'),('convertible-seed.json','convertible-data.json'),('futchip-radar.js','futchip-radar.js'),('margin-maintenance.js','margin-maintenance.js'),('fear-greed.js','fear-greed.js'),('taiwan-sentiment-model.js','taiwan-sentiment-model.js'),('tw-fear-greed.js','tw-fear-greed.js'),('taiwan-sentiment-seed.json','taiwan-sentiment-data.json'),('fear-greed-seed.json','fear-greed-data.json'),('margin-maintenance-seed.json','margin-maintenance-data.json'),('world-radar.js','world-radar.js'),('chipburst-radar.js','chipburst-radar.js'),('broker-seed.json','broker-data.json'),('futchip-seed.json','futchip-data.json'),('index.html','index.html'),('app.js','app.js'),('relative-strength.js','relative-strength.js'),('revenue-radar.js','revenue-radar.js'),('convertible-radar.js','convertible-radar.js'),('sector-capital.js','sector-capital.js'),('exhibition-radar.js','exhibition-radar.js'),('warrant-radar.js','warrant-radar.js'),('warrant-seed.json','warrant-data.json'),('higher-low-radar.js','higher-low-radar.js'),('market-overview.js','market-overview.js'),('market-overview-seed.json','market-overview-data.json'),('pattern-backtest.js','pattern-backtest.js'),('launch-model.js','launch-model.js'),('overnight-radar.js','overnight-radar.js'),('overnight-seed.json','overnight-data.json'),('style.css','style.css'),('structure-patterns.js','structure-patterns.js'),('rule-diagrams.js','rule-diagrams.js'),('detail-chart.js','detail-chart.js'),('detail-collapse.js','detail-collapse.js'),('smc-zones.js','smc-zones.js'),('etf-radar.js','etf-radar.js'),('etf-seed.json','etf-data.json'),('prison-seed.json','prison-data.json'),('prison.js','prison.js')]:
         shutil.copy2(saved_root/source,saved_public/target)
     (saved_public/'market-data.json').unlink(missing_ok=True)
+    market_path=saved_public/'market-data.json.gz'
+    market=merge_verified_history(json.loads(gzip.decompress(market_path.read_bytes())),saved_root)
+    market_path.write_bytes(gzip.compress(json.dumps(market,ensure_ascii=False,separators=(',',':')).encode('utf-8'),mtime=0))
     print('Protected site built from saved official snapshots.')
     sys.exit(0)
 import market_data as m
@@ -65,6 +69,7 @@ shutil.copy2(root/'tw-fear-greed.js',m.PUBLIC/'tw-fear-greed.js')
 shutil.copy2(root/'fear-greed-seed.json',m.PUBLIC/'fear-greed-data.json')
 shutil.copy2(root/'margin-maintenance-seed.json',m.PUBLIC/'margin-maintenance-data.json')
 for name in ['launch-model.js','pattern-backtest.js','futchip-radar.js','world-radar.js','chipburst-radar.js','index.html','style.css','app.js','relative-strength.js','revenue-radar.js','convertible-radar.js','sector-capital.js','exhibition-radar.js','warrant-radar.js','higher-low-radar.js','overnight-radar.js','structure-patterns.js','detail-chart.js','detail-collapse.js','smc-zones.js','etf-radar.js','rule-diagrams.js','prison.js']:shutil.copy2(root/name,m.PUBLIC/name)
+data=merge_verified_history(data,root)
 with gzip.GzipFile(filename=str(m.PUBLIC/'market-data.json.gz'),mode='wb',mtime=0) as f:
     f.write(json.dumps(data,ensure_ascii=False,separators=(',',':')).encode())
 import broker_data
