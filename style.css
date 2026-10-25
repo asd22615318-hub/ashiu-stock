@@ -255,3 +255,14 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 .featured-stock-filter input[type=checkbox]{width:21px;height:21px;flex-shrink:0;accent-color:#ffb34d}
 .featured-stock-filter:has(input:checked){border-color:#ffcf70;background:linear-gradient(135deg,#49351c,#30232b);box-shadow:0 0 0 3px #ffcf7024}
 .featured-stock-filter .weekly-ma-note{color:#e3d8c7;line-height:1.8}
+
+/* Per-stock weekly holder flow bars inside the ownership panel. */
+#ownership-stock-search{margin:0 20px 20px;padding:16px;border:1px solid #705331;border-radius:12px;background:#201824}
+.ownership-search-summary{color:#ffe298;font-size:18px;font-weight:700;cursor:pointer}
+.ownership-search-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:18px 0 8px}
+.ownership-search-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:22px;margin-top:20px}
+.ownership-search-grid>section{min-width:0;border:1px solid #604b64;border-radius:12px;padding:14px}
+.ownership-flow-row{display:grid;grid-template-columns:minmax(100px,1fr) minmax(120px,1.6fr);gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #49344f}
+.ownership-flow-row small{display:block;color:#c4bacb;font-size:12px}.ownership-flow-bar{display:flex;align-items:center;gap:10px;min-width:0}.ownership-flow-track{height:10px;flex:1;min-width:30px;background:#392f41;border-radius:6px;overflow:hidden}.ownership-flow-track i{display:block;height:100%;border-radius:6px}.ownership-flow-bar strong{font-size:13px;min-width:100px;text-align:right;white-space:nowrap}
+.ownership-flow-stock{border:0;background:transparent;text-align:left;color:#ffe298;padding:0;min-width:0}.ownership-flow-stock strong{font-size:15px}.ownership-flow-missing{color:#b5a8bc;font-size:12px}.ownership-flow-period{grid-column:1/-1}.ownership-flow-peers{max-height:660px;overflow:auto}.ownership-search-grid h3{color:#f4edf7;font-size:17px}
+@media(max-width:760px){#ownership-stock-search{margin:0 12px 14px;padding:12px}.ownership-search-grid{grid-template-columns:1fr}.ownership-search-head{flex-wrap:wrap}.ownership-flow-row{grid-template-columns:minmax(90px,1fr) minmax(130px,1.5fr)}}
