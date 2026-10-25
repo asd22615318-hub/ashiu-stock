@@ -25,9 +25,9 @@
     const complete=[];
     for (const stock of universe) {
       const now=current.stocks?.[stock.code]?.['400'], old=prior.stocks?.[stock.code]?.['400'];
-      if (!Number.isFinite(now)||!Number.isFinite(old)||now<0||now>100||old<0||old>100) continue;
+      if (current.invalid_stocks?.[stock.code]||prior.invalid_stocks?.[stock.code]||!Number.isFinite(now)||!Number.isFinite(old)||now<0||now>100||old<0||old>100) continue;
       const bars=new Map(stock.bars.map(b=>[b.date,b]));
-      const history=new Map((institutionalData.stocks?.[stock.code]?.daily_history || []).map(h=>[h.date,h]));
+      const history=new Map((institutionalData.stocks?.[stock.code]?.daily_history || []).filter(Boolean).map(h=>[h.date,h]));
       let volume=0,net=0,valid=true;
       for (const date of dates) {
         const bar=bars.get(date), h=history.get(date);
@@ -49,7 +49,7 @@
       const hs=percentileScores(available,'holderDelta'),is=percentileScores(available,'institutionalRatio'),bs=percentileScores(available,'brokerRatio');
       const positive=available.filter(s=>s.brokerNet>0).map(s=>({...s,holderScore:hs.get(s.code),institutionScore:is.get(s.code),brokerScore:bs.get(s.code),score:hs.get(s.code)*0.4+is.get(s.code)*0.3+bs.get(s.code)*0.3}));
       positive.sort((a,b)=>b.score-a.score||b.holderDelta-a.holderDelta||a.code.localeCompare(b.code));
-      return {rows:positive.slice(0,30),eligible:positive.length,complete:available.length,universe:universe.length,candidates:candidates.length,excluded:candidates.length-available.length,prior,current,dates,threeFactor:true};
+      return {rows:positive.slice(0,30),scoredRows:positive,eligible:positive.length,complete:available.length,universe:universe.length,candidates:candidates.length,excluded:candidates.length-available.length,prior,current,dates,threeFactor:true};
     }
     const holderScores=percentileScores(complete,'holderDelta'), institutionScores=percentileScores(complete,'institutionalRatio');
     const positive=complete.filter(s=>s.holderDelta>0&&s.institutionalNet>0).map(s=>({...s,score:(holderScores.get(s.code)+institutionScores.get(s.code))/2}));
@@ -57,6 +57,7 @@
     return {rows:positive.slice(0,30),eligible:positive.length,complete:complete.length,universe:universe.length,excluded:universe.length-complete.length,prior,current,dates};
   }
   if (typeof module!=='undefined'&&module.exports) module.exports={calculate,percentileScores};
+  if (typeof window!=='undefined') window.chipburstModel={calculate,percentileScores};
   if (typeof document==='undefined'||typeof renderOwnership!=='function') return;
   const root=document.getElementById('chipburst-info');
   if (!root) return;
