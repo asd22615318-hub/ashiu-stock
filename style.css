@@ -257,7 +257,7 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 .featured-stock-filter .weekly-ma-note{color:#e3d8c7;line-height:1.8}
 
 /* Per-stock weekly holder flow bars inside the ownership panel. */
-#ownership-stock-search{margin:0 20px 20px;padding:16px;border:1px solid #705331;border-radius:12px;background:#201824}
+#ownership-stock-search{margin:0 20px 20px;padding:16px;border:3px solid #705331;border-radius:12px;background:#201824}
 .ownership-search-summary{color:#ffe298;font-size:18px;font-weight:700;cursor:pointer}
 .ownership-search-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:18px 0 8px}
 .ownership-search-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:22px;margin-top:20px}
