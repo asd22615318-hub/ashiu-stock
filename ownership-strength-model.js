@@ -7,7 +7,7 @@
   const published=new Set(institutional?.report_dates||[]),allReports=dates.length>0&&dates.every(d=>published.has(d));
   for(const s of stocks){
    const now=current.stocks?.[s.code]?.['400'],old=prior.stocks?.[s.code]?.['400'];
-   const r={code:s.code,from:prior.date,to:current.date,holderNow:now,holderDelta:Number.isFinite(now)&&Number.isFinite(old)&&now>=0&&now<=100&&old>=0&&old<=100&&!current.invalid_stocks?.[s.code]&&!prior.invalid_stocks?.[s.code]?Math.round((now-old)*100)/100:null,institutionalRatio:null,score:null};
+   const r={code:s.code,from:prior.date,to:current.date,holderNow:now,holderDelta:Number.isFinite(now)&&Number.isFinite(old)&&now>=0&&now<=100&&old>=0&&old<=100&&!current.invalid_stocks?.[s.code]&&!prior.invalid_stocks?.[s.code]?Math.round((now-old)*100)/100:null,holderIssue:current.invalid_stocks?.[s.code]?`本週 ${current.date} 集保資料異常`:prior.invalid_stocks?.[s.code]?`前週 ${prior.date} 集保資料異常`:!Number.isFinite(now)?`本週 ${current.date} 無持股資料`:!Number.isFinite(old)?`前週 ${prior.date} 無持股資料`:'',institutionalRatio:null,score:null};
    const bars=new Map(s.bars.map(b=>[b.date,b])),history=new Map((institutional?.stocks?.[s.code]?.daily_history||[]).filter(Boolean).map(b=>[b.date,b]));let volume=0,net=0,valid=allReports;
    for(const date of dates){const b=bars.get(date),h=history.get(date);if(!Number.isFinite(b?.volume)||b.volume<0||!Number.isFinite(h?.total)){valid=false;break;}volume+=b.volume;net+=h.total;}
    if(valid&&volume>0){r.institutionalNet=net;r.institutionalRatio=net/volume*100;r.volume=volume;}
