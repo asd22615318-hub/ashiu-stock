@@ -1,0 +1,26 @@
+name: Update daily broker concentration
+on:
+  workflow_dispatch:
+  schedule:
+    # Asia/Taipei 17:10, 18:10 and 20:10; later runs retry delayed reports.
+    - cron: '10 9,10,12 * * 1-5'
+env:
+  PYTHONUTF8: '1'
+permissions:
+  contents: write
+concurrency:
+  group: daily-broker-concentration
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Collect date-matched daily Top-15 reports
+        run: python broker_daily.py --days 1
+      - name: Preserve daily history
+        run: python publish_snapshots.py broker-daily-seed.json
