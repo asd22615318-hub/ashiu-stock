@@ -128,6 +128,28 @@
     });
   }
 
+
+  function renderWeeklyStrength(root) {
+    let panel=root.querySelector('#sector-weekly-strength');
+    if(!panel){panel=document.createElement('section');panel.id='sector-weekly-strength';panel.className='sector-capital';root.querySelector('#sector-stock-search').after(panel);}
+    if(mode!=='live'||!records.length){panel.innerHTML='<h2>本週平均漲跌%</h2><p>請先載入官方盤後行情。</p>';return;}
+    const end=records.map(s=>s.bars.at(-1)?.date).filter(Boolean).sort().at(-1);
+    const day=new Date(end+'T00:00:00Z'),offset=(day.getUTCDay()+6)%7;day.setUTCDate(day.getUTCDate()-offset);
+    const monday=day.toISOString().slice(0,10);
+    const dates=[...new Set(records.flatMap(s=>s.bars.filter(b=>b.date<monday).map(b=>b.date)))].sort();
+    const start=dates.at(-1),stocks=new Map(records.map(s=>[s.code,s]));
+    if(!start){panel.innerHTML='<h2>本週平均漲跌%</h2><p>缺少前週收盤資料。</p>';return;}
+    const rows=[...hotGroups()].map(([name,codes])=>{
+      const members=[...codes].map(code=>stocks.get(code)).filter(Boolean).flatMap(s=>{
+        const previous=s.bars.find(b=>b.date===start),last=s.bars.at(-1);
+        return last?.date===end&&valid(previous?.close)&&previous.close>0&&valid(last.close)?[{code:s.code,name:s.name,change:(last.close/previous.close-1)*100}]:[];
+      });
+      return {name,total:codes.size,members,change:members.length?average(members.map(s=>s.change)):null};
+    }).filter(r=>r.members.length>=3).sort((a,b)=>b.change-a.change||a.name.localeCompare(b.name));
+    const scale=Math.max(1,...rows.map(r=>Math.abs(r.change)));
+    panel.innerHTML=`<details open><summary class="sector-capital-head"><div><h2>本週平均漲跌%</h2><p>${esc(start)} 收盤 → ${esc(end)} 收盤</p></div><small>展開／收合</small></summary><p class="sector-capital-note">本週以週一至最新交易日計算，基準為前週最後交易日收盤；族群成員漲跌幅採等權平均，至少 3 檔具有起訖價格才排名。停牌或缺價個股不計，族群可能重疊。這是股價報酬，未還原除權息。</p><div>${rows.map((r,index)=>`<div style="padding:12px 0;border-bottom:1px solid #344052"><div style="display:flex;align-items:center;gap:12px"><span style="width:clamp(100px,25%,220px);flex-shrink:0;color:#f3f4f6">${index+1}. ${esc(r.name)}</span><span style="flex:1;min-width:20px;background:#192b3b;border-radius:4px;overflow:hidden"><i style="display:block;height:20px;width:${Math.abs(r.change)/scale*100}%;background:${r.change>=0?'#ff647b':'#4dd5bd'}"></i></span><strong style="min-width:80px;text-align:right;color:${r.change>=0?'#ff647b':'#4dd5bd'}">${signed(r.change,2)}%</strong></div><details style="margin-top:8px"><summary style="cursor:pointer;color:#b7c5d6">有效個股 ${r.members.length} / ${r.total} 檔 · 查看本週表現</summary><div class="sector-members">${r.members.sort((a,b)=>b.change-a.change).map(s=>`<button type="button" class="sector-stock" data-hot-stock="${esc(s.code)}"><strong>${esc(s.name||s.code)} ${esc(s.code)}</strong><span style="color:${s.change>=0?'#ff647b':'#4dd5bd'}">${signed(s.change,2)}%</span></button>`).join('')}</div></details></div>`).join('')||'<p>目前沒有足夠的同期行情。</p>'}</div></details>`;
+  }
+
   function hotMembersHtml(row) {
     const eligible=row.maMembers, above=eligible.filter(s=>s.bars.at(-1).close>average(s.bars.slice(-20).map(b=>b.close))).length;
     return `${row.theme==='PCB鑽孔鑽針頭概念'?'<p>尖點、凱崴：鑽針／加工；大量、東台、恩德、達航：鑽孔設備／加工；惠特：雷射鑽孔；國碩：鑽針鍍膜；鉅橡：鑽孔墊板。</p>':''}${row.theme==='半導體探針卡'?'<p>旺矽、精測：探針卡；穎崴：測試座／介面；中探針：IC 測試探針。含相關測試介面供應鏈。</p>':''}${row.theme==='PTFE（聚四氟乙烯）概念股'?'<p>台虹、亞電、騰輝電子-KY、南亞：PTFE／含氟基板材料；台郡：相關電路板應用。各公司產品及驗證階段不同，概念名單不代表均已量產 AI 用 PTFE 材料。</p>':''}<p class="hot-ma20-status">站上 20MA：${eligible.length ? fmt(above/eligible.length*100,0)+'%（'+above+'/'+eligible.length+' 檔）' : '歷史不足'} · 有效日線 ${eligible.length}/${row.count} 檔</p><details class="sector-subgroup" data-hot-group="${esc(row.theme)}" ${hotMemberOpen.has(row.theme)?'open':''}><summary>相關個股 · 展開查看 ${row.count} 檔（依均線排名）</summary><div class="sector-members">${[...row.members].sort((a,b)=>{const aa=analyses.find(s=>s.code===a.code),bb=analyses.find(s=>s.code===b.code);return (aa?.rank??Infinity)-(bb?.rank??Infinity)||(bb?.score??-1)-(aa?.score??-1)||a.code.localeCompare(b.code);}).map(s=>{const t=s.bars.at(-1),change=(t.close/s.bars.at(-2).close-1)*100,analysis=analyses.find(a=>a.code===s.code);return `<div class="sector-member"><button type="button" class="sector-stock" data-hot-stock="${esc(s.code)}"><strong>${esc(s.name||s.code)}</strong><small>${esc(s.code)} · 收盤 ${fmt(t.close)}</small><span class="hot-stock-change ${change>0?'hot-change-up':change<0?'hot-change-down':'hot-change-flat'}">${signed(change,2)}%</span><span class="hot-stock-ma" title="市場排名以全市場成交量大於 500 張、均線資料完整者比較">均線 ${analysis?.score!=null?analysis.score+' / 15':'待補資料'} · <span class="hot-stock-rank">${analysis?.rank?'市場均線排名 #'+analysis.rank:'未排名'}</span></span></button></div>`;}).join('')}</div></details>`;
@@ -152,6 +174,7 @@
     if (!root || root.hidden) return;
     renderDailyStrength(root,true);
     renderStockSearch(root);
+    renderWeeklyStrength(root);
     root.querySelectorAll('[data-hot-group]').forEach(el=>el.addEventListener('toggle',()=>{
       if(!el.isConnected)return;
       if(el.open)hotMemberOpen.add(el.dataset.hotGroup);else hotMemberOpen.delete(el.dataset.hotGroup);
