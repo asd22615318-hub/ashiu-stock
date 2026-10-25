@@ -12,7 +12,7 @@
   const firstLow=Math.min(...bars.slice(i-9,i-4).map(b=>b.low)),secondLow=Math.min(...bars.slice(i-4,i+1).map(b=>b.low)),rangeHigh=Math.max(...bars.slice(i-9,i+1).map(b=>b.high)),rangeLow=Math.min(firstLow,secondLow),rangeSize=rangeHigh-rangeLow,rangePosition=rangeSize>0?(t.close-rangeLow)/rangeSize:null;
   const low20=Math.min(...bars.slice(i-19,i+1).map(b=>b.low)),rise20=(t.close/low20-1)*100;
   const gap60=(t.close/m60-1)*100;
-  const checks={ma60Distance:gap60<=30+1e-9,volume:volume5>0&&(t.volume>volume5||t.volume<volume5),score:todayScore>=7,trend:t.close>m20&&t.close>m60&&m20>ma(bars,i-1,20),notExtended:gap<=10&&stock5!==null&&stock5<=15,liquidity:t.close>=20&&t.volume>500};
+  const checks={ma60Distance:gap60>=-3-1e-9&&gap60<=15+1e-9,risingThreeDayLow:Math.min(...bars.slice(i-2,i+1).map(b=>b.low))>Math.min(...bars.slice(i-5,i-2).map(b=>b.low)),volume:volume5>0&&(t.volume>volume5||t.volume<volume5),score:todayScore>=7,trend:t.close>m20&&m20>ma(bars,i-1,20),notExtended:gap<=10&&stock5!==null&&stock5<=15,liquidity:t.close>=20&&t.volume>500};
   return {passes:Object.values(checks).every(Boolean),checks,todayScore,high20,volumeRatio,gap,stock5,rs5,firstLow,secondLow,rangeHigh,rangeLow,rangePosition,low20,rise20,gap60};
  }
  const api={evaluate,score};if(typeof module==='object'&&module.exports)module.exports=api;root.launchModel=api;
