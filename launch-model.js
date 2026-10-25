@@ -9,8 +9,9 @@
   const todayScore=score(bars,i),high20=Math.max(...bars.slice(i-20,i).map(b=>b.high)),previousHigh=Math.max(...bars.slice(i-21,i-1).map(b=>b.high));
   const volume5=mean(bars.slice(i-5,i).map(b=>b.volume)),volumeRatio=volume5>0?t.volume/volume5:null,m20=ma(bars,i,20),m60=ma(bars,i,60),gap=(t.close/m20-1)*100;
   const stock5=Number.isFinite(strength?.stock5)?strength.stock5:null,rs5=Number.isFinite(strength?.rs5)?strength.rs5:null;
-  const checks={score:todayScore>=7,trend:t.close>m20&&t.close>m60&&m20>ma(bars,i-1,20),relative:rs5!==null&&rs5>0,notExtended:gap<=10&&stock5!==null&&stock5<=15,liquidity:t.close>=20&&t.volume>500};
-  return {passes:Object.values(checks).every(Boolean),checks,todayScore,high20,volumeRatio,gap,stock5,rs5};
+  const firstLow=Math.min(...bars.slice(i-9,i-4).map(b=>b.low)),secondLow=Math.min(...bars.slice(i-4,i+1).map(b=>b.low)),rangeHigh=Math.max(...bars.slice(i-9,i+1).map(b=>b.high)),rangeLow=Math.min(firstLow,secondLow),rangeSize=rangeHigh-rangeLow,rangePosition=rangeSize>0?(t.close-rangeLow)/rangeSize:null;
+  const checks={risingBase:secondLow>firstLow&&rangePosition!==null&&rangePosition>=0.8,score:todayScore>=7,trend:t.close>m20&&t.close>m60&&m20>ma(bars,i-1,20),relative:rs5!==null&&rs5>0,notExtended:gap<=10&&stock5!==null&&stock5<=15,liquidity:t.close>=20&&t.volume>500};
+  return {passes:Object.values(checks).every(Boolean),checks,todayScore,high20,volumeRatio,gap,stock5,rs5,firstLow,secondLow,rangeHigh,rangeLow,rangePosition};
  }
  const api={evaluate,score};if(typeof module==='object'&&module.exports)module.exports=api;root.launchModel=api;
 })(typeof window==='undefined'?globalThis:window);
