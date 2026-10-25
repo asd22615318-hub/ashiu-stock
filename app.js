@@ -92,7 +92,7 @@ function analyze(stock,p){const a=stock.bars,i=a.length-1,t=a[i],prev=a[i-1],m5=
  const structure=structurePatterns(a);Object.assign(signals,{headShoulders:structure.headShoulders,triangle:structure.triangle,vcp:structure.vcp});
  const periods=[5,10,20,60,120,240],highs=[5,10,20,60,120,360];
  const stand=periods.map(n=>{let m=ma(a,i,n);return m===null?null:t.close>=m;});
- const fresh=highs.map(n=>i>=n?t.close>max(a.slice(i-n,i-2),'close'):null);
+ const fresh=highs.map(n=>i>=n-1?t.close>max(a.slice(i-n+1,i-2),'close'):null);
  const order=[[20,60],[60,120],[120,360]].map(([x,y])=>{let one=ma(a,i,x),two=ma(a,i,y);return one===null||two===null?null:one>two;});
  const all=[...stand,...fresh,...order],score=all.includes(null)?null:all.filter(Boolean).length;
  const change=Number.isFinite(t.quote_change_pct)?t.quote_change_pct:prev?(t.close/prev.close-1)*100:null;

@@ -3,7 +3,7 @@
  function score(bars){
   const values=bars.map(x=>x.close),i=values.length-1,last=values[i],ma=n=>values.length>=n?values.slice(-n).reduce((a,b)=>a+b,0)/n:null;
   const stand=[5,10,20,60,120,240].map(n=>ma(n)===null?null:last>=ma(n));
-  const fresh=[5,10,20,60,120,360].map(n=>i>=n?last>Math.max(...values.slice(i-n,i-2)):null);
+  const fresh=[5,10,20,60,120,360].map(n=>i>=n-1?last>Math.max(...values.slice(i-n+1,i-2)):null);
   const order=[[20,60],[60,120],[120,360]].map(([a,b])=>ma(a)===null||ma(b)===null?null:ma(a)>ma(b));
   const rules=[...stand,...fresh,...order];return {score:rules.includes(null)?null:rules.filter(Boolean).length,known:rules.filter(x=>x===true).length,missing:rules.filter(x=>x===null).length,ma};
  }
