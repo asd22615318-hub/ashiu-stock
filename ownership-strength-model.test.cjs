@@ -7,13 +7,13 @@ function fixture(){
  const broker={periods:[{start:dates[0],end:dates[1],dates,stocks:Object.fromEntries(stocks.map((s,i)=>[s.code,{start:dates[0],end:dates[1],unit:'lots',top_n:15,buyers:Array(15).fill({}),sellers:Array(15).fill({}),buy_lots:i*10,sell_lots:10,net_lots:i*10-10}]))}]};
  return {stocks,ownership,institutional,broker};
 }
-const run=f=>calculate(f.stocks,f.ownership,f.institutional,f.broker,'2026-10-20');
+const run=f=>calculate(f.stocks,f.ownership,f.institutional,'2026-10-20');
 let f=fixture(),r=run(f);assert.equal(r.complete,3);assert.equal(r.rows.get('a').score,0);assert.equal(r.rows.get('b').score,50);assert.equal(r.rows.get('c').score,100);
 assert.equal(percentiles([{code:'a',v:1},{code:'b',v:1},{code:'c',v:3}],'v').get('a'),25);
 f=fixture();f.institutional.report_dates.pop();assert.equal(run(f).complete,0);
-f=fixture();f.broker.periods[0].dates.reverse();assert.equal(run(f).complete,0);
+f=fixture();delete f.broker;assert.equal(run(f).complete,3);
 f=fixture();f.ownership.weeks[1].invalid_stocks={a:'bad'};assert.equal(run(f).rows.get('a').score,null);
 f=fixture();f.ownership.weeks[1].stocks.a['400']=101;assert.equal(run(f).rows.get('a').score,null);
-f=fixture();f.broker.periods[0].stocks.a.net_lots=99;assert.equal(run(f).rows.get('a').score,null);
+
 f=fixture();delete f.institutional.stocks.a.daily_history[0];assert.equal(run(f).rows.get('a').score,null);
-console.log('Ownership strength: ranking, ties, negative flows, date coverage, invalid holdings and broker reconciliation passed.');
+console.log('Ownership strength: ranking, ties, negative flows, date coverage, invalid holdings and no broker dependency passed.');
