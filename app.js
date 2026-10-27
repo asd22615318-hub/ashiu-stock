@@ -101,13 +101,13 @@ function analyze(stock,p){const a=stock.bars,i=a.length-1,t=a[i],prev=a[i-1],m5=
 function updatePriceRanges(){const select=$('price-range');if(select.dataset.ranges==='fixed-20-100-300')return;const chosen=select.value;select.innerHTML='<option value="all">不限股價</option><option value="20:100">20–100 元</option><option value="100:300">100–300 元</option><option value="300:Infinity">300 元以上</option>';select.dataset.ranges='fixed-20-100-300';select.value=[...select.options].some(x=>x.value===chosen)?chosen:'all';}
 function matchesPrice(price,range){if(range==='all')return true;const [low,high]=range.split(':').map(Number);return Number.isFinite(price)&&price>=low&&price<high;}
 function backtestReference(s){
- const prior=s.bars.slice(-3,-1);
- if(prior.length<2)return '<small>前兩日資料不足</small>';
+ const prior=s.bars.slice(-2);
  const day=(b,label)=>{
+  if(!b)return `<div class="backtest-day"><span>${label}</span><small>資料不足</small></div>`;
   const hasPrice=Number.isFinite(b.amount)&&b.amount>0&&Number.isFinite(b.volume)&&b.volume>0;
   return `<div class="backtest-day"><span>${label}${b.date?` · ${esc(b.date)}`:''}</span><strong>成交量加權均價 ${hasPrice?fmt(b.amount/(b.volume*1000)):'待補'}</strong><span>低點 ${Number.isFinite(b.low)?fmt(b.low):'待補'}</span></div>`;
  };
- return `<div class="backtest-reference">${day(prior[1],'前一交易日')}${day(prior[0],'前二交易日')}</div>`;
+ return `<div class="backtest-reference">${day(prior.at(-1),'本交易日')}${day(prior.at(-2),'前一交易日')}</div>`;
 }
 function reset(){document.querySelectorAll('.check input').forEach(x=>x.checked=false);$('search').value='';$('above-weekly20').checked=false;$('featured-stocks').checked=false;$('launch-stocks').checked=false;$('stronger-than-market').checked=false;$('market').value='all';$('price-range').value='all';$('score').value=0;$('sort').value='score';render();}
 function render(event){updatePriceRanges();const p=params();if(!validParams(p)){$('message').textContent='請輸入有效的門檻範圍，再更新篩選。';return;}$('message').textContent='';if(analysisInputRecords!==records){analyses=records.map(s=>analyze(s,p));const ranked=analyses.filter(s=>s.t.volume>500).sort((a,b)=>(b.score??-1)-(a.score??-1)||a.code.localeCompare(b.code));ranked.forEach((s,i)=>s.rank=s.score===null?null:i+1);analysisInputRecords=records;window.dispatchEvent(new Event('stock-data-ready'));}
