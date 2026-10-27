@@ -314,3 +314,20 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 #ownership-stock-search #ownership-stock-search-form>button{min-height:44px;padding:10px 22px;white-space:nowrap}
 #ownership-stock-search #ownership-stock-search-form>span{grid-column:1/-1;font-size:13px;line-height:1.7}
 @media(max-width:520px){#ownership-stock-search #ownership-stock-search-form{gap:8px}#ownership-stock-search #ownership-stock-search-form>button{padding:10px 16px}}
+
+/* Keep launch evidence within the stock column, clear of price/change values. */
+#results-content table{min-width:1280px;table-layout:fixed}
+#results-content th:nth-child(1){width:30%}
+#results-content th:nth-child(2){width:11%}
+#results-content th:nth-child(3){width:13%}
+#results-content th:nth-child(4){width:16%}
+#results-content th:nth-child(5){width:15%}
+#results-content th:nth-child(6){width:15%}
+#rows td{vertical-align:top}
+#rows td:first-child{white-space:normal;overflow-wrap:anywhere;padding-right:18px}
+#rows td:first-child>button{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box;white-space:normal;overflow-wrap:anywhere}
+#rows td:first-child small,#rows .launch-evidence,#rows .featured-evidence{white-space:normal;overflow-wrap:anywhere;word-break:normal;max-width:100%;box-sizing:border-box}
+#rows .launch-evidence{display:block;font-size:13px;line-height:1.75;margin-top:9px;padding-right:4px}
+#rows .observation-stock-heading{min-width:0;max-width:100%}
+#rows td:nth-child(2){white-space:nowrap;padding-left:14px;vertical-align:top}
+#results-content .table-wrap{overflow-x:auto}
