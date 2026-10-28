@@ -163,6 +163,16 @@ function chipMetrics(code,weekDate=''){
  return `<span class="stock-chip-metrics" data-chip-code="${esc(code)}" data-chip-week="${esc(weekDate)}"><span title="${esc(reason)}">法人 5 日 <b class="${color(percent)}">${value(percent,'%')}</b></span><span title="集保資料週 ${w?esc(w.date):'未載入'}">400 張以上 <b style="color:#ffe298">${Number.isFinite(current)&&!w?.invalid_stocks?.[code]?fmt(current)+'%':'待補'}</b></span><span title="400 張以上大戶持股比例變化；${w&&prior?esc(prior.date)+' → '+esc(w.date):'週資料未齊'}">大戶週增 <b class="${color(delta)}">${value(delta,' pp')}</b></span></span>`;
 }
 function refreshChipMetrics(){document.querySelectorAll('[data-chip-code]').forEach(el=>{el.outerHTML=chipMetrics(el.dataset.chipCode,el.dataset.chipWeek);});}
+function nearCrossStatusHtml(s){
+ const close=s.t.close,checks=[['20 週均線',s.w20,'高於'],['MA60（日）',s.m60,'高於'],['MA20（日）',s.m20,'低於']];
+ const results=checks.map(([label,value,wanted])=>{
+  if(!Number.isFinite(close)||!Number.isFinite(value))return {known:false,pass:false,html:'<p>'+label+'：資料不足，暫不判定。</p>'};
+  const relation=close>value?'＞':close<value?'＜':'＝',pass=wanted==='高於'?close>value:close<value;
+  return {known:true,pass,html:'<p>收盤 '+fmt(close,4)+' '+relation+' '+label+' '+fmt(value,4)+'<br><strong>'+(pass?'✓ 符合':'✗ 未符合')+'</strong>（要求收盤'+wanted+label+'）</p>'};
+ });
+ return '<div class="near-cross-status"><strong>即將穿惡條件檢查</strong><p>資料日：'+esc(s.t.date)+'</p>'+results.map(r=>r.html).join('')+'<p>'+(results.some(r=>!r.known)?'歷史不足，暫不判定。':results.every(r=>r.pass)?'三項同時符合。':'尚未同時符合三項。')+'</p></div>';
+}
+
 function lights(values,kind){return values.map((v,i)=>`<i class="light ${kind} ${v?'on':''}" title="第 ${i+1} 項：${v===null?'資料不足':v?'符合':'未符合'}"></i>`).join('');}
 function stockConvertiblePriceHtml(s){const state=window.convertibleDataStatus;if(state==='loading'||!window.activeConvertibleBonds)return '<span class="conversion-price-status">轉換價格資料載入中…</span>';if(state==='error')return '<span class="conversion-price-status">轉換價格資料讀取失敗，請重新整理頁面。</span>';const bonds=window.activeConvertibleBonds(s.code);return bonds.map(bond=>`<span class="conversion-price-item"><span>${esc(bond.name||bond.code)} (${esc(bond.code)}) · ${bond.conversion_price_kind==='current_official'?'目前轉換價':'轉換價'}</span><strong>${fmt(bond.conversion_price)} 元</strong><small>到期 ${esc(bond.maturity_date)}${bond.conversion_price_date?' · 價格資料 '+esc(bond.conversion_price_date):''}</small></span>`).join('');}
 function priceBaseHtml(bars){
@@ -215,7 +225,7 @@ function showDetail(s){if(!s)return;renderInstitutional(s);renderStockHoldings(s
  $('explain').innerHTML+='<p>價格訊號以收盤價確認：創高、均線位置與結構轉折皆採收盤；紅黑 K、上下影線及母子 K 棒形狀仍依開高低收辨識。</p>';
  $('explain').innerHTML+=`<p style="margin-top:14px">${candleType(s.t)} · 開盤 ${fmt(s.t.open)}<br>MA5 ${fmt(s.m5)} · MA10 ${fmt(s.m10)}<br>當日量 ${fmt(s.t.volume,0)} 張<br>${s.bars.length} 筆日線</p>`;
  $('detail-score').textContent=s.score===null?s.known+' / 15（待判定 '+s.missing+' 項）':s.score+' / 15';$('score-breakdown').innerHTML=[['站上均線',s.stand,''],['收盤創高',s.fresh,'high'],['均線排列',s.order,'order']].map(([label,v,k])=>`<div class="score-row"><span>${label}</span><div class="lights">${lights(v,k)}</div><span>${v.filter(Boolean).length} / ${v.length}</span></div>`).join('')+`<p>均線位置與創高均以收盤價確認，均線由收盤價計算。點亮項目為符合；待判定項目不算未符合。資料未齊時顯示已符合分數，暫不納入正式排名。<br>完整口徑見「型態與規則」。</p>`;
- $('explain').innerHTML+='<p><strong>即將穿惡條件</strong><br>收盤 '+fmt(s.t.close)+' > 20 週均線 '+fmt(s.w20)+'<br>收盤 > MA60（日） '+fmt(s.m60)+'<br>收盤 < MA20（日） '+fmt(s.m20)+'<br>'+([s.w20,s.m60,s.m20].includes(null)?'歷史不足，暫不判定。':s.signals.nearCross?'三項同時符合。':'尚未同時符合三項。')+'</p>';
+ $('explain').innerHTML+=nearCrossStatusHtml(s);
  renderDefenseChart(s);renderSmcZones(s);if(s.bars.length<21)$('explain').innerHTML='<p>目前僅 '+s.bars.length+' 筆日線。補齊歷史後才計算均線與型態；完整 15 分需 361 筆。</p>'+$('explain').innerHTML;}
 function makeDemo(){let seed=7351;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};const dates=[];let d=new Date('2025-01-01T00:00:00Z');while(dates.length<390){if(d.getUTCDay()!==0&&d.getUTCDay()!==6)dates.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+1);}return Array.from({length:12},(_,j)=>{let price=35+j*13;const bars=dates.map((date,k)=>{let o=price*(1+(rand()-.5)*.008),c=o*(1+.003+(rand()-.5)*.015);price=c;return {date,open:o,close:c,high:Math.max(o,c)*(1+rand()*.01),low:Math.min(o,c)*(1-rand()*.008),volume:Math.round(1000+rand()*1000)};});let t=bars.at(-1),prev=bars.at(-2),base=prev.close;
  if(j%6===0){Object.assign(t,{open:base*1.012,close:base*.998,high:base*1.02,low:base*.994,volume:450});}
