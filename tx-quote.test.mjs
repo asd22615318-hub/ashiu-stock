@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {nearestQuote,latestTxQuote} from './tx-quote.mjs';
+const at=Date.parse('2026-10-29T09:00:00Z');
+const q=(symbol,price,date='20261029',time='170000')=>({SymbolID:symbol,CLastPrice:String(price),CDate:date,CTime:time,CRefPrice:'46000',CDiff:'100',CDiffRate:'0.22'});
+let raw={RtData:{QuoteList:[q('TXF-S',99999),q('TXFL6-F',47000),q('TXFK6-F',46500)]}};
+assert.equal(nearestQuote(raw,'日盤',at).symbol,'TXFK6-F');
+assert.equal(nearestQuote({RtData:{QuoteList:[q('TXFL6-F',47000)]}},'日盤').symbol,'TXFL6-F');
+assert.equal(nearestQuote({RtData:{QuoteList:[q('TXFK6-F',0)]}},'日盤',at),null);
+const fetcher=async(url,opts)=>({ok:true,json:async()=>({RtData:{QuoteList:[JSON.parse(opts.body).MarketType==='0'?q('TXFK6-F',46500,'20261029','134459'):q('TXFK6-M',46325,'20261029','174602')]}})});
+const result=await latestTxQuote(fetcher);assert.equal(result.price,46325);assert.equal(result.session,'夜盤');assert.equal(result.source_time,'17:46:02');
+const broken=async()=>{throw Error('offline')};await assert.rejects(()=>latestTxQuote(broken));
+console.log('TX nearest contract, spot exclusion, automatic roll, day/night freshness and failures passed.');

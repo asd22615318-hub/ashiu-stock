@@ -1,4 +1,5 @@
 import { CNN_SOURCE, CNN_ARCHIVE, normalizeFearGreed } from './fear-greed-data.mjs';
+import { latestTxQuote } from './tx-quote.mjs';
 const encoder = new TextEncoder();
 const sessionCookie = '__Host-ashiu_session';
 const lifetime = 8 * 60 * 60;
@@ -42,6 +43,16 @@ export default {
     const valid = parts.length === 3 && /^\d+$/.test(parts[0]) && /^[a-f0-9]{32}$/.test(parts[1]) && /^[a-f0-9]{64}$/.test(parts[2]) && expiry > now && expiry <= now + lifetime && await equal(parts[2], await sign(parts[0] + '.' + parts[1], env.SHARED_PASSWORD));
     if (!valid) return url.pathname === '/' && ['GET', 'HEAD'].includes(request.method) ? loginPage(headers) : new Response('Sign in required.', { status: 401, headers });
     if (!['GET', 'HEAD'].includes(request.method)) return new Response('Method not allowed.', { status: 405, headers });
+    if (url.pathname === '/api/tx-quote') {
+      const key=new Request(url.origin+'/__internal_tx_quote_v1');
+      try {
+        const cached=await caches.default.match(key);
+        if(cached)return new Response(cached.body,{headers:{...headers,'Content-Type':'application/json; charset=utf-8'}});
+        const quote=await latestTxQuote();
+        await caches.default.put(key,new Response(JSON.stringify(quote),{headers:{'Content-Type':'application/json','Cache-Control':'public, max-age=30'}}));
+        return Response.json(quote,{headers});
+      }catch(error){return Response.json({error:error.message||'台指近全報價暫時無法取得'},{status:502,headers});}
+    }
     if (url.pathname === '/api/world') {
       const allowed = new Set(['^DJI','^GSPC','^IXIC','^NDX','^SOX','^RUT','^VIX','NVDA','AAPL','MSFT','GOOGL','AMZN','META','TSLA','AVGO','AMD','MU','INTC','QCOM','ASML','ARM','ORCL','SMCI','TSM','UMC','ASX','CHT','^N225','^HSI','000001.SS','^KS11','^FTSE','^GDAXI','^FCHI','TWD=X','JPY=X','^TNX','GC=F','CL=F','BTC-USD']);
       const symbol = url.searchParams.get('symbol') || '';
