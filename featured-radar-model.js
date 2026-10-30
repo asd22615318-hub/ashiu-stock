@@ -48,6 +48,7 @@
  }
  function common(stock,ctx){
   const bars=stock.bars,t=bars?.at(-1),reasons=[],flags=[];
+  if(/金融|保險/.test(stock.industry||''))return {ok:false,reasons:['金融保險業，排除'],flags};
   if(!t||t.date!==ctx.date)return {ok:false,reasons:['行情非最新交易日／可能停牌'],flags};
   if(bars.length<61)return {ok:false,reasons:['日線不足 61 個交易日'],flags};
   const recent=bars.slice(-61);if(recent.some(b=>![b.open,b.high,b.low,b.close,b.volume].every(finite)||b.close<=0||b.open<=0||b.low<=0||b.volume<=0||b.high<Math.max(b.open,b.close)||b.low>Math.min(b.open,b.close)))reasons.push('OHLCV 缺漏、零成交或價格異常');
