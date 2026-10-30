@@ -58,7 +58,7 @@
   if(v20<1000)reasons.push('20 日均量未達 1,000 張');
   if(amounts.some(x=>!finite(x)||x<=0))reasons.push('20 日成交金額資料不足');
   else if(mean(amounts)<30000000)reasons.push('20 日平均成交額未達 3,000 萬元');
-  if(t.close<10)reasons.push('收盤未達 10 元');
+  if(t.close<=20)reasons.push('收盤須大於 20 元');
   if(t.close>ma(bars,20)*1.2)reasons.push('收盤高於 MA20 超過 20%');
   if(pct(t.close,bars.at(-6).close)>25)flags.push('近 5 日漲幅逾 25%，追高風險');
   const regulation=ctx.regulatory?.stocks?.[stock.code],active=regulation?.disposals?.filter(d=>d.start<=ctx.date&&d.end>=ctx.date)||[];
