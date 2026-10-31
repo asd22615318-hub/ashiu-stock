@@ -44,7 +44,7 @@
   if(!benchmark){root.textContent=error||'正在載入大盤歷史…';return;}
   if(mode!=='live'){root.textContent='請先載入盤後真實行情。';return;}
   const date=analyses.map(s=>s.t.date).sort().at(-1),market=benchmark.filter(x=>x.d<=date&&valid(x.i)).sort((a,b)=>a.d.localeCompare(b.d));
-  const marketFall=market.at(-1)?.d===date?drawdown(market.slice(-60).map(x=>x.i)):null,crash=marketFall!==null&&marketFall>15;
+  const marketFall=market.at(-1)?.d===date?drawdown(market.slice(-60).map(x=>x.i)):null,crash=marketFall!==null&&marketFall>15+1e-9;
   const states=new Map();for(const stock of analyses){const result=analyze(stock.bars,market,date);if(result)states.set(stock.code,result);}
   const groups=typeof window.getHotSectorGroups==='function'?window.getHotSectorGroups():new Map(),items=[];
   if(crash)for(const stock of analyses){const s=states.get(stock.code);if(!s?.pattern||!(s.fall>20)||!(s.rs>0)||stock.t.close<20||stock.t.volume<=500)continue;
