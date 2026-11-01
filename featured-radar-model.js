@@ -94,6 +94,14 @@
    const score=points([item('平台突破',30,t.close>=hh20*1.01,'收盤突破前二十日最高價 ≥1%（入選另採最高收盤價 HC20）'),item('量能攻擊',25,rvol>=2&&t.volume>orderedVolumes[14],'RVOL ≥2 且高於前二十日成交量第 75 百分位'),item('均線排列',15,m5>m10&&m10>m20&&up5&&up10&&up20,'MA5>MA10>MA20，三線上彎'),item('籌碼確認',15,!daily||hold.delta===null?null:daily.net_lots>0&&hold.delta>=-.2,'當日分點淨額為正，400 張占比週減不超過 0.2% 差值'),item('族群強度',15,!sector||strength===null?null:sector.rank<=5&&strength>5,'熱門細分族群資金強度前五，RS20>5% 差值')]);
    radars.push({...base,type:'B',state:early?'提前觀察':'正式發動候選',score,priority:formal&&score.total>=80,status:early?'提前觀察，未正式發動':score.total>=80?'優先觀察':score.total>=65?'候選':score.pending?'條件符合，評分待核對':'未達 65 分',facts:{hc20,hh20,rvol,return20},early});
   }
+
+  const maScore=base.maScore,prior10=b.slice(-11,-1),low20=min(b.slice(-20).map(x=>x.low)),hh10=max(prior10.map(x=>x.high)),priorRange20=range(prior20),priorRange10=range(prior10),v5prev=mean(b.slice(-6,-1).map(x=>x.volume)),vr5=t.volume/v5prev,ma5ThreeAgo=ma(b,5,n-3),clv=t.high>t.low?(t.close-t.low)/(t.high-t.low):null;
+  if(finite(maScore)&&maScore>=7&&pct(t.close,low20)<=18+1e-9&&low5>oldLow5&&m5>ma5ThreeAgo&&t.close>=m5*.98&&priorRange20<=35+1e-9&&return20<=20+1e-9&&t.close<=hh20&&t.volume>=1000){
+   radars.push({...base,type:'D',state:'底部提前型',score:points([]),priority:true,status:'必要條件全數符合',facts:{low20,fromLow:pct(t.close,low20),low5,oldLow5,m5,ma5ThreeAgo,priorRange20,return20,hh20,volume:t.volume,volume20:mean(b.slice(-20).map(x=>x.volume))}});
+  }
+  if(finite(maScore)&&maScore>=7&&t.close>hh10&&vr5>=1.5&&t.close>m20&&m5>ma5ThreeAgo&&priorRange10<=25+1e-9&&clv!==null&&clv>=.65&&return20<=30+1e-9&&t.close/m60<=1.25+1e-9&&t.volume>=2000){
+   radars.push({...base,type:'E',state:'初升突破確認型',score:points([]),priority:true,status:'必要條件全數符合',facts:{hh10,vr5,m20,m5,ma5ThreeAgo,priorRange10,clv,return20,ma60Ratio:t.close/m60,volume:t.volume,volume20:mean(b.slice(-20).map(x=>x.volume))}});
+  }
   // Confirm a closing-price swing high with two bars on each side, available now.
   for(let peak=n-6;peak>=Math.max(20,n-21);peak--){
    const ph=b[peak].close;if(!b.slice(peak-2,peak).concat(b.slice(peak+1,peak+3)).every(x=>ph>x.close))continue;
