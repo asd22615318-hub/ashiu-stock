@@ -2,10 +2,10 @@
  'use strict';
  const root=document.getElementById('featured-radar');if(!root)return;
  const shell=root.querySelector('details'),content=root.querySelector('.chipburst-info');
- let tab='D',view='all',query='',cstate='all',limit=30,loaded=false,loading=false,results=null,loadErrors=[];
+ let tab='A',view='all',query='',cstate='all',limit=30,loaded=false,loading=false,results=null,loadErrors=[];
  const snapshots={},esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const fmt=v=>Number.isFinite(v)?v.toLocaleString('zh-TW',{maximumFractionDigits:2}):'—',signed=v=>Number.isFinite(v)?(v>0?'+':'')+fmt(v):'—';
- const titles={D:'底部提前型',E:'初升突破確認型'};
+ const titles={A:'主力吸籌',B:'主力準備發動',C:'主力洗盤再攻',D:'底部提前型',E:'初升突破確認型'};
  const rules={
  D:'均線≥7／15；收盤距近20日最低價≤18%；近5日最低價>再前5日最低價；MA5今日>3個交易日前；收盤≥MA5×0.98；前20日高低振幅≤35%；R20≤20%；收盤≤前20日最高價；今日量≥1,000張、20日均量≥1,000張。不強制多頭排列或紅K。',
  E:'均線≥7／15；收盤>前10日最高價；VR5≥1.5；收盤>MA20；MA5今日>3個交易日前；前10日振幅≤25%；CLV≥65%；R20≤30%；收盤／MA60≤1.25；今日量≥2,000張、20日均量≥1,000張。紅K、黑K皆可；高低相等為特殊K棒，CLV無法判定，不納入突破確認。',
@@ -15,7 +15,7 @@
  };
  const style=document.createElement('style');style.textContent='#featured-radar .fr-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}#featured-radar .fr-controls input{flex:1;min-width:140px;padding:10px;background:#0d1726;border:1px solid #705331;border-radius:8px;color:white;font:inherit}#featured-radar .fr-controls select{width:auto;max-width:100%;margin:0}#featured-radar .fr-tabs{display:flex;gap:8px;flex-wrap:wrap}#featured-radar .fr-tabs button{padding:10px 14px;border:1px solid #806a3a;border-radius:8px;background:#183c35;color:#f3f4f6;font:inherit;cursor:pointer}#featured-radar .fr-tabs button[aria-selected=true]{background:#6c4c1f;color:#ffe298;border-color:#ffe298}#featured-radar .fr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:14px;margin-top:16px}#featured-radar .fr-card{border:1px solid #705331;border-radius:12px;padding:16px;min-width:0;overflow-wrap:anywhere;background:#201824}#featured-radar .fr-name{border:0;background:none;padding:0;color:#ffe298;font-weight:800;font-size:19px;cursor:pointer;text-align:left}#featured-radar .fr-card p{color:#eee7ee;line-height:1.8;font-size:14px}#featured-radar .fr-card .fr-orange{color:#ffb36e;font-weight:700}#featured-radar .fr-status{display:inline-block;padding:4px 8px;border:1px solid #6f7564;border-radius:7px;margin:6px 5px 6px 0;color:#ffe298;font-size:13px}#featured-radar .fr-score{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}#featured-radar .fr-track{flex:1;min-width:60px;height:11px;background:#392f41;border-radius:8px;overflow:hidden;display:flex}#featured-radar .fr-track i{display:block;height:100%;background:#ffe298}#featured-radar .fr-track em{display:block;height:100%;background:repeating-linear-gradient(45deg,#665c6b,#665c6b 3px,#423b47 3px,#423b47 6px)}#featured-radar .fr-score strong{color:#ffe298}#featured-radar .fr-note{font-size:13px;line-height:1.9;color:#cdd6df}#featured-radar .fr-score-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #493d36;padding:8px 0;font-size:14px}#featured-radar .fr-warning{color:#ffb36e!important}#featured-radar details>summary{white-space:normal}#featured-radar .fr-common{border:1px solid #604b64;padding:12px;border-radius:9px;margin:12px 0}#featured-radar button:focus-visible{outline:2px solid #ffe298;outline-offset:3px}';document.head.appendChild(style);
  async function load(){
-  if(loading||loaded)return;loading=true;content.innerHTML='<p>正在比對底部提前型與初升突破確認型條件…</p>';
+  if(loading||loaded)return;loading=true;content.innerHTML='<p>正在比對行情、集保、分點與族群資料…</p>';
   await Promise.all([['ownership','ownership-data.json'],['broker','broker-data.json'],['daily','broker-daily-data.json'],['benchmark','taiwan-sentiment-data.json'],['regulatory','regulatory-data.json'],['tradeValues','featured-trade-values-data.json']].map(async([key,file])=>{
    try{const response=await fetch(file,{cache:'no-cache'});if(!response.ok)throw Error('HTTP '+response.status);snapshots[key]=await response.json();}catch(e){loadErrors.push(key+'：'+e.message);}
   }));
@@ -27,7 +27,7 @@
   const date=records.map(s=>s.bars?.at(-1)?.date||'').sort().at(-1),groups=window.getHotSectorGroups?.()||new Map();
   const ctx={...snapshots,date,sectors:window.featuredRadarModel.sectorRanks(records,groups,date),maScores:new Map((typeof analyses==='undefined'?[]:analyses).map(s=>[s.code,s.score]))};
   const entries=records.map(stock=>window.featuredRadarModel.evaluate(window.featuredRadarModel.withTradeValues(stock,snapshots.tradeValues),ctx));
-  results={date,entries,rows:entries.flatMap(s=>s.radars).filter(r=>r.type==='D'||r.type==='E'),excluded:entries.filter(s=>!s.gate.ok).length};limit=30;render();
+  results={date,entries,rows:entries.flatMap(s=>s.radars),excluded:entries.filter(s=>!s.gate.ok).length};limit=30;render();
  }
  function facts(r){
   const f=r.facts;
