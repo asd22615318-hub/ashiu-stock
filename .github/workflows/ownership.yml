@@ -1,0 +1,30 @@
+name: Refresh weekly large-holder data
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/ownership.yml
+      - refresh_ownership.py
+  schedule:
+    # 17:10 and 19:10 Asia/Taipei; source is weekly, retries run on weekends too.
+    - cron: '10 9,11 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: ownership-update
+  cancel-in-progress: false
+env:
+  PYTHONUTF8: '1'
+jobs:
+  update:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch latest official TDCC weekly data
+        run: python refresh_ownership.py
+      - name: Publish holdings without waiting for other reports
+        run: python publish_snapshots.py ownership-seed.json
