@@ -32,3 +32,17 @@ document.querySelectorAll('#detail > .detail-section').forEach((section, index) 
   });
 });
 
+
+(() => {
+ const modal=document.getElementById('detail-modal');
+ const close=document.getElementById('detail-close');
+ if(!modal||!close)return;
+ const back=document.createElement('button');
+ back.type='button';back.className='detail-floating-back';
+ back.textContent='返回';back.setAttribute('aria-label','返回原本個股清單');
+ back.addEventListener('click',()=>close.click());
+ modal.append(back);
+ const style=document.createElement('style');
+ style.textContent='.detail-floating-back{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:calc(18px + env(safe-area-inset-bottom));z-index:10000;min-width:76px;min-height:46px;padding:11px 20px;border:1px solid #62877e;border-radius:999px;background:#19322f;color:#fff;font:700 16px system-ui;box-shadow:0 5px 18px #0008;cursor:pointer;touch-action:manipulation}.detail-floating-back:hover{background:#24453f}.detail-floating-back:focus-visible{outline:3px solid #8bc8b5;outline-offset:3px}.detail-modal:not([open])>.detail-floating-back{display:none}.detail-modal #detail{padding-bottom:90px}';
+ document.head.append(style);
+})();
