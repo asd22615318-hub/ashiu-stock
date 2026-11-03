@@ -38,6 +38,25 @@
   const stage=second===null?1:aboveNeck?(base.stable?4:3):2;
   return {...base,stage,pattern:{shape,low1:bars[first].close,low2:second===null?null:bars[second].close,date1:bars[first].date,date2:second===null?null:bars[second].date,confirmed:bars[(second??first)+3].date,neck,aboveNeck,breakout,left:left===null?null:bars[left].date,invalid:bars[first].close}};
  }
+
+ function bottomZone(bars,state){
+  const p=state?.pattern,reasons=[];
+  if(!p||!['W底','頭肩底'].includes(p.shape))return {ok:false,reasons:['尚未形成W底或頭肩底']};
+  const first=bars.findIndex(b=>b.date===p.date1),second=bars.findIndex(b=>b.date===p.date2),t=bars.at(-1);
+  const before=bars.slice(Math.max(0,first-60),first);
+  if(before.length<20||second-first<5)return {ok:false,reasons:['下跌前歷史不足或兩腳間距不足5日']};
+  const peak=Math.max(...before.map(b=>b.close)),drop=(1-p.low1/peak)*100,belowPeak=(1-t.close/peak)*100,rebound=(t.close/p.low1-1)*100,neckGap=(t.close/p.neck-1)*100,maGap=(t.close/state.ma20-1)*100;
+  if(!(drop>15+1e-9))reasons.push('底部前跌幅未超過15%');
+  if(belowPeak<10-1e-9)reasons.push('已回到下跌前高點附近');
+  if(rebound>20+1e-9)reasons.push('離底部已反彈超過20%');
+  if(!valid(p.neck)||neckGap>5+1e-9)reasons.push('超過頸線5%或頸線無效');
+  if(maGap>8+1e-9)reasons.push('高於MA20超過8%');
+  if(p.shape==='W底'&&p.low2/p.low1>1.08+1e-9)reasons.push('W底兩腳價差超過8%');
+  if(p.shape==='W底'&&p.neck/Math.max(p.low1,p.low2)<1.03-1e-9)reasons.push('兩腳間反彈不足3%，底型不明確');
+  if(p.shape==='頭肩底'&&p.low2/p.low1<1.03-1e-9)reasons.push('頭部與右肩差距不足3%');
+  return {ok:!reasons.length,reasons,peak,drop,belowPeak,rebound,neckGap,maGap};
+ }
+
  function peerStrength(code,groups,states){
   return [...groups].filter(([,members])=>members.has(code)).map(([name,members])=>{
    const eligible=[...members].filter(c=>states.has(c)),strong=eligible.filter(c=>states.get(c).above&&states.get(c).rs>0);
@@ -46,12 +65,12 @@
   }).sort((a,b)=>Number(b.passes)-Number(a.passes)||b.strong/b.valid-a.strong/a.valid||b.strong-a.strong)[0]||null;
  }
 
- if(typeof module==='object'&&module.exports){module.exports={drawdown,relative,analyze,peerStrength};return;}
+ if(typeof module==='object'&&module.exports){module.exports={drawdown,relative,analyze,peerStrength,bottomZone};return;}
  const root=document.getElementById('higher-low-content'),toggle=document.getElementById('higher-low-toggle');if(!root||!toggle)return;
  const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const fmt=v=>Number.isFinite(v)?v.toLocaleString('zh-TW',{maximumFractionDigits:2}):'—';
- const stages={1:'第一隻腳確立',2:'第二隻腳確立',3:'突破頸線',4:'站穩月線｜進場觀察'};
- let benchmark=null,error='',filter='4';
+ const stages={2:'底部成形｜等待突破',3:'剛突破頸線',4:'剛站穩月線｜進場觀察'};
+ let benchmark=null,error='',filter='all';
  toggle.addEventListener('click',()=>{root.hidden=!root.hidden;toggle.setAttribute('aria-expanded',String(!root.hidden));toggle.textContent=root.hidden?'展開落底名單 ▾':'收合落底名單 ▴';if(!root.hidden)render();});
  function render(){
   if(typeof analyses==='undefined'||!analyses.length){root.textContent='等待個股日線資料…';return;}
@@ -60,10 +79,10 @@
   const date=analyses.map(s=>s.t.date).sort().at(-1),market=benchmark.filter(x=>x.d<=date&&valid(x.i)).sort((a,b)=>a.d.localeCompare(b.d)),marketFall=market.at(-1)?.d===date?drawdown(market.slice(-60).map(x=>x.i)):null;
   const states=new Map();for(const stock of analyses){const state=analyze(stock.bars,market,date);if(state)states.set(stock.code,state);}
   const groups=window.getHotSectorGroups?.()||new Map(),items=[];
-  for(const stock of analyses){const s=states.get(stock.code);if(!s?.pattern||!(s.fall>15+1e-9)||stock.t.close<20||stock.t.volume<=500)continue;items.push({stock,...s,peer:peerStrength(stock.code,groups,states)});}
+  for(const stock of analyses){const s=states.get(stock.code);if(!s?.pattern||!(s.fall>15+1e-9)||stock.t.close<20||stock.t.volume<=500)continue;const zone=bottomZone(stock.bars,s);if(!zone.ok)continue;items.push({stock,...s,zone,peer:peerStrength(stock.code,groups,states)});}
   const counts=k=>items.filter(x=>x.stage===k).length;
   const selected=items.filter(x=>filter==='all'||x.stage===Number(filter)).sort((a,b)=>(b.stock.score??-1)-(a.stock.score??-1)||a.stock.code.localeCompare(b.stock.code));
-  root.innerHTML='<p><strong>先確認底部，再觀察進場</strong> · 行情 '+esc(date)+' · 大盤60日最大回落 '+fmt(marketFall)+'%（輔助資訊，不阻擋個股）</p><p>第一腳 '+counts(1)+' 檔 → 第二腳 '+counts(2)+' 檔 → 頸線突破 '+counts(3)+' 檔 → <strong style="color:#ffb36e">站穩月線 '+counts(4)+' 檔</strong>。預設顯示站穩月線，可切換查看全部或前面階段。前兩階段屬提早觀察；完成頸線突破且站穩月線才列進場觀察，不代表保證獲利。</p><label class="field">觀察階段<select id="higher-low-stage">'+[['all','全部階段'],...Object.entries(stages)].map(([k,v])=>'<option value="'+k+'" '+(filter===k?'selected':'')+'>'+v+'</option>').join('')+'</select></label><details><summary>四步邏輯與失效條件</summary><p>① 第一隻腳：近60日內的收盤轉折低點，左右各3個交易日確認。② 第二隻腳：後一個已確認低點不低於第一腳；同價允許，不再強制墊高1%。③ 突破頸線：W底採兩底之間最高收盤；頭肩底採左右反彈高點連線，最新收盤須在頸線上。④ 站穩月線：完成第三步，並連續2個交易日收盤＞各日MA20，列進場觀察。收盤跌回頸線下即退回第二階段；跌回MA20下則退回頸線突破階段。</p><p>第一腳收盤低點為失效線，收盤跌破就撤銷原底部，重新找新腳。頭肩底採最近三個已確認低點，中間最低、左右肩差異≤10%為本版量化設定，失效線採頭部低點。頸線與月線條件可先後發生，但須目前同時成立。維持個股60日回落＞15%、股價≥20元、當日量＞500張。RS5及同族群同步轉強改為加分標記，不阻擋入選。均線含當日，全程只用已完成日線，沿用收盤判斷標準，不使用未來資料。</p></details><p>'+selected.length+' 檔 · 均線分數由高到低</p><div class="chipburst-table-wrap"><table class="chipburst-table"><thead><tr><th>個股／階段</th><th>收盤／均線</th><th>底部／兩腳</th><th>頸線</th><th>MA20</th><th>失效線</th><th>輔助訊號</th></tr></thead><tbody>'+selected.map(x=>'<tr><td><button data-higher-low="'+esc(x.stock.code)+'">'+esc(x.stock.name)+' '+esc(x.stock.code)+'</button><small style="color:'+(x.stage===4?'#ffb36e':'#dce6ee')+'">'+stages[x.stage]+'</small></td><td>'+fmt(x.stock.t.close)+'<small style="color:#ffb36e">均線 '+(x.stock.score==null?'待補':x.stock.score+' / 15')+'</small><small>60日回落 '+fmt(x.fall)+'%</small></td><td>'+x.pattern.shape+'<small>第一腳 '+fmt(x.pattern.low1)+'（'+esc(x.pattern.date1)+'）</small><small>第二腳 '+fmt(x.pattern.low2)+'（'+esc(x.pattern.date2)+'）</small><small>確認日 '+esc(x.pattern.confirmed)+'</small></td><td>'+fmt(x.pattern.neck)+'<small>'+(x.pattern.aboveNeck?'收盤已突破':'等待突破')+'</small></td><td>'+fmt(x.ma20)+'<small>'+(x.stable?'連2日站上':x.above?'今日站上，待站穩':'尚未站上')+'</small></td><td style="color:#ffb36e">'+fmt(x.pattern.invalid)+'<small>收盤跌破撤銷</small></td><td>RS5 '+fmt(x.rs)+'%<small>'+(x.rs>0?'近5日強於大盤':'RS未轉強／待補')+'</small><small>'+(x.peer?esc(x.peer.name)+' '+x.peer.strong+'/'+x.peer.valid+' 檔同步轉強'+(x.peer.passes?' ✓':''):'族群待補')+'</small>'+(marketFall>15?'大跌後觀察':'個股先觀察')+'</td></tr>').join('')+'</tbody></table></div>'+(selected.length?'':'<p>此階段尚無符合個股，可切換其他階段觀察。</p>');
+  root.innerHTML='<p><strong>跌深築底，排除已大幅拉升</strong> · 行情 '+esc(date)+' · 大盤60日最大回落 '+fmt(marketFall)+'%（輔助資訊，不阻擋個股）</p><p>底部成形 '+counts(2)+' 檔 → 頸線突破 '+counts(3)+' 檔 → <strong style="color:#ffb36e">站穩月線 '+counts(4)+' 檔</strong>。預設顯示底部W型與頭肩底全部候選。尚未突破者屬提早觀察；完成頸線突破且站穩月線才列進場觀察，不代表保證獲利。</p><label class="field">觀察階段<select id="higher-low-stage">'+[['all','全部階段'],...Object.entries(stages)].map(([k,v])=>'<option value="'+k+'" '+(filter===k?'selected':'')+'>'+v+'</option>').join('')+'</select></label><details><summary>跌深築底、避免追高與失效條件</summary><p>僅保留W底或頭肩底，不列單一低點。新增防追高條件：第一腳／頭部之前60日內最高收盤至底部跌幅＞15%；目前仍比該高點低至少10%；距第一腳／頭部反彈≤20%；收盤不得高於頸線5%、高於MA20不得超過8%。兩腳間隔至少5日，W底兩腳差≤8%、兩腳間反彈至少3%；頭肩底右肩比頭部高至少3%。上述數字為本版量化設定，底型仍需人工核對。</p><p>① 第一隻腳：近60日內的收盤轉折低點，左右各3個交易日確認。② 第二隻腳：後一個已確認低點不低於第一腳；同價允許，不再強制墊高1%。③ 突破頸線：W底採兩底之間最高收盤；頭肩底採左右反彈高點連線，最新收盤須在頸線上。④ 站穩月線：完成第三步，並連續2個交易日收盤＞各日MA20，列進場觀察。收盤跌回頸線下即退回第二階段；跌回MA20下則退回頸線突破階段。</p><p>第一腳收盤低點為失效線，收盤跌破就撤銷原底部，重新找新腳。頭肩底採最近三個已確認低點，中間最低、左右肩差異≤10%為本版量化設定，失效線採頭部低點。頸線與月線條件可先後發生，但須目前同時成立。維持個股60日回落＞15%、股價≥20元、當日量＞500張。RS5及同族群同步轉強改為加分標記，不阻擋入選。均線含當日，全程只用已完成日線，沿用收盤判斷標準，不使用未來資料。</p></details><p>'+selected.length+' 檔 · 均線分數由高到低</p><div class="chipburst-table-wrap"><table class="chipburst-table"><thead><tr><th>個股／階段</th><th>收盤／均線</th><th>底部／兩腳</th><th>頸線</th><th>MA20</th><th>失效線／底部位置</th><th>輔助訊號</th></tr></thead><tbody>'+selected.map(x=>'<tr><td><button data-higher-low="'+esc(x.stock.code)+'">'+esc(x.stock.name)+' '+esc(x.stock.code)+'</button><small style="color:'+(x.stage===4?'#ffb36e':'#dce6ee')+'">'+stages[x.stage]+'</small></td><td>'+fmt(x.stock.t.close)+'<small style="color:#ffb36e">均線 '+(x.stock.score==null?'待補':x.stock.score+' / 15')+'</small><small>60日回落 '+fmt(x.fall)+'%</small></td><td>'+x.pattern.shape+'<small>第一腳 '+fmt(x.pattern.low1)+'（'+esc(x.pattern.date1)+'）</small><small>第二腳 '+fmt(x.pattern.low2)+'（'+esc(x.pattern.date2)+'）</small><small>確認日 '+esc(x.pattern.confirmed)+'</small></td><td>'+fmt(x.pattern.neck)+'<small>'+(x.pattern.aboveNeck?'收盤已突破':'等待突破')+'</small></td><td>'+fmt(x.ma20)+'<small>'+(x.stable?'連2日站上':x.above?'今日站上，待站穩':'尚未站上')+'</small></td><td style="color:#ffb36e">'+fmt(x.pattern.invalid)+'<small>收盤跌破撤銷</small><small>離底 +'+fmt(x.zone.rebound)+'%</small><small>距頸線 '+fmt(x.zone.neckGap)+'% · 月線 '+fmt(x.zone.maGap)+'%</small><small>距下跌前高點 −'+fmt(x.zone.belowPeak)+'%</small></td><td>RS5 '+fmt(x.rs)+'%<small>'+(x.rs>0?'近5日強於大盤':'RS未轉強／待補')+'</small><small>'+(x.peer?esc(x.peer.name)+' '+x.peer.strong+'/'+x.peer.valid+' 檔同步轉強'+(x.peer.passes?' ✓':''):'族群待補')+'</small>'+(marketFall>15?'大跌後觀察':'個股先觀察')+'</td></tr>').join('')+'</tbody></table></div>'+(selected.length?'':'<p>此階段尚無符合個股，可切換其他階段觀察。</p>');
   root.querySelector('select').addEventListener('change',e=>{filter=e.target.value;render();});
   root.querySelectorAll('[data-higher-low]').forEach(b=>b.onclick=()=>{const stock=analyses.find(s=>s.code===b.dataset.higherLow);if(stock)openStockDetail(stock,b);});
  }
