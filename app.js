@@ -119,6 +119,42 @@ function emaCrossUp(bars){
  }
  return false;
 }
+function adx14(bars){
+ const period=14;
+ if(bars.length<2*period)return null;
+ let tr=0,plus=0,minus=0,adx=0,dxCount=0;
+ for(let i=1;i<bars.length;i++){
+  const prev=bars[i-1],bar=bars[i];
+  if(![bar.high,bar.low,prev.high,prev.low,prev.close].every(Number.isFinite)||bar.high<bar.low||bar.low<=0||prev.close<=0)return null;
+  const up=bar.high-prev.high,down=prev.low-bar.low;
+  const range=Math.max(bar.high-bar.low,Math.abs(bar.high-prev.close),Math.abs(bar.low-prev.close));
+  if(i>period){tr-=tr/period;plus-=plus/period;minus-=minus/period;}
+  tr+=range;
+  if(up>down&&up>0)plus+=up;
+  if(down>up&&down>0)minus+=down;
+  if(i<period)continue;
+  const dx=tr>0&&plus+minus>0?100*Math.abs(plus-minus)/(plus+minus):0;
+  if(dxCount<period){
+   adx+=dx/period;
+   dxCount++;
+  }else{
+   adx+=(dx-adx)/period;
+  }
+ }
+ return adx;
+}
+
+function matchesEmaSetup(stock,date){
+ const bars=stock.bars,group=featuredContext.get(stock.code);
+ if(stock.t.date!==date||bars.length<60||!group||group.unclassified)return false;
+ const priorVolumes=bars.slice(-6,-1).map(bar=>bar.volume);
+ if(!priorVolumes.every(volume=>Number.isFinite(volume)&&volume>=0)||!(stock.t.volume>avg(priorVolumes)))return false;
+ if(!emaCrossUp(bars))return false;
+ let ema60=avg(bars.slice(0,60).map(bar=>bar.close));
+ for(let i=60;i<bars.length;i++)ema60+=(bars[i].close-ema60)*2/61;
+ return stock.t.close>ema60+1e-9&&adx14(bars)>25+1e-9;
+}
+
 function analyze(stock,p){const a=stock.bars,i=a.length-1,t=a[i],prev=a[i-1],m5=ma(a,i,5),n=p.highPeriod;
  const ratioAt=k=>k>=p.volPeriod? a[k].volume/avg(a.slice(k-p.volPeriod,k).map(b=>b.volume)):null;
  const ratio=ratioAt(i),bodyLow=Math.min(t.open,t.close),range=t.high-t.low,upper=range?(t.high-Math.max(t.open,t.close))/range:0,lower=range?(bodyLow-t.low)/range:0;
@@ -157,11 +193,11 @@ function reset(){document.querySelectorAll('.check input').forEach(x=>x.checked=
 function render(event){updatePriceRanges();const p=params();if(!validParams(p)){$('message').textContent='請輸入有效的門檻範圍，再更新篩選。';return;}$('message').textContent='';if(analysisInputRecords!==records){analyses=records.map(s=>analyze(s,p));const ranked=analyses.filter(s=>s.t.volume>500).sort((a,b)=>(b.score??-1)-(a.score??-1)||a.code.localeCompare(b.code));ranked.forEach((s,i)=>s.rank=s.score===null?null:i+1);analysisInputRecords=records;window.dispatchEvent(new Event('stock-data-ready'));}
  const patternOnly=event?.target?.closest?.('#pattern-options');
  const choices=[...document.querySelectorAll('.check input:checked')].map(x=>x.value),q=$('search').value.trim().toLowerCase(),market=$('market').value;
- const strengthOn=$('stronger-than-market').checked||$('featured-stocks').checked||$('launch-stocks').checked,strengthDate=records.map(s=>s.bars.at(-1)?.date||'').sort().at(-1);
- $('market-strength-status').textContent=strengthOn?window.marketStrength.status+' · 同日比較，歷史不足或日期不符不納入。':'';
- if($('featured-stocks').checked||$('launch-stocks').checked)prepareFeaturedContext(strengthDate);
  const emaCrossOn=$('ema-cross').checked;
- filtered=analyses.filter(s=>(!emaCrossOn||s.t.date===strengthDate&&emaCrossUp(s.bars))&&(!$('launch-stocks').checked||launchResult(s,strengthDate)?.passes)&&(!$('featured-stocks').checked||matchesFeaturedStock(s,strengthDate))&&(!$('stronger-than-market').checked||window.marketStrength.get(s,strengthDate)?.passes)&&(!$('above-weekly20').checked||s.w20!==null&&s.t.close>s.w20)&&s.t.volume>500&&(s.t.close>100||s.t.volume>=1000)&&matchesPrice(s.t.close,$('price-range').value)&&(!q||(s.code+' '+s.name+' '+industryLabel(s)).toLowerCase().includes(q))&&(market==='all'||s.market===market)&&(p.score===0||s.score!==null&&s.score>=p.score)&&(!choices.length||choices.some(k=>s.signals[k])));
+ const strengthOn=emaCrossOn||$('stronger-than-market').checked||$('featured-stocks').checked||$('launch-stocks').checked,strengthDate=records.map(s=>s.bars.at(-1)?.date||'').sort().at(-1);
+ $('market-strength-status').textContent=strengthOn?window.marketStrength.status+' · 同日比較，歷史不足或日期不符不納入。':'';
+ if(emaCrossOn||$('featured-stocks').checked||$('launch-stocks').checked)prepareFeaturedContext(strengthDate);
+ filtered=analyses.filter(s=>(!emaCrossOn||matchesEmaSetup(s,strengthDate))&&(!$('launch-stocks').checked||launchResult(s,strengthDate)?.passes)&&(!$('featured-stocks').checked||matchesFeaturedStock(s,strengthDate))&&(!$('stronger-than-market').checked||window.marketStrength.get(s,strengthDate)?.passes)&&(!$('above-weekly20').checked||s.w20!==null&&s.t.close>s.w20)&&s.t.volume>500&&(s.t.close>100||s.t.volume>=1000)&&matchesPrice(s.t.close,$('price-range').value)&&(!q||(s.code+' '+s.name+' '+industryLabel(s)).toLowerCase().includes(q))&&(market==='all'||s.market===market)&&(p.score===0||s.score!==null&&s.score>=p.score)&&(!choices.length||choices.some(k=>s.signals[k])));
  const sort=$('sort').value;filtered.sort((a,b)=>sort==='score'?(b.score??-1)-(a.score??-1)||a.code.localeCompare(b.code):sort==='code'?a.code.localeCompare(b.code):sort==='change'?b.change-a.change:(b.ratio??-1)-(a.ratio??-1));
  if(!patternOnly){renderOwnership();if(!$('sectors').hidden)renderSectors();if(!$('revenue').hidden)renderRevenue();}$('total').textContent=records.length;$('matches').textContent=filtered.length;$('shrink').textContent=analyses.filter(s=>s.t.volume>500&&s.shrink).length;$('date').textContent=records.length?records.map(s=>s.bars.at(-1).date).sort().at(-1):'—';
  $('result-sub').textContent=`${filtered.length} 檔符合${emaCrossOn?' · EMA5 上穿 EMA23':''}${$('launch-stocks').checked?' · 剛起漲個股':''}${$('featured-stocks').checked?' · 強勢股':''}${$('stronger-than-market').checked?' · 比大盤強勢股（RS20 > 8、RS5 > 0）':''} · 成交量 > 500 張${$('price-range').value==='all'?'':' · 股價 '+$('price-range').selectedOptions[0].textContent} · 已具完整分數 ${analyses.filter(s=>s.t.volume>500&&s.score!==null).length}/${analyses.filter(s=>s.t.volume>500).length} 檔`;
@@ -289,7 +325,7 @@ function init(){
  $('pattern-options').innerHTML=TYPES.map(([k,name])=>`<label class="check"><input type="checkbox" value="${k}">${name.replace('候選','')}</label>`).join('');
  $('rule-cards').innerHTML=TYPES.map(([k,name,rule],i)=>`<article class="rule-card"><span class="rule-number">PATTERN / ${String(i+1).padStart(2,'0')}</span><h3>${name}</h3>${ruleDiagram(k,name)}<p>${rule}</p><p>${['headShoulders','triangle','vcp'].includes(k)?'來源：莊爸初階第二堂 2026/09/19，PDF 第5、9、19–27頁。自動候選採最近100日、前後各3日以收盤價確認轉折，至少40日日線。程式設定：肩差8%、頭深3%；三角上下各3個點、寬度縮至65%；VCP至少兩次回檔、後次深度不超過前次80%，量逐次縮、近5日均量不超過20日75%。以上數字是程式容許範圍，非講義明訂；圖形仍需人工核對。':k==='extremeDance'?'暫定口徑：前面無壓力以昨日收盤價創前 N 日收盤新高代理；N 沿用前高比較週期。長黑實體至少開盤價 3%，收盤距 MA10 在 ±2.5% 內，不要求收盤等於最低價，也不另設下影線比例限制；量縮沿用均量週期與量縮上限。這是圖片文字的初版量化，尚未完整辨識歷史套牢壓力。':k==='halfCross'?'依進階第一堂講義PDF第43、55、58頁。第一波起點量化為最近180個交易日內，實體紅K≥5%且收盤突破之前20日最高價之K棒低點；至跌破MA20前最高價漲幅須嚴格>30%。跌破採收盤由上向下穿MA20；破線日起至今日每天最低價均須≥當日(MA20+MA60)/2，且MA20>MA60；後續第1～5個交易日內，今日以實體紅K≥3%由下站回MA20才亮燈。均線含當日，第一波高低點及守線低點採高低價；不使用未來資料。此為自動候選，起漲點仍需人工核對。':k==='nearCross'?'依週一至週日分組，取每週最後一筆收盤，含本週最新收盤，計算最近 20 週簡單平均。MA20、MA60 含最新交易日；等於門檻不納入，歷史不足暫不判定。不另加圖片中的第一波漲幅、1/2 位置或五日內穿越條件。':k==='panther'?'依使用者設定：盤中最高價高於開盤價，且收盤低於開盤價；當日成交量嚴格大於前5日均量（不含當日）；不要求前日漲停、開盤高於昨收、創前高或實體達3%。固定比較5日均量，不沿用其他型態的爆量倍數。':k==='mother'?'比較整根 K 棒的最高、最低；高低價相等允許成立。':k==='shadow'?'接近暫定 ±1%，最低價須破昨低。下影占振幅比例可調。':k==='highDragon'?'當日漲跌幅以官方欄位為準，缺少時以收盤價相對前一交易日收盤計算；須有完整 15 項均線分數。名稱中的「創高」沿用均線計分所含的收盤創高項目，沒有額外強制創新高。':k==='dragon'?'收盤距 MA5 上方不超過 3%，以收盤判斷不得跌破容許下限，盤中低點不作此條件判斷；上方 3% 為初版假設。':k==='sword'?'先標示形狀與量能符合；「起漲第一根」尚未量化。':k==='dance'?'昨日須符合黑豹：收黑、最高價高於開盤價，成交量大於昨日之前 5 日均量。今日成交量須嚴格低於前 5 日均量；收盤在 MA5 下方不超過 2.5%，上方接近範圍暫沿用 3%；今日 K 棒顏色不限。':k==='smallDance'?'創高以收盤價比較，排除被比較日；此型態比較前 5／N 日，不沿用均線計分忽略前兩日的比較窗。':'前日影線比例須達門檻；黑劍先以帶長上影的黑 K 定義。'}</p></article>`).join('');
  document.querySelectorAll('.nav').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x===b));$('screen').hidden=b.dataset.view!=='screen';$('futchip').hidden=b.dataset.view!=='futchip';$('rules').hidden=b.dataset.view!=='rules';$('etf-radar').hidden=b.dataset.view!=='etf-radar';$('prison').hidden=b.dataset.view!=='prison';$('sectors').hidden=b.dataset.view!=='sectors';$('revenue').hidden=b.dataset.view!=='revenue';$('convertible').hidden=b.dataset.view!=='convertible';if(b.dataset.view==='sectors')renderSectors();if(b.dataset.view==='revenue')renderRevenue();}));
- const confirmStockSearch=()=>{render();document.querySelector('.results')?.scrollIntoView({block:'start',behavior:'smooth'});};$('search-confirm').onclick=confirmStockSearch;$('search').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();confirmStockSearch();}});for(const id of ['market','sort'])$(id).addEventListener('input',render);$('price-range').addEventListener('change',render);$('score').addEventListener('change',render);$('above-weekly20').addEventListener('change',render);$('ema-cross').addEventListener('change',render);$('launch-stocks').addEventListener('change',()=>{if($('launch-stocks').checked){$('featured-stocks').checked=false;$('sort').value='score';window.marketStrength.load();}render();});$('featured-stocks').addEventListener('change',()=>{if($('featured-stocks').checked){$('launch-stocks').checked=false;$('sort').value='score';window.marketStrength.load();}render();});$('stronger-than-market').addEventListener('change',()=>{if($('stronger-than-market').checked)window.marketStrength.load();render();});window.addEventListener('market-strength-ready',()=>{launchCache=new WeakMap();if($('stronger-than-market').checked||$('featured-stocks').checked||$('launch-stocks').checked)render();});document.querySelectorAll('.check input').forEach(x=>x.addEventListener('change',render));$('reset').onclick=reset;$('empty-reset').onclick=reset;$('demo').onclick=setDemo;
+ const confirmStockSearch=()=>{render();document.querySelector('.results')?.scrollIntoView({block:'start',behavior:'smooth'});};$('search-confirm').onclick=confirmStockSearch;$('search').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();confirmStockSearch();}});for(const id of ['market','sort'])$(id).addEventListener('input',render);$('price-range').addEventListener('change',render);$('score').addEventListener('change',render);$('above-weekly20').addEventListener('change',render);$('ema-cross').addEventListener('change',()=>{if($('ema-cross').checked)window.marketStrength.load();render();});$('launch-stocks').addEventListener('change',()=>{if($('launch-stocks').checked){$('featured-stocks').checked=false;$('sort').value='score';window.marketStrength.load();}render();});$('featured-stocks').addEventListener('change',()=>{if($('featured-stocks').checked){$('launch-stocks').checked=false;$('sort').value='score';window.marketStrength.load();}render();});$('stronger-than-market').addEventListener('change',()=>{if($('stronger-than-market').checked)window.marketStrength.load();render();});window.addEventListener('market-strength-ready',()=>{launchCache=new WeakMap();if($('ema-cross').checked||$('stronger-than-market').checked||$('featured-stocks').checked||$('launch-stocks').checked)render();});document.querySelectorAll('.check input').forEach(x=>x.addEventListener('change',render));$('reset').onclick=reset;$('empty-reset').onclick=reset;$('demo').onclick=setDemo;
  $('template').onclick=()=>{const sample=makeDemo().slice(0,2);const lines=['code,name,market,date,open,high,low,close,volume,limit_up'];for(const s of sample)for(const b of s.bars)lines.push([s.code,s.name,s.market,b.date,...['open','high','low','close'].map(k=>b[k].toFixed(4)),b.volume,b.limit_up??''].join(','));download('日線匯入範例-合成行情.csv',lines.join('\n'));};
  $('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>15e6)throw Error('請選擇 15 MB 以下 CSV。');const next=parseCSV(await f.text());records=next;mode='import';$('source').textContent='已匯入 · '+f.name;$('source-note').textContent=`${records.length} 檔標的。由你提供的資料計算，未與官方行情核對；重新整理將回到示範。`;selected=null;reset();}catch(err){$('message').textContent=err.message+' 原資料已保留。';}finally{e.target.value='';}};
  records=[];render();loadMarket();loadOwnership();loadInstitutional();loadRegulatory();loadValuation();
