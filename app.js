@@ -119,6 +119,31 @@ function emaCrossUp(bars){
  }
  return false;
 }
+function adx14(bars){
+ const period=14;
+ if(bars.length<2*period)return null;
+ let tr=0,plus=0,minus=0,adx=0,dxCount=0;
+ for(let i=1;i<bars.length;i++){
+  const prev=bars[i-1],bar=bars[i];
+  if(![bar.high,bar.low,prev.high,prev.low,prev.close].every(Number.isFinite)||bar.high<bar.low||bar.low<=0||prev.close<=0)return null;
+  const up=bar.high-prev.high,down=prev.low-bar.low;
+  const range=Math.max(bar.high-bar.low,Math.abs(bar.high-prev.close),Math.abs(bar.low-prev.close));
+  if(i>period){tr-=tr/period;plus-=plus/period;minus-=minus/period;}
+  tr+=range;
+  if(up>down&&up>0)plus+=up;
+  if(down>up&&down>0)minus+=down;
+  if(i<period)continue;
+  const dx=tr>0&&plus+minus>0?100*Math.abs(plus-minus)/(plus+minus):0;
+  if(dxCount<period){
+   adx+=dx/period;
+   dxCount++;
+  }else{
+   adx+=(dx-adx)/period;
+  }
+ }
+ return adx;
+}
+
 function matchesEmaSetup(stock,date){
  const bars=stock.bars,group=featuredContext.get(stock.code);
  if(stock.t.date!==date||bars.length<60||!group||group.unclassified)return false;
@@ -127,7 +152,7 @@ function matchesEmaSetup(stock,date){
  if(!emaCrossUp(bars))return false;
  let ema60=avg(bars.slice(0,60).map(bar=>bar.close));
  for(let i=60;i<bars.length;i++)ema60+=(bars[i].close-ema60)*2/61;
- return stock.t.close>ema60+1e-9;
+ return stock.t.close>ema60+1e-9&&adx14(bars)>15+1e-9;
 }
 
 function analyze(stock,p){const a=stock.bars,i=a.length-1,t=a[i],prev=a[i-1],m5=ma(a,i,5),n=p.highPeriod;
