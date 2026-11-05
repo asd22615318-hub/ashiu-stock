@@ -5,10 +5,9 @@ on:
     paths:
       - .github/workflows/quotes-fast.yml
   schedule:
-    # Asia/Taipei 17:10, 17:40, 18:10, 18:40, 19:10, 19:40.
-    - cron: '10,40 9-11 * * 1-5'
-    # Evening catch-up at 20:10 and 21:10 Taipei if earlier jobs were delayed.
-    - cron: '10 12,13 * * 1-5'
+    # Asia/Taipei 17:10 to 21:10, every 30 minutes on weekdays.
+    - cron: '10,40 9-12 * * 1-5'
+    - cron: '10 13 * * 1-5'
 permissions:
   contents: write
 concurrency:
