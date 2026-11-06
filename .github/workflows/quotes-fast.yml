@@ -29,26 +29,26 @@ jobs:
         run: python refresh_quotes.py
       - name: Publish quotes before auxiliary reports
         run: python publish_snapshots.py seed.json.gz taiwan-sentiment-seed.json
-    - name: Confirm the Cloudflare deployment
-      shell: pwsh
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        $revision = (git rev-parse HEAD).Trim()
-        if ($LASTEXITCODE -ne 0 -or !$revision) { throw 'Cannot identify the published revision.' }
-        $url = "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/commits/$revision/check-runs"
-        $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
-        $deadline = (Get-Date).AddMinutes(8)
-        do {
-          $result = Invoke-RestMethod -Uri $url -Headers $headers -TimeoutSec 20
-          $build = $result.check_runs |
-            Where-Object { $_.name -eq 'Workers Builds: ashiu-stock-private' } |
-            Sort-Object id -Descending | Select-Object -First 1
-          if ($build.status -eq 'completed') {
-            if ($build.conclusion -ne 'success') { throw "Cloudflare deployment ended with $($build.conclusion) for $revision." }
-            Write-Host "Cloudflare deployment succeeded for $revision."
-            exit 0
-          }
-          Start-Sleep -Seconds 15
-        } while ((Get-Date) -lt $deadline)
-        throw "Cloudflare deployment was not confirmed for $revision within eight minutes. Check Workers Builds."
+      - name: Confirm the Cloudflare deployment
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $revision = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or !$revision) { throw 'Cannot identify the published revision.' }
+          $url = "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/commits/$revision/check-runs"
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
+          $deadline = (Get-Date).AddMinutes(8)
+          do {
+            $result = Invoke-RestMethod -Uri $url -Headers $headers -TimeoutSec 20
+            $build = $result.check_runs |
+              Where-Object { $_.name -eq 'Workers Builds: ashiu-stock-private' } |
+              Sort-Object id -Descending | Select-Object -First 1
+            if ($build.status -eq 'completed') {
+              if ($build.conclusion -ne 'success') { throw "Cloudflare deployment ended with $($build.conclusion) for $revision." }
+              Write-Host "Cloudflare deployment succeeded for $revision."
+              exit 0
+            }
+            Start-Sleep -Seconds 15
+          } while ((Get-Date) -lt $deadline)
+          throw "Cloudflare deployment was not confirmed for $revision within eight minutes. Check Workers Builds."
