@@ -46,12 +46,16 @@
   document.head.appendChild(style);
   const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const cache = new Map();
+  const loadedAt = new Map();
+  const pendingSymbols = new Set();
+  const refreshMs = 5 * 60 * 1000;
+  const retryMs = 60 * 1000;
   let inFlight=0;
   const waiting=[];
   async function queuedFetch(url){
     if(inFlight>=5)await new Promise(resolve=>waiting.push(resolve));
     inFlight++;
-    try{return await fetch(url,{credentials:'same-origin'});}finally{inFlight--;waiting.shift()?.();}
+    try{return await fetch(url,{credentials:'same-origin',cache:'no-store'});}finally{inFlight--;waiting.shift()?.();}
   }
   const pct = n => Number.isFinite(n) ? `${n>0?'+':''}${n.toFixed(2)}%` : '—';
   const cls = n => Number.isFinite(n) ? n>0?'world-pos':n<0?'world-neg':'world-muted' : 'world-muted';
@@ -85,21 +89,51 @@
   function paintGroup(g) {
     const node=root.querySelector(`[data-world-table="${g.id}"]`);if(node)node.innerHTML=g.items.map(item=>row(item,g.id)).join('');
   }
-  function paintBrief(){const node=root.querySelector('#world-brief');if(!node)return;node.innerHTML=[['^DJI','道瓊工業'],['^SOX','費城半導體'],['^IXIC','那斯達克'],['NVDA','輝達'],['TSM','台積電 ADR'],['^VIX','VIX'],['^TNX','美國 10 年債殖利率'],['TWD=X','美元／新台幣']].map(([symbol,name])=>{const data=cache.get(symbol),m=data?.bars?.length?metric(data):null;return `<article class="${symbol==='TWD=X'?'world-fx-card':''}"><small>${esc(name)} · ${esc(symbol)}</small><strong>${m?val(m.close):'—'}</strong><em class="${m?cls(m.change):'world-muted'}">${m?`${signedVal(m.changeValue)} ${esc(unit(symbol,m.currency))} (${pct(m.change)})`:'等待行情'}</em><small>${m?esc(m.date):''}</small>${symbol==='TWD=X'&&m?fxImpact(m.change):''}</article>`}).join('')}
-  async function load(g) {
-    const pending=g.items.filter(([symbol])=>!cache.has(symbol));
-    await Promise.all(pending.map(async ([symbol])=>{try{const response=await queuedFetch(`/api/world?symbol=${encodeURIComponent(symbol)}`);const data=await response.json();cache.set(symbol,response.ok?data:{error:data.error||'行情來源無法讀取'});}catch(error){cache.set(symbol,{error:'連線失敗，請稍後重試'});}paintGroup(g);paintBrief()}));
+  function paintBrief(){const node=root.querySelector('#world-brief');if(!node)return;node.innerHTML=[['^DJI','道瓊工業'],['^SOX','費城半導體'],['^IXIC','那斯達克'],['NVDA','輝達'],['TSM','台積電 ADR'],['^VIX','VIX'],['^TNX','美國 10 年債殖利率'],['TWD=X','美元／新台幣']].map(([symbol,name])=>{const data=cache.get(symbol),m=data?.bars?.length?metric(data):null;return `<article class="${symbol==='TWD=X'?'world-fx-card':''}"><small>${esc(name)} · ${esc(symbol)}</small><strong>${m?val(m.close):'—'}</strong><em class="${m?cls(m.change):'world-muted'}">${m?`${signedVal(m.changeValue)} ${esc(unit(symbol,m.currency))} (${pct(m.change)})`:esc(data?.error || '等待行情')}</em><small>${m?esc(m.date):''}</small>${symbol==='TWD=X'&&m?fxImpact(m.change):''}</article>`}).join('')}
+  async function load(g, force = false) {
+    await Promise.all(g.items.map(async ([symbol]) => {
+      const data = cache.get(symbol);
+      const ttl = data?.error ? retryMs : refreshMs;
+      if (pendingSymbols.has(symbol) || (!force && Date.now() - (loadedAt.get(symbol) ?? -Infinity) < ttl)) return;
+      pendingSymbols.add(symbol);
+      try {
+        const response = await queuedFetch(`/api/world?symbol=${encodeURIComponent(symbol)}`);
+        if (response.status === 401) throw new Error('登入已過期，請重新登入');
+        const result = await response.json();
+        if (!response.ok || !result.bars?.length) throw new Error(result.error || '行情來源無法讀取');
+        cache.set(symbol, result);
+      } catch (error) {
+        cache.set(symbol, {error: error.message === 'Failed to fetch' ? '連線失敗，請稍後重試' : error.message});
+      } finally {
+        loadedAt.set(symbol, Date.now());
+        pendingSymbols.delete(symbol);
+        paintGroup(g);
+        paintBrief();
+      }
+    }));
+  }
+  function refreshVisible(force = false) {
+    for (const g of groups) {
+      if (g.id !== 'asia' || root.querySelector('[data-world-group="asia"]').open) load(g, force);
+    }
   }
   function init(){
-    root.innerHTML=`<div class="world-head"><h1>國際數據</h1><p>追蹤美股、台股 ADR、全球指數及關鍵市場價格，並對照可能受影響的台股產業族群。</p><div class="world-controls"><button type="button" id="world-refresh">重新載入國際行情</button><span class="world-note">各市場收盤時間不同；每筆資料顯示各自日期。資料約每 30 分鐘快取更新。</span></div></div><div class="world-panel"><h2>開盤前重點</h2><div class="world-mini" id="world-brief"></div></div>${groups.map((g,i)=>`<div class="world-panel" id="world-${g.id}"><details ${i<3?'open':''} data-world-group="${g.id}"><summary>${esc(g.title)}</summary><div class="world-table-wrap"><table class="world-table"><thead><tr><th>標的／日期</th><th>收盤</th><th>單日</th><th>5 日</th><th>20 日</th><th>60 日</th><th>今年</th><th>距一年收盤高點</th><th>MA20／60 位置</th>${g.id==='leaders'?'<th>台股關聯族群</th>':''}</tr></thead><tbody data-world-table="${g.id}"></tbody></table></div></details></div>`).join('')}<div class="world-panel world-source"><p class="world-note">價格資料：Yahoo Finance 日線；各標的依當地交易日計算。均線位置以最新收盤價與 MA20、MA60 比較。台股族群為產品與資本支出方向的產業關聯，不能據此認定個別公司已取得訂單或為直接供應商。不同市場幣別不可直接比較價格。美元／新台幣的族群影響是一般換算與成本方向，實際效果仍受企業避險、美元收入及進口成本影響，不能據此推論台股大盤漲跌；參考 <a href="https://knowledge.cbc.gov.tw/front/references/inpage/91736075-AF4C-F011-9116-0050569481A8" target="_blank" rel="noopener">中央銀行說明</a>。</p><p class="world-note">呈現方式參考 <a href="https://zhuang.tw/world" target="_blank" rel="noopener">國際股市・收盤一覽</a>；歷史行情與供應鏈對應僅供研究，不代表投資建議。</p></div>`;
-    root.querySelector('#world-refresh').addEventListener('click',()=>{cache.clear();groups.filter(g=>g.id==='indices'||g.id==='leaders'||g.id==='adr'||root.querySelector(`[data-world-group="${g.id}"]`).open).forEach(load)});
+    root.innerHTML=`<div class="world-head"><h1>國際數據</h1><p>追蹤美股、台股 ADR、全球指數及關鍵市場價格，並對照可能受影響的台股產業族群。</p><div class="world-controls"><button type="button" id="world-refresh">重新載入國際行情</button><span class="world-note">各市場收盤時間不同；每筆資料顯示各自日期。開啟本頁時約每 5 分鐘更新。</span></div></div><div class="world-panel"><h2>開盤前重點</h2><div class="world-mini" id="world-brief"></div></div>${groups.map((g,i)=>`<div class="world-panel" id="world-${g.id}"><details ${i<3?'open':''} data-world-group="${g.id}"><summary>${esc(g.title)}</summary><div class="world-table-wrap"><table class="world-table"><thead><tr><th>標的／日期</th><th>收盤</th><th>單日</th><th>5 日</th><th>20 日</th><th>60 日</th><th>今年</th><th>距一年收盤高點</th><th>MA20／60 位置</th>${g.id==='leaders'?'<th>台股關聯族群</th>':''}</tr></thead><tbody data-world-table="${g.id}"></tbody></table></div></details></div>`).join('')}<div class="world-panel world-source"><p class="world-note">價格資料：Yahoo Finance 日線；各標的依當地交易日計算。均線位置以最新收盤價與 MA20、MA60 比較。台股族群為產品與資本支出方向的產業關聯，不能據此認定個別公司已取得訂單或為直接供應商。不同市場幣別不可直接比較價格。美元／新台幣的族群影響是一般換算與成本方向，實際效果仍受企業避險、美元收入及進口成本影響，不能據此推論台股大盤漲跌；參考 <a href="https://knowledge.cbc.gov.tw/front/references/inpage/91736075-AF4C-F011-9116-0050569481A8" target="_blank" rel="noopener">中央銀行說明</a>。</p><p class="world-note">呈現方式參考 <a href="https://zhuang.tw/world" target="_blank" rel="noopener">國際股市・收盤一覽</a>；歷史行情與供應鏈對應僅供研究，不代表投資建議。</p></div>`;
+    root.querySelector('#world-refresh').addEventListener('click',()=>refreshVisible(true));
     root.querySelectorAll('[data-world-group]').forEach(d=>d.addEventListener('toggle',()=>{if(d.open){const g=groups.find(x=>x.id===d.dataset.worldGroup);if(g)load(g)}}));
-    groups.forEach(paintGroup);paintBrief();groups.filter(g=>g.id!=='asia').forEach(load);
+    groups.forEach(paintGroup);paintBrief();refreshVisible();
   }
   let initialized=false;
   document.querySelectorAll('.nav').forEach(button=>button.addEventListener('click',()=>{
     root.hidden=button.dataset.view!=='world';
-    if(!root.hidden&&!initialized){initialized=true;init()}
+    if (root.hidden) return;
+    if (initialized) refreshVisible();
+    else { initialized = true; init(); }
   }));
+  function refreshActive() {
+    if (initialized && !root.hidden && !document.hidden) refreshVisible();
+  }
+  document.addEventListener('visibilitychange', refreshActive);
+  setInterval(refreshActive, retryMs);
 })();
 
