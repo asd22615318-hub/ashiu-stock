@@ -61,18 +61,28 @@ export default {
       const allowed = new Set(['^DJI','^GSPC','^IXIC','^NDX','^SOX','^RUT','^VIX','NVDA','AAPL','MSFT','GOOGL','AMZN','META','TSLA','AVGO','AMD','MU','INTC','QCOM','ASML','ARM','ORCL','SMCI','TSM','UMC','ASX','CHT','^N225','^HSI','000001.SS','^KS11','^FTSE','^GDAXI','^FCHI','TWD=X','JPY=X','^TNX','GC=F','CL=F','BTC-USD']);
       const symbol = url.searchParams.get('symbol') || '';
       if (!allowed.has(symbol)) return Response.json({ error: '不支援的國際商品代號' }, { status: 400, headers });
-      try {
-        const upstream = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1y`, { headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' }, signal: AbortSignal.timeout(12000), cf: { cacheTtl: 1800, cacheEverything: true } });
-        if (!upstream.ok) throw new Error(`行情來源回應 ${upstream.status}`);
-        const result = (await upstream.json())?.chart?.result?.[0];
-        const quote = result?.indicators?.quote?.[0];
-        const bars = (result?.timestamp || []).map((time,i) => ({ time, close: quote?.close?.[i] })).filter(b => Number.isFinite(b.close) && b.close > 0);
-        const regular = result.meta?.currentTradingPeriod?.regular;
-        const last = bars.at(-1);
-        if (last && regular?.start && regular?.end && Date.now()/1000 < regular.end && last.time >= regular.start && last.time < regular.end) bars.pop();
-        if (!bars.length) throw new Error('暫無有效收盤資料');
-        return Response.json({ symbol, currency: result.meta?.currency || '', exchangeTimezone: result.meta?.exchangeTimezoneName || '', source: 'Yahoo Finance', bars }, { headers: { ...headers, 'Cache-Control': 'private, max-age=1800' } });
-      } catch (error) { return Response.json({ symbol, error: error.message || '國際行情讀取失敗' }, { status: 502, headers }); }
+      let errorMessage = '國際行情讀取失敗';
+      for (const host of ['query1.finance.yahoo.com', 'query2.finance.yahoo.com']) {
+        try {
+          const upstream = await fetch(`https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1y`, {
+            headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' },
+            signal: AbortSignal.timeout(8000),
+            cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': 300, '300-599': -1 } }
+          });
+          if (!upstream.ok) throw new Error(`行情來源回應 ${upstream.status}`);
+          const result = (await upstream.json())?.chart?.result?.[0];
+          const quote = result?.indicators?.quote?.[0];
+          const bars = (result?.timestamp || []).map((time,i) => ({ time, close: quote?.close?.[i] })).filter(b => Number.isFinite(b.close) && b.close > 0);
+          const regular = result?.meta?.currentTradingPeriod?.regular;
+          const last = bars.at(-1);
+          if (last && regular?.start && regular?.end && Date.now()/1000 < regular.end && last.time >= regular.start && last.time < regular.end) bars.pop();
+          if (!bars.length) throw new Error('暫無有效收盤資料');
+          return Response.json({ symbol, currency: result.meta?.currency || '', exchangeTimezone: result.meta?.exchangeTimezoneName || '', source: 'Yahoo Finance', bars }, { headers });
+        } catch (error) {
+          errorMessage = error.message || errorMessage;
+        }
+      }
+      return Response.json({ symbol, error: errorMessage }, { status: 502, headers });
     }
     if (url.pathname === '/api/fear-greed') {
       for (const source of [CNN_SOURCE,CNN_ARCHIVE]) {
