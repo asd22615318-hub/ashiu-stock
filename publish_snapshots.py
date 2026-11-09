@@ -29,6 +29,32 @@ def can_replace(name,current,candidate):
     return True
 
 
+def merge_disposal_snapshot(current, candidate):
+    old, new = json.loads(current), json.loads(candidate)
+    if new.get('updated_at', '') < old.get('updated_at', ''):
+        return current
+    for market, day in old.get('warning_dates', {}).items():
+        if day and (new.get('warning_dates', {}).get(market) or '') < day:
+            return current
+
+    notices = {}
+    for row in old.get('disposals', []) + new.get('disposals', []):
+        key = (row['market'], row['code'], row['start'], row['announcement_date'])
+        notices[key] = row
+    new['disposals'] = sorted(notices.values(), key=lambda row: (row['start'], row['code']))
+    history = [value for value in (old.get('history_started'), new.get('history_started')) if value]
+    if history:
+        new['history_started'] = min(history)
+
+    previous_thresholds = old.get('suspect_thresholds') or {}
+    next_thresholds = new.get('suspect_thresholds') or {}
+    def version(snapshot):
+        return snapshot.get('target', ''), snapshot.get('snapshot', '')
+    if version(previous_thresholds) > version(next_thresholds):
+        new['suspect_thresholds'] = previous_thresholds
+    return json.dumps(new, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+
+
 def publish(names):
     if os.environ.get('GITHUB_ACTIONS')!='true':
         raise RuntimeError('This publisher runs only in GitHub Actions.')
@@ -43,9 +69,13 @@ def publish(names):
         git('reset','--hard','origin/main')
         for name,content in saved.items():
             path=root/name
-            if path.exists() and not can_replace(name,path.read_bytes(),content):
-                print('Preserving newer snapshot:',name,flush=True)
-                continue
+            if path.exists():
+                current = path.read_bytes()
+                if name == 'prison-seed.json':
+                    content = merge_disposal_snapshot(current, content)
+                elif not can_replace(name, current, content):
+                    print('Preserving newer snapshot:', name, flush=True)
+                    continue
             path.write_bytes(content)
         git('add','--',*names)
         diff=git('diff','--cached','--quiet',check=False).returncode
