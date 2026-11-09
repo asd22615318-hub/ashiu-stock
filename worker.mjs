@@ -23,7 +23,7 @@ function loginPage(headers, failed = false) {
 // Authentication precedes every asset request; no public origin proxy is used.
 export default {
   async scheduled(event, env) {
-    console.log('Closing quote backup:', await checkClosingQuotes(event.scheduledTime, env));
+    console.log('Daily update backup:', await checkClosingQuotes(event.scheduledTime, env));
   },
   async fetch(request, env) {
     const headers = { 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow' };
