@@ -13,6 +13,16 @@ if '--offline' in sys.argv:
     market_path=saved_public/'market-data.json.gz'
     market=merge_verified_history(json.loads(gzip.decompress(market_path.read_bytes())),saved_root)
     market_path.write_bytes(gzip.compress(json.dumps(market,ensure_ascii=False,separators=(',',':')).encode('utf-8'),mtime=0))
+    quote_dates = {'上市': '', '上櫃': ''}
+    for stock in market['stocks']:
+        exchange = stock.get('market')
+        bars = stock.get('bars')
+        if exchange in quote_dates and bars:
+            quote_dates[exchange] = max(quote_dates[exchange], bars[-1]['date'])
+    calendar = json.loads((saved_public/'prison-data.json').read_text(encoding='utf-8'))
+    status = {'listed': quote_dates['上市'], 'otc': quote_dates['上櫃'],
+              'calendar_year': calendar.get('calendar_year'), 'closed_dates': calendar.get('closed_dates')}
+    (saved_public/'quote-update-status.json').write_text(json.dumps(status), encoding='utf-8')
     print('Protected site built from saved official snapshots.')
     sys.exit(0)
 import market_data as m

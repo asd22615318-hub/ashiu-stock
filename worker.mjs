@@ -1,5 +1,6 @@
 import { CNN_SOURCE, CNN_ARCHIVE, normalizeFearGreed } from './fear-greed-data.mjs';
 import { latestTxQuote } from './tx-quote.mjs';
+import { checkClosingQuotes } from './quote-watchdog.mjs';
 const encoder = new TextEncoder();
 const sessionCookie = '__Host-ashiu_session';
 const lifetime = 8 * 60 * 60;
@@ -21,6 +22,9 @@ function loginPage(headers, failed = false) {
 }
 // Authentication precedes every asset request; no public origin proxy is used.
 export default {
+  async scheduled(event, env) {
+    console.log('Closing quote backup:', await checkClosingQuotes(event.scheduledTime, env));
+  },
   async fetch(request, env) {
     const headers = { 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow' };
     if (!env.SHARED_PASSWORD) return new Response('Password protection is not configured.', { status: 503, headers });
