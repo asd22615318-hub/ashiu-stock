@@ -17,13 +17,15 @@
   }
 
   function evaluate(bars, relativeStrength) {
-    if (bars.length < 25) return [];
+    if (bars.length < 21) return [];
     const recent = bars.slice(-25);
-    if (recent.some(bar => ![bar.open, bar.high, bar.low, bar.close, bar.volume].every(Number.isFinite) ||
-      bar.low <= 0 || bar.volume < 0 || bar.low > Math.min(bar.open, bar.close) ||
-      bar.high < Math.max(bar.open, bar.close))) return [];
+    const validBar = bar => [bar.open, bar.high, bar.low, bar.close, bar.volume].every(Number.isFinite) &&
+      bar.low > 0 && bar.volume >= 0 && bar.low <= Math.min(bar.open, bar.close) &&
+      bar.high >= Math.max(bar.open, bar.close);
+    if (!recent.slice(-21).every(validBar)) return [];
+    const fullHistory = recent.length === 25 && recent.slice(0, 4).every(validBar);
 
-    const today = bars.at(-1), previous = bars.at(-2), close = today.close;
+    const today = bars.at(-1), close = today.close;
     const average = (period, offset = 0) => ma(bars, bars.length - 1 - offset, period);
     const ma5 = average(5), ma10 = average(10), ma20 = average(20);
     const last20 = bars.slice(-20), high20 = high(last20);
@@ -36,7 +38,7 @@
     const lows = [low(last10.slice(0, 3)), low(last10.slice(3, 6)), low(last10.slice(6))];
     const return10 = close / bars.at(-11).close - 1;
     const highDistance = 1 - close / high20;
-    if (close >= ma20 * .98 - epsilon && lows[0] < lows[1] && lows[1] < lows[2] &&
+    if (fullHistory && close >= ma20 * .98 - epsilon && lows[0] < lows[1] && lows[1] < lows[2] &&
       baseVolume20 > 0 && volume5 < baseVolume20 * .8 &&
       return10 <= .12 + epsilon && highDistance <= .08 + epsilon) {
       const fast = emaSeries(bars, 5), slow = emaSeries(bars, 23);
@@ -55,7 +57,7 @@
 
     const clv = today.high > today.low ? (close - today.low) / (today.high - today.low) : null;
     const rs5 = relativeStrength?.rs5;
-    if (ma5 > ma10 && ma10 > ma20 && ma5 > average(5, 1) && ma20 > average(20, 1) &&
+    if (fullHistory && ma5 > ma10 && ma10 > ma20 && ma5 > average(5, 1) && ma20 > average(20, 1) &&
       close > priorHigh10 && priorVolume20 > 0 && today.volume >= priorVolume20 * 1.5 &&
       clv !== null && clv >= .75 - epsilon && Math.abs(close / ma5 - 1) <= .10 + epsilon && rs5 > epsilon) {
       result.push({type:'B', evidence:[
@@ -64,33 +66,15 @@
       ]});
     }
 
-    const pullback = highDistance;
-    if (pullback < .03 - epsilon || pullback > .10 + epsilon ||
-      !(ma20 > average(20, 1) && average(20, 1) > average(20, 2))) return result;
-    const peakIndex = last20.findLastIndex(bar => bar.high === high20);
-    const beforePeak = last20.slice(0, peakIndex);
-    const afterPeak = last20.slice(peakIndex + 1);
-    if (!beforePeak.length || !afterPeak.length) return result;
-    const support = low(beforePeak);
-    const legStart = beforePeak.findLastIndex(bar => bar.low === support);
-    const upBars = last20.slice(legStart + 1, peakIndex + 1).filter((bar, i) => bar.close > last20[legStart + i].close);
-    if (high20 / support - 1 < .10 - epsilon || !upBars.length ||
-      afterPeak.some(bar => bar.close < support)) return result;
-    const peakVolume = Math.max(...upBars.map(bar => bar.volume));
-    const pullbackVolume = mean(afterPeak, 'volume');
-    if (peakVolume <= 0 || pullbackVolume >= peakVolume * .6) return result;
-    const retested = afterPeak.slice(-3).some((bar, i, window) => {
-      const offset = window.length - 1 - i;
-      const shortMA = average(5, offset), midMA = average(10, offset);
-      return (bar.low <= shortMA && bar.low >= shortMA * .975 - epsilon) ||
-        (bar.low <= midMA && bar.close >= midMA);
-    });
-    const turnedAfterBlack = previous.close < previous.open && close > previous.high;
-    const stabilized = today.volume < previous.volume && today.low >= previous.low && close >= previous.close;
-    if (retested && (turnedAfterBlack || stabilized)) result.push({type:'C', evidence:[
-      ['前波漲幅', (high20 / support - 1) * 100, '%'], ['距高點回檔', pullback * 100, '%'],
-      ['回檔均量／前波最大量', pullbackVolume / peakVolume * 100, '%'], ['前波結構低點', support, '元']
-    ]});
+    const return20 = close / bars.at(-21).close - 1;
+    const priorMA20 = average(20, 1);
+    if (close > ma20 && ma20 > priorMA20 && return20 > .20 + epsilon &&
+      highDistance >= .08 - epsilon && highDistance <= .20 + epsilon && today.volume < volume5) {
+      result.push({type:'C', evidence:[
+        ['今日 MA20', ma20, '元'], ['昨日 MA20', priorMA20, '元'], ['近 20 日漲幅', return20 * 100, '%'],
+        ['距 20 日高點回檔', highDistance * 100, '%'], ['當日成交量', today.volume, '張'], ['5 日均量', volume5, '張']
+      ]});
+    }
     return result;
   }
   const root = document.getElementById('featured-radar');
@@ -101,7 +85,7 @@
   const rules = {
     A:'收盤 ≥ MA20 的 98%。EMA5 近 5 個交易日曾上穿 EMA23，或 EMA5 較前日上升且 EMA23 單日變動絕對值 ≤ 0.1%。近 10 日分為 3／3／4 日，三段最低價依序墊高。近 5 日均量低於更早、與這 5 日不重疊的 20 日均量的 80%。近 10 日收盤報酬 ≤ 12%，收盤距含當日的近 20 日最高價 ≤ 8%。',
     B:'MA5 ＞ MA10 ＞ MA20，且 MA5、MA20 都高於前一日。收盤突破前 10 日最高價，當日成交量 ≥ 前 20 日均量的 1.5 倍。收盤位於當日高低區間上四分之一，高低同價不納入。收盤距 MA5 ≤ 10%，同交易日區間的個股 5 日報酬高於加權指數。',
-    C:'近 20 日先低後高的前波漲幅 ≥ 10%，MA20 連續兩日上升，收盤自近 20 日高點回落 3%～10%。回檔最近 3 日內，曾觸及 MA5 且最低價最多低於 MA5 2.5%，或低點觸及 MA10 且同日收回。回檔平均量低於前波上漲日最大成交量的 60%，回檔期間收盤未跌破前波結構低點。最後須符合昨日黑 K 且今日收盤突破昨日最高，或今日量縮且收盤、最低價都不低於昨日。'
+    C:'收盤價大於 MA20，且今日 MA20 大於昨日 MA20。近 20 個交易日收盤漲幅大於 20%。收盤價較含當日的近 20 日最高價回落 8%～20%（含兩端）。紅 K、綠 K 皆可，當日成交量須低於含當日的 5 日均量。'
   };
   const style = document.createElement('style');
   style.textContent = "#featured-radar .fr-tabs{display:flex;gap:8px;flex-wrap:wrap}#featured-radar .fr-tabs button{padding:10px 14px;border:1px solid #806a3a;border-radius:8px;background:#183c35;color:#f3f4f6;font:inherit;cursor:pointer}#featured-radar .fr-tabs button[aria-pressed=true]{background:#6c4c1f;color:#ffe298;border-color:#ffe298}#featured-radar .fr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:14px;margin-top:16px}#featured-radar .fr-card{border:1px solid #705331;border-radius:12px;padding:16px;min-width:0;overflow-wrap:anywhere;background:#201824}#featured-radar .fr-name{border:0;background:none;padding:0;color:#ffe298;font-weight:800;font-size:19px;cursor:pointer;text-align:left}#featured-radar .fr-card p{color:#eee7ee;line-height:1.8;font-size:14px}#featured-radar .fr-card .fr-orange{color:#ffb36e;font-weight:700}#featured-radar .fr-note{font-size:13px;line-height:1.9;color:#cdd6df}#featured-radar .fr-common{border:1px solid #604b64;padding:12px;border-radius:9px;margin:12px 0}#featured-radar button:focus-visible{outline:2px solid #ffe298;outline-offset:3px}";
