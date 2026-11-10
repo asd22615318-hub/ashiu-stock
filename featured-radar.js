@@ -32,27 +32,25 @@
     const last10 = bars.slice(-10), priorHigh10 = high(bars.slice(-11, -1));
     const volume5 = mean(bars.slice(-5), 'volume');
     const priorVolume20 = mean(bars.slice(-21, -1), 'volume');
-    const baseVolume20 = mean(bars.slice(-25, -5), 'volume');
     const result = [];
-
-    const lows = [low(last10.slice(0, 3)), low(last10.slice(3, 6)), low(last10.slice(6))];
-    const return10 = close / bars.at(-11).close - 1;
     const highDistance = 1 - close / high20;
-    if (fullHistory && close >= ma20 * .98 - epsilon && lows[0] < lows[1] && lows[1] < lows[2] &&
-      baseVolume20 > 0 && volume5 < baseVolume20 * .8 &&
-      return10 <= .12 + epsilon && highDistance <= .08 + epsilon) {
-      const fast = emaSeries(bars, 5), slow = emaSeries(bars, 23);
-      const crossed = fast.slice(-5).some((value, offset) => {
-        const i = fast.length - 5 + offset;
-        return Number.isFinite(slow[i - 1]) && fast[i - 1] <= slow[i - 1] + epsilon && value > slow[i] + epsilon;
-      });
-      const risingAndFlat = fast.at(-1) > fast.at(-2) &&
-        Math.abs(slow.at(-1) / slow.at(-2) - 1) <= .001 + epsilon;
-      if (crossed || risingAndFlat) result.push({type:'A', evidence:[
-        ['收盤距月線', (close / ma20 - 1) * 100, '%'],
-        ['5 日均量／前段 20 日均量', volume5 / baseVolume20 * 100, '%'],
-        ['距 20 日高點', highDistance * 100, '%']
-      ]});
+
+    if (bars.length >= 60) {
+      const ma60 = average(60);
+      const recentLow5 = low(last10.slice(-5));
+      const previousLow5 = low(last10.slice(0, 5));
+      const range10 = high(last10) / Math.min(recentLow5, previousLow5) - 1;
+      if (close > ma60 && recentLow5 > previousLow5 && range10 < .12 - epsilon) {
+        const ema23 = emaSeries(bars, 23);
+        const emaChange = ema23.at(-1) / ema23.at(-6) - 1;
+        if (Math.abs(emaChange) <= .005 + epsilon) {
+          result.push({type:'A', evidence:[
+            ['MA60', ma60, '元'], ['EMA23 較 5 日前', emaChange * 100, '%'],
+            ['近 5 日最低價', recentLow5, '元'], ['前 5 日最低價', previousLow5, '元'],
+            ['近 10 日振幅', range10 * 100, '%']
+          ]});
+        }
+      }
     }
 
     const clv = today.high > today.low ? (close - today.low) / (today.high - today.low) : null;
@@ -83,7 +81,7 @@
   const content = root.querySelector('.chipburst-info');
   const names = {A:'提前起漲型', B:'突破飆股型', C:'強勢回檔型'};
   const rules = {
-    A:'收盤 ≥ MA20 的 98%。EMA5 近 5 個交易日曾上穿 EMA23，或 EMA5 較前日上升且 EMA23 單日變動絕對值 ≤ 0.1%。近 10 日分為 3／3／4 日，三段最低價依序墊高。近 5 日均量低於更早、與這 5 日不重疊的 20 日均量的 80%。近 10 日收盤報酬 ≤ 12%，收盤距含當日的近 20 日最高價 ≤ 8%。',
+    A:'收盤價大於 MA60。今日 EMA23 相對 5 個交易日前的變動介於 −0.5%～+0.5%（含兩端）。最近 5 日最低價高於再前 5 日最低價。近 10 日振幅（最高價 ÷ 最低價 − 1）小於 12%。近 5 日與近 10 日區間均包含當日。',
     B:'MA5 ＞ MA10 ＞ MA20，且 MA5、MA20 都高於前一日。收盤突破前 10 日最高價，當日成交量 ≥ 前 20 日均量的 1.5 倍。收盤位於當日高低區間上四分之一，高低同價不納入。收盤距 MA5 ≤ 10%，同交易日區間的個股 5 日報酬高於加權指數。',
     C:'收盤價大於 MA20，且今日 MA20 大於昨日 MA20。近 20 個交易日收盤漲幅大於 20%。收盤價較含當日的近 20 日最高價回落 8%～20%（含兩端）。紅 K、綠 K 皆可，當日成交量須低於含當日的 5 日均量。'
   };
