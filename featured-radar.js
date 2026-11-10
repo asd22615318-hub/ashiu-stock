@@ -5,17 +5,6 @@
   const low = bars => Math.min(...bars.map(bar => bar.low));
   const epsilon = 1e-9;
 
-  function emaSeries(bars, period) {
-    const values = Array(period - 1).fill(null);
-    let value = mean(bars.slice(0, period), 'close');
-    values.push(value);
-    for (const bar of bars.slice(period)) {
-      value += (bar.close - value) * 2 / (period + 1);
-      values.push(value);
-    }
-    return values;
-  }
-
   function evaluate(bars, relativeStrength) {
     if (bars.length < 21) return [];
     const recent = bars.slice(-25);
@@ -42,15 +31,10 @@
       const previousLow5 = low(last10.slice(0, 5));
       const range10 = high(last10) / Math.min(recentLow5, previousLow5) - 1;
       if (close > ma60 && recentLow5 > previousLow5 && range10 < .12 - epsilon) {
-        const ema23 = emaSeries(bars, 23);
-        const emaChange = ema23.at(-1) / ema23.at(-6) - 1;
-        if (Math.abs(emaChange) <= .005 + epsilon) {
-          result.push({type:'A', evidence:[
-            ['MA60', ma60, '元'], ['EMA23 較 5 日前', emaChange * 100, '%'],
-            ['近 5 日最低價', recentLow5, '元'], ['前 5 日最低價', previousLow5, '元'],
-            ['近 10 日振幅', range10 * 100, '%']
-          ]});
-        }
+        result.push({type:'A', evidence:[
+          ['MA60', ma60, '元'], ['近 5 日最低價', recentLow5, '元'],
+          ['前 5 日最低價', previousLow5, '元'], ['近 10 日振幅', range10 * 100, '%']
+        ]});
       }
     }
 
@@ -82,7 +66,7 @@
   const content = root.querySelector('.chipburst-info');
   const names = {A:'提前起漲型', B:'突破飆股型', C:'強勢回檔型'};
   const rules = {
-    A:'收盤價大於 MA60。今日 EMA23 相對 5 個交易日前的變動介於 −0.5%～+0.5%（含兩端）。最近 5 日最低價高於再前 5 日最低價。近 10 日振幅（最高價 ÷ 最低價 − 1）小於 12%。近 5 日與近 10 日區間均包含當日。',
+    A:'收盤價大於 MA60。最近 5 日最低價高於再前 5 日最低價。近 10 日振幅（最高價 ÷ 最低價 − 1）小於 12%。近 5 日與近 10 日區間均包含當日。',
     B:'MA5 ＞ MA10 ＞ MA20，且 MA5、MA20 都高於前一日。收盤突破前 10 日最高價，當日成交量 ≥ 前 20 日均量的 1.5 倍。收盤位於當日高低區間上四分之一，高低同價不納入。收盤距 MA5 ≤ 10%，同交易日區間的個股 5 日報酬高於加權指數。',
     C:'收盤價大於 MA20，且今日 MA20 大於昨日 MA20。近 20 個交易日收盤漲幅大於 20%。收盤價較含當日的近 20 日最高價回落 8%～20%（含兩端）。紅 K、綠 K 皆可，當日成交量須低於含當日的 5 日均量。'
   };
