@@ -30,11 +30,11 @@
       const ma60Gap = close / ma60 - 1;
       const recentLow5 = low(last10.slice(-5));
       const previousLow5 = low(last10.slice(0, 5));
-      const range10 = high(last10) / Math.min(recentLow5, previousLow5) - 1;
-      if (close > ma60 && ma60Gap <= .12 + epsilon && recentLow5 > previousLow5 && range10 < .12 - epsilon) {
+      const return10 = close / bars.at(-11).close - 1;
+      if (close > ma60 && ma60Gap <= .12 + epsilon && recentLow5 > previousLow5 && return10 <= .15 + epsilon) {
         result.push({type:'A', evidence:[
           ['MA60', ma60, '元'], ['季線乖離', ma60Gap * 100, '%'], ['近 5 日最低價', recentLow5, '元'],
-          ['前 5 日最低價', previousLow5, '元'], ['近 10 日振幅', range10 * 100, '%']
+          ['前 5 日最低價', previousLow5, '元'], ['近 10 日漲幅', return10 * 100, '%']
         ]});
       }
     }
@@ -67,7 +67,7 @@
   const content = root.querySelector('.chipburst-info');
   const names = {A:'提前起漲型', B:'突破飆股型', C:'強勢回檔型'};
   const rules = {
-    A:'收盤價大於 MA60，且季線乖離（收盤價 ÷ MA60 − 1）不超過 12%。最近 5 日最低價高於再前 5 日最低價。近 10 日振幅（最高價 ÷ 最低價 − 1）小於 12%。近 5 日與近 10 日區間均包含當日。',
+    A:'收盤價大於 MA60，且季線乖離（收盤價 ÷ MA60 − 1）不超過 12%。最近 5 日最低價高於再前 5 日最低價。近 10 個交易日漲幅（今日收盤價 ÷ 10 個交易日前收盤價 − 1）不超過 15%。最近 5 日區間包含當日。',
     B:'MA5 ＞ MA10 ＞ MA20，且 MA5、MA20 都高於前一日。收盤突破前 10 日最高價，當日成交量 ≥ 前 20 日均量的 1.5 倍。收盤位於當日高低區間上四分之一，高低同價不納入。收盤距 MA5 ≤ 10%，同交易日區間的個股 5 日報酬高於加權指數。',
     C:'收盤價大於 MA20，且今日 MA20 大於昨日 MA20。近 20 個交易日收盤漲幅大於 20%。收盤價較含當日的近 20 日最高價回落 8%～20%（含兩端）。紅 K、綠 K 皆可，當日成交量須低於含當日的 5 日均量。'
   };
