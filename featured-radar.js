@@ -26,6 +26,7 @@
     const fullHistory = recent.length === 25 && recent.slice(0, 4).every(validBar);
 
     const today = bars.at(-1), close = today.close;
+    if (today.volume < 500) return [];
     const average = (period, offset = 0) => ma(bars, bars.length - 1 - offset, period);
     const ma5 = average(5), ma10 = average(10), ma20 = average(20);
     const last20 = bars.slice(-20), high20 = high(last20);
@@ -126,7 +127,7 @@
       Object.entries(names).map(([key, label]) => '<button type="button" data-fr-tab="' + key +
         '" aria-pressed="' + (tab === key) + '">' +
         label + ' · ' + counts[key] + '</button>').join('') +
-      '</div><p class="fr-note">行情日期 ' + esc(date) + ' · 依均線分數由高到低排序</p>' +
+      '</div><p class="fr-note">行情日期 ' + esc(date) + ' · 當日成交量至少 500 張 · 依均線分數由高到低排序</p>' +
       '<details class="fr-common"><summary>查看' + names[tab] + '篩選條件</summary><p>' + rules[tab] + '</p></details>' +
       (rsPending ? '<p role="status">' + esc(benchmarkStatus) + '</p>' : '') +
       (cards ? '<div class="fr-grid">' + cards + '</div>' : '<p>' +
