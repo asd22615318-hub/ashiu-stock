@@ -200,7 +200,7 @@ function render(event){updatePriceRanges();const p=params();if(!validParams(p)){
  const choices=[...document.querySelectorAll('.check input:checked')].map(x=>x.value),q=$('search').value.trim().toLowerCase(),market=$('market').value;
  const emaCrossOn=$('ema-cross').checked;
  const strengthOn=emaCrossOn||$('stronger-than-market').checked||$('featured-stocks').checked||$('launch-stocks').checked,strengthDate=records.map(s=>s.bars.at(-1)?.date||'').sort().at(-1);
- $('market-strength-status').textContent=strengthOn?window.marketStrength.status+' · 同日比較，歷史不足或日期不符不納入。':'';
+ $('market-strength-status').textContent=strengthOn?window.marketStrength.status:'';
  if(emaCrossOn||$('featured-stocks').checked||$('launch-stocks').checked)prepareFeaturedContext(strengthDate);
  filtered=analyses.filter(s=>(!emaCrossOn||matchesEmaSetup(s,strengthDate))&&(!$('launch-stocks').checked||launchResult(s,strengthDate)?.passes)&&(!$('featured-stocks').checked||matchesFeaturedStock(s,strengthDate))&&(!$('stronger-than-market').checked||window.marketStrength.get(s,strengthDate)?.passes)&&(!$('above-weekly20').checked||s.w20!==null&&s.t.close>s.w20)&&s.t.volume>500&&(s.t.close>100||s.t.volume>=1000)&&matchesPrice(s.t.close,$('price-range').value)&&(!q||(s.code+' '+s.name+' '+industryLabel(s)).toLowerCase().includes(q))&&(market==='all'||s.market===market)&&(p.score===0||s.score!==null&&s.score>=p.score)&&(!choices.length||choices.some(k=>s.signals[k])));
  const sort=$('sort').value;filtered.sort((a,b)=>sort==='score'?(b.score??-1)-(a.score??-1)||(emaCrossOn?Number(!!emaSectorBonus(b))-Number(!!emaSectorBonus(a)):0)||a.code.localeCompare(b.code):sort==='code'?a.code.localeCompare(b.code):sort==='change'?b.change-a.change:(b.ratio??-1)-(a.ratio??-1));
