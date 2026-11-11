@@ -46,7 +46,6 @@
     const bars = stock.bars.slice(-5);
     if (bars.length !== 5 || bars.some((bar, i) => bar.date !== dates[i] ||
       !Number.isFinite(bar.volume) || bar.volume <= 0)) return values;
-    const volume = bars.reduce((sum, bar) => sum + bar.volume, 0);
     const reports = new Map((sources.institutions?.stocks?.[stock.code]?.daily_history || []).map(row => [row.date, row]));
     const five = dates.map(date => reports.get(date));
     const trust = five.map(row => row?.trust?.net);
@@ -73,7 +72,7 @@
         return row && Math.abs(row.volume_lots - bars[i].volume) <= .01 ? row : null;
       });
       values.broker = reports.every(Boolean)
-        ? reports.reduce((sum, row) => sum + row.net_lots, 0) / volume * 100 >= 2 - 1e-9
+        ? reports.reduce((sum, row) => sum + row.net_lots, 0) > 0
         : null;
     }
     if (selected.includes('holders400') || selected.includes('holders1000')) {
