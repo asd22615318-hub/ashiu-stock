@@ -40,8 +40,89 @@
   root.innerHTML=scoreChart(rows)+`<details><summary class="ownership-search-summary">每日前 15 大分點集中度</summary><p>最新交易日 ${esc(latest?.date||'—')} · ${latest?.row?'集中度 <strong style="color:'+(latest.row.ratio>=0?'#ff647b':'#4dd5bd')+'">'+signed(latest.row.ratio)+'%</strong> · 集中淨額 '+signed(latest.row.net_lots)+' 張':esc(missing(latest?.session,selectedCode))}</p><div>${rows.slice().reverse().map(({date,session,row})=>`<div class="ownership-flow-row"><span>${esc(date)}</span>${row?`<div class="ownership-flow-bar" role="img" aria-label="${esc(date)} 集中度 ${signed(row.ratio)}%"><span class="ownership-flow-track" style="position:relative;height:12px"><i style="position:absolute;left:${row.ratio>=0?50:50-Math.abs(row.ratio)/scale*50}%;width:${Math.abs(row.ratio)/scale*50}%;background:${row.ratio>=0?'#ff647b':'#4dd5bd'}"></i><span style="position:absolute;left:50%;height:100%;border-left:1px solid #dce5ef"></span></span><strong style="color:${row.ratio>0?'#ff647b':row.ratio<0?'#4dd5bd':'#dce5ef'}">${signed(row.ratio)}%</strong></div><small class="ownership-flow-period">買超合計 ${fmt(row.buy_lots)} 張 · 賣超合計 ${fmt(row.sell_lots)} 張 · 集中淨額 ${signed(row.net_lots)} 張 · 當日量 ${fmt(row.volume_lots)} 張 · <a href="${esc(row.source)}" target="_blank" rel="noopener">單日報表</a></small>`:`<span class="ownership-flow-missing">${esc(missing(session,selectedCode))}</span>`}</div>`).join('')||'<p>尚無交易日資料。</p>'}</div><p class="ownership-note">每日集中度＝（當日前 15 大買超分點淨買超合計－前 15 大賣超分點淨賣超合計）÷ 當日成交量 × 100%。漲紅、跌綠，長條中心為 0；前 15 大依淨買賣超排序，並非成交量前 15 名。分點代表券商通路，無法識別大戶身份。單日資料與集保週資料分開，不納入原有週區間分數；另與當日法人及最新週集保配成上方每日綜合強度。從 ${esc(first||'—')} 起逐日累積，最多顯示最近 20 個交易日；缺漏不當成 0%，不以週報替代。</p></details>`;
  }
  window.renderOwnershipDailyConcentration=render;
- fetch('broker-daily-data.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('每日分點資料讀取失敗，請稍後重新整理');return r.json();}).then(data=>{if(data.version!==1||!Array.isArray(data.sessions))throw Error('每日分點資料格式錯誤');data.sessions.sort((a,b)=>a.date.localeCompare(b.date));snapshot=data;scoreCache.clear();render();}).catch(e=>{error=e.message;render();});
- const refresh=()=>{scoreCache.clear();render();};
+ fetch('broker-daily-data.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('每日分點資料讀取失敗，請稍後重新整理');return r.json();}).then(data=>{if(data.version!==1||!Array.isArray(data.sessions))throw Error('每日分點資料格式錯誤');data.sessions.sort((a,b)=>a.date.localeCompare(b.date));snapshot=data;scoreCache.clear();render();renderScreen();}).catch(e=>{error=e.message;render();renderScreen();});
+  function chipFilterValues(stock, dates, sources, selected) {
+    const values = {};
+    const bars = stock.bars.slice(-5);
+    if (bars.length !== 5 || bars.some((bar, i) => bar.date !== dates[i] ||
+      !Number.isFinite(bar.volume) || bar.volume <= 0)) return values;
+    const volume = bars.reduce((sum, bar) => sum + bar.volume, 0);
+    const reports = new Map((sources.institutions?.stocks?.[stock.code]?.daily_history || []).map(row => [row.date, row]));
+    const five = dates.map(date => reports.get(date));
+    const trust = five.map(row => row?.trust?.net);
+    const foreign = five.map(row => row?.foreign?.net);
+    const ratio = nets => nets.every(Number.isFinite) ? nets.reduce((sum, net) => sum + net, 0) / volume * 100 : null;
+
+    if (selected.includes('trust')) {
+      const percent = ratio(trust);
+      const recentThree = trust.slice(-3);
+      values.trust = recentThree.every(net => Number.isFinite(net) && net > 0) ||
+        (percent === null ? null : percent >= 1 - 1e-9);
+    }
+    if (selected.includes('foreign')) {
+      const percent = ratio(foreign);
+      values.foreign = percent === null ? null : percent >= 2 - 1e-9;
+    }
+    if (selected.includes('combined')) {
+      const percent = ratio(five.map((row, i) => Number.isFinite(foreign[i]) &&
+        Number.isFinite(trust[i]) ? foreign[i] + trust[i] : null));
+      values.combined = percent === null ? null : percent >= 1 - 1e-9;
+    }
+    if (selected.includes('broker')) {
+      const sessions = new Map((sources.brokers?.sessions || []).map(session => [session.date, session]));
+      const reports = dates.map((date, i) => {
+        const row = validated(sessions.get(date)?.stocks?.[stock.code], date);
+        return row && Math.abs(row.volume_lots - bars[i].volume) <= .01 ? row : null;
+      });
+      values.broker = reports.every(Boolean)
+        ? reports.reduce((sum, row) => sum + row.net_lots, 0) / volume * 100 >= 2 - 1e-9
+        : null;
+    }
+    if (selected.includes('holders400') || selected.includes('holders1000')) {
+      const weeks = (sources.holders?.weeks || []).filter(week => week.date <= dates.at(-1))
+        .slice().sort((a, b) => a.date.localeCompare(b.date)).slice(-2);
+      for (const [key, level, threshold] of [['holders400', '400', .3], ['holders1000', '1000', .2]]) {
+        if (!selected.includes(key)) continue;
+        const amounts = weeks.map(week => week.invalid_stocks?.[stock.code] ? null : week.stocks?.[stock.code]?.[level]);
+        values[key] = amounts.length === 2 && amounts.every(value => Number.isFinite(value) && value >= 0 && value <= 100)
+          ? amounts[1] - amounts[0] >= threshold - 1e-9 : null;
+      }
+    }
+    return values;
+  }
+
+  const chipInputs = [...document.querySelectorAll('[data-chip-filter]')];
+  let selectedChipFilters = [];
+  let chipDates = [];
+  let chipSources = {};
+  let chipMissing = new Set();
+  window.stockChipFilters = {
+    prepare(stocks) {
+      selectedChipFilters = chipInputs.filter(input => input.checked).map(input => input.dataset.chipFilter);
+      chipMissing = new Set();
+      if (!selectedChipFilters.length) return;
+      chipDates = [...new Set(stocks.flatMap(stock => stock.bars.slice(-5).map(bar => bar.date)))].sort().slice(-5);
+      chipSources = {brokers:snapshot, institutions:institutional, holders:ownership};
+    },
+    matches(stock) {
+      if (!selectedChipFilters.length) return true;
+      const values = mode === 'live' ? chipFilterValues(stock, chipDates, chipSources, selectedChipFilters) : {};
+      if (selectedChipFilters.some(key => values[key] == null)) chipMissing.add(stock.code);
+      return selectedChipFilters.every(key => values[key] === true);
+    },
+    finish() {
+      const status = document.getElementById('stock-chip-filter-status');
+      if (status) status.textContent = selectedChipFilters.length && chipMissing.size
+        ? chipMissing.size + ' 檔籌碼資料待補' : '';
+    }
+  };
+  chipInputs.forEach(input => input.addEventListener('change', () => renderScreen()));
+  const renderScreen = () => {
+    if (chipInputs.some(input => input.checked)) window.render();
+  };
+  window.addEventListener('cb-chip-data-ready', renderScreen);
+
+ const refresh=()=>{scoreCache.clear();render();renderScreen();};
  window.addEventListener('stock-data-ready',refresh);
  window.addEventListener('cb-chip-data-ready',refresh);
 })();
