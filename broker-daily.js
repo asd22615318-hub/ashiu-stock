@@ -51,20 +51,20 @@
     const five = dates.map(date => reports.get(date));
     const trust = five.map(row => row?.trust?.net);
     const foreign = five.map(row => row?.foreign?.net);
-    const ratio = nets => nets.every(Number.isFinite) ? nets.reduce((sum, net) => sum + net, 0) / volume * 100 : null;
+    const cumulativeNet = nets => nets.every(Number.isFinite) ? nets.reduce((sum, net) => sum + net, 0) : null;
 
     if (selected.includes('trust')) {
-      const percent = ratio(trust);
-      values.trust = percent === null ? null : percent >= 1 - 1e-9;
+      const net = cumulativeNet(trust);
+      values.trust = net === null ? null : net > 0;
     }
     if (selected.includes('foreign')) {
-      const percent = ratio(foreign);
-      values.foreign = percent === null ? null : percent >= 1 - 1e-9;
+      const net = cumulativeNet(foreign);
+      values.foreign = net === null ? null : net > 0;
     }
     if (selected.includes('combined')) {
-      const percent = ratio(five.map((row, i) => Number.isFinite(foreign[i]) &&
+      const net = cumulativeNet(five.map((row, i) => Number.isFinite(foreign[i]) &&
         Number.isFinite(trust[i]) ? foreign[i] + trust[i] : null));
-      values.combined = percent === null ? null : percent >= 1 - 1e-9;
+      values.combined = net === null ? null : net > 0;
     }
     if (selected.includes('broker')) {
       const sessions = new Map((sources.brokers?.sessions || []).map(session => [session.date, session]));
