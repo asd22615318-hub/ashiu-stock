@@ -59,7 +59,7 @@
     }
     if (selected.includes('foreign')) {
       const percent = ratio(foreign);
-      values.foreign = percent === null ? null : percent >= 2 - 1e-9;
+      values.foreign = percent === null ? null : percent >= 1 - 1e-9;
     }
     if (selected.includes('combined')) {
       const percent = ratio(five.map((row, i) => Number.isFinite(foreign[i]) &&
