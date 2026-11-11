@@ -55,9 +55,7 @@
 
     if (selected.includes('trust')) {
       const percent = ratio(trust);
-      const recentThree = trust.slice(-3);
-      values.trust = recentThree.every(net => Number.isFinite(net) && net > 0) ||
-        (percent === null ? null : percent >= 1 - 1e-9);
+      values.trust = percent === null ? null : percent >= 1 - 1e-9;
     }
     if (selected.includes('foreign')) {
       const percent = ratio(foreign);
