@@ -42,35 +42,35 @@ function structurePatterns(bars){
 }
 
 function fallingWedgePattern(bars){
- // Past confirmed closing-price pivots only; a 120-session collection window.
+ // Boundaries use confirmed OHLC extremes; the current close confirms a breakout.
  const a=bars.slice(-120),n=a.length;
- if(n<120||a.some(b=>!Number.isFinite(b.close)||b.close<=0))return null;
- const ps=[];
+ if(n<120||a.some(b=>![b.high,b.low,b.close].every(Number.isFinite)||b.low<=0||b.high<b.low||b.close<b.low||b.close>b.high))return null;
+ const highs=[],lows=[];
  for(let i=3;i<n-3;i++){
   const near=a.slice(i-3,i).concat(a.slice(i+1,i+4));
-  const h=near.every(b=>a[i].close>b.close),l=near.every(b=>a[i].close<b.close);
-  if(h===l)continue;
-  const p={i,price:a[i].close,type:h?'H':'L'},last=ps.at(-1);
-  if(last?.type===p.type){if(h?p.price>last.price:p.price<last.price)ps[ps.length-1]=p;}else ps.push(p);
+  if(near.every(b=>a[i].high>b.high))highs.push({i,price:a[i].high});
+  if(near.every(b=>a[i].low<b.low))lows.push({i,price:a[i].low});
  }
  const fit=points=>{
   const x=points.reduce((s,p)=>s+p.i,0)/points.length,y=points.reduce((s,p)=>s+p.price,0)/points.length;
-  const m=points.reduce((s,p)=>s+(p.i-x)*(p.price-y),0)/points.reduce((s,p)=>s+(p.i-x)**2,0);
+  const den=points.reduce((s,p)=>s+(p.i-x)**2,0);
+  const m=points.reduce((s,p)=>s+(p.i-x)*(p.price-y),0)/den;
   return {m,at:i=>y+m*(i-x)};
  };
- for(let k=0;k<=ps.length-6;k++){
-  const seq=ps.slice(k),hs=seq.filter(p=>p.type==='H'),ls=seq.filter(p=>p.type==='L');
+ // Search recent completed structures, without requiring every minor swing to be lower.
+ for(let start=0;start<=n-31;start++){
+  const hs=highs.filter(p=>p.i>=start),ls=lows.filter(p=>p.i>=start);
   if(hs.length<3||ls.length<3)continue;
-  const start=seq[0].i,last=seq.at(-1).i;
-  if(n-1-start<30||n-1-last>15)continue;
-  if(!hs.every((p,i)=>!i||p.price<hs[i-1].price)||!ls.every((p,i)=>!i||p.price<ls[i-1].price))continue;
-  const u=fit(hs),d=fit(ls),upper=u.at(n-1),lower=d.at(n-1),initial=u.at(start)-d.at(start),width=upper-lower,close=a.at(-1).close;
+  const first=Math.min(hs[0].i,ls[0].i),last=Math.max(hs.at(-1).i,ls.at(-1).i);
+  if(n-1-first<30||n-1-last>15)continue;
+  const u=fit(hs),d=fit(ls),upper=u.at(n-1),lower=d.at(n-1),initial=u.at(first)-d.at(first),width=upper-lower,close=a.at(-1).close;
   if(!(u.m<d.m&&d.m<0&&lower>0&&initial>0&&width>0&&width<=initial*.7&&width/close>=.01))continue;
-  if(!hs.every(p=>Math.abs(p.price/u.at(p.i)-1)<=.025)||!ls.every(p=>Math.abs(p.price/d.at(p.i)-1)<=.025))continue;
-  const contained=a.slice(start).filter((b,j)=>b.close>=d.at(start+j)*.98&&b.close<=u.at(start+j)*1.02).length/(n-start);
+  if(!(hs.at(-1).price<hs[0].price&&ls.at(-1).price<ls[0].price))continue;
+  if(!hs.every(p=>Math.abs(p.price/u.at(p.i)-1)<=.04)||!ls.every(p=>Math.abs(p.price/d.at(p.i)-1)<=.04))continue;
+  const contained=a.slice(first,-1).filter((b,j)=>b.high<=u.at(first+j)*1.04&&b.low>=d.at(first+j)*.96).length/(n-first-1);
   if(contained<.8||close<lower*.98||close>upper*1.05)continue;
   const state=close>upper?'收盤突破上緣':'楔形整理中';
-  return {state,upper,lower,note:`近120交易日偵測，楔形跨度 ${n-start} 日；上緣 ${upper.toFixed(2)}／下緣 ${lower.toFixed(2)}；寬度縮至初期 ${(width/initial*100).toFixed(1)}%；${state}。轉折以收盤價、左右各3日確認，屬自動候選。`};
+  return {state,upper,lower,note:`近120交易日偵測，楔形跨度 ${n-first} 日；上緣 ${upper.toFixed(2)}／下緣 ${lower.toFixed(2)}；寬度縮至初期 ${(width/initial*100).toFixed(1)}%；${state}。邊界採含影線的波段高低點、左右各3日確認，突破以收盤確認，屬自動候選。`};
  }
  return null;
 }
