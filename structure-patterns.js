@@ -1,6 +1,7 @@
 // Closing-price structure candidates. Candle geometry remains in the separate OHLC rules.
 function structurePatterns(bars){
- const result={headShoulders:false,triangle:false,vcp:false,notes:{}};
+ const wedge=fallingWedgePattern(bars);
+ const result={headShoulders:false,triangle:false,vcp:false,fallingWedge:!!wedge,notes:wedge?{fallingWedge:wedge.note}:{}};
  const a=bars.slice(-100),n=a.length,t=a[n-1];
  if(n<40||a.some(b=>![b.high,b.low,b.close,b.volume].every(Number.isFinite)||b.low<=0||b.high<b.low))return result;
  const mean=xs=>xs.reduce((s,x)=>s+x,0)/xs.length;
@@ -38,4 +39,38 @@ function structurePatterns(bars){
   if(x.l.i-x.h.i>=8&&z.h.i-x.l.i>=8&&x.h.i>=10&&a[x.h.i].close>=a[x.h.i-10].close*1.05&&x.depth>=.08&&x.depth<=.35&&z.depth<=x.depth*.8&&z.depth>=.01&&z.depth<=.08&&z.volume<=x.volume&&v20>0&&v5<=v20*.75&&m20>m40&&t.close>=m20&&n-1-z.l.i<=12&&t.close>=pivot*.9&&t.close<=pivot*1.03&&tightRange<=.06){result.vcp=true;result.notes.vcp=`大圓底／小圓底回檔 ${(x.depth*100).toFixed(1)}% → ${(z.depth*100).toFixed(1)}%；近5日／20日均量 ${(v5/v20).toFixed(2)}，樞紐 ${pivot.toFixed(2)}；${t.close>=pivot?'收盤站上頸線':'尚未突破頸線'}。`;}
  }
  return result;
+}
+
+function fallingWedgePattern(bars){
+ // Past confirmed closing-price pivots only; a 120-session collection window.
+ const a=bars.slice(-120),n=a.length;
+ if(n<120||a.some(b=>!Number.isFinite(b.close)||b.close<=0))return null;
+ const ps=[];
+ for(let i=3;i<n-3;i++){
+  const near=a.slice(i-3,i).concat(a.slice(i+1,i+4));
+  const h=near.every(b=>a[i].close>b.close),l=near.every(b=>a[i].close<b.close);
+  if(h===l)continue;
+  const p={i,price:a[i].close,type:h?'H':'L'},last=ps.at(-1);
+  if(last?.type===p.type){if(h?p.price>last.price:p.price<last.price)ps[ps.length-1]=p;}else ps.push(p);
+ }
+ const fit=points=>{
+  const x=points.reduce((s,p)=>s+p.i,0)/points.length,y=points.reduce((s,p)=>s+p.price,0)/points.length;
+  const m=points.reduce((s,p)=>s+(p.i-x)*(p.price-y),0)/points.reduce((s,p)=>s+(p.i-x)**2,0);
+  return {m,at:i=>y+m*(i-x)};
+ };
+ for(let k=0;k<=ps.length-6;k++){
+  const seq=ps.slice(k),hs=seq.filter(p=>p.type==='H'),ls=seq.filter(p=>p.type==='L');
+  if(hs.length<3||ls.length<3)continue;
+  const start=seq[0].i,last=seq.at(-1).i;
+  if(n-1-start<30||n-1-last>15)continue;
+  if(!hs.every((p,i)=>!i||p.price<hs[i-1].price)||!ls.every((p,i)=>!i||p.price<ls[i-1].price))continue;
+  const u=fit(hs),d=fit(ls),upper=u.at(n-1),lower=d.at(n-1),initial=u.at(start)-d.at(start),width=upper-lower,close=a.at(-1).close;
+  if(!(u.m<d.m&&d.m<0&&lower>0&&initial>0&&width>0&&width<=initial*.7&&width/close>=.01))continue;
+  if(!hs.every(p=>Math.abs(p.price/u.at(p.i)-1)<=.025)||!ls.every(p=>Math.abs(p.price/d.at(p.i)-1)<=.025))continue;
+  const contained=a.slice(start).filter((b,j)=>b.close>=d.at(start+j)*.98&&b.close<=u.at(start+j)*1.02).length/(n-start);
+  if(contained<.8||close<lower*.98||close>upper*1.05)continue;
+  const state=close>upper?'收盤突破上緣':'楔形整理中';
+  return {state,upper,lower,note:`近120交易日偵測，楔形跨度 ${n-start} 日；上緣 ${upper.toFixed(2)}／下緣 ${lower.toFixed(2)}；寬度縮至初期 ${(width/initial*100).toFixed(1)}%；${state}。轉折以收盤價、左右各3日確認，屬自動候選。`};
+ }
+ return null;
 }
