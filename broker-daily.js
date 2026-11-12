@@ -44,13 +44,15 @@
   function chipFilterValues(stock, dates, sources, selected) {
     const values = {};
     const bars = stock.bars.slice(-5);
-    if (bars.length !== 5 || bars.some((bar, i) => bar.date !== dates[i] ||
-      !Number.isFinite(bar.volume) || bar.volume <= 0)) return values;
+    const barsMatch = bars.length === 5 && dates.length === 5 && bars.every((bar, i) => bar.date === dates[i] &&
+      Number.isFinite(bar.volume) && bar.volume > 0);
+    const reportDates = sources.institutionDates || dates;
+    const institutionReady = reportDates.length === 5 && stock.bars.at(-1)?.date >= reportDates.at(-1);
     const reports = new Map((sources.institutions?.stocks?.[stock.code]?.daily_history || []).map(row => [row.date, row]));
-    const five = dates.map(date => reports.get(date));
+    const five = reportDates.map(date => reports.get(date));
     const trust = five.map(row => row?.trust?.net);
     const foreign = five.map(row => row?.foreign?.net);
-    const cumulativeNet = nets => nets.every(Number.isFinite) ? nets.reduce((sum, net) => sum + net, 0) : null;
+    const cumulativeNet = nets => institutionReady && nets.length === 5 && nets.every(Number.isFinite) ? nets.reduce((sum, net) => sum + net, 0) : null;
 
     if (selected.includes('trust')) {
       const net = cumulativeNet(trust);
@@ -71,7 +73,7 @@
         const row = validated(sessions.get(date)?.stocks?.[stock.code], date);
         return row && Math.abs(row.volume_lots - bars[i].volume) <= .01 ? row : null;
       });
-      values.broker = reports.every(Boolean)
+      values.broker = barsMatch && reports.length === 5 && reports.every(Boolean)
         ? reports.reduce((sum, row) => sum + row.net_lots, 0) > 0
         : null;
     }
@@ -99,7 +101,9 @@
       chipMissing = new Set();
       if (!selectedChipFilters.length) return;
       chipDates = [...new Set(stocks.flatMap(stock => stock.bars.slice(-5).map(bar => bar.date)))].sort().slice(-5);
-      chipSources = {brokers:snapshot, institutions:institutional, holders:ownership};
+      const asOf = chipDates.at(-1);
+      const institutionDates = [...new Set(institutional?.report_dates || [])].filter(date => date <= asOf).sort().slice(-5);
+      chipSources = {brokers:snapshot, institutions:institutional, holders:ownership, institutionDates};
     },
     matches(stock) {
       if (!selectedChipFilters.length) return true;
@@ -109,11 +113,18 @@
     },
     finish() {
       const status = document.getElementById('stock-chip-filter-status');
-      if (status) status.textContent = selectedChipFilters.length && chipMissing.size
-        ? chipMissing.size + ' 檔籌碼資料待補' : '';
+      if (status) {
+        const notes = [];
+        if (selectedChipFilters.some(key => ['trust','foreign','combined'].includes(key))) {
+          const days = chipSources.institutionDates || [];
+          notes.push(days.length === 5 ? '法人近5交易日：' + days[0] + '～' + days.at(-1) + (days.at(-1) < chipDates.at(-1) ? '（最新已公布；股價截至 ' + chipDates.at(-1) + '）' : '') : '法人近5交易日資料尚未齊全');
+        }
+        if (selectedChipFilters.length && chipMissing.size) notes.push(chipMissing.size + ' 檔籌碼資料待補');
+        status.textContent = notes.join(' · ');
+      }
     }
   };
-  chipInputs.forEach(input => input.addEventListener('change', () => renderScreen()));
+  chipInputs.forEach(input => input.addEventListener('change', () => window.render()));
   const renderScreen = () => {
     if (chipInputs.some(input => input.checked)) window.render();
   };
