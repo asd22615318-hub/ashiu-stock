@@ -42,6 +42,11 @@ function structurePatterns(bars){
 }
 
 function fallingWedgePattern(bars){
+ // Require the latest close strictly below the 240-session annual SMA.
+ const annual=bars.slice(-240);
+ if(annual.length<240||annual.some(b=>!Number.isFinite(b.close)||b.close<=0))return null;
+ const ma240=annual.reduce((sum,b)=>sum+b.close,0)/240;
+ if(!(bars.at(-1).close<ma240))return null;
  // Past confirmed closing-price pivots only; a 120-session collection window.
  const a=bars.slice(-120),n=a.length;
  if(n<120||a.some(b=>!Number.isFinite(b.close)||b.close<=0))return null;
@@ -70,7 +75,7 @@ function fallingWedgePattern(bars){
   const contained=a.slice(start).filter((b,j)=>b.close>=d.at(start+j)*.98&&b.close<=u.at(start+j)*1.02).length/(n-start);
   if(contained<.8||close<lower*.98||close>upper*1.05)continue;
   const state=close>upper?'收盤突破上緣':'楔形整理中';
-  return {state,upper,lower,note:`近120交易日偵測，楔形跨度 ${n-start} 日；上緣 ${upper.toFixed(2)}／下緣 ${lower.toFixed(2)}；寬度縮至初期 ${(width/initial*100).toFixed(1)}%；${state}。轉折以收盤價、左右各3日確認，屬自動候選。`};
+  return {state,upper,lower,note:`收盤低於年線 MA240（${ma240.toFixed(2)}）；近120交易日偵測，楔形跨度 ${n-start} 日；上緣 ${upper.toFixed(2)}／下緣 ${lower.toFixed(2)}；寬度縮至初期 ${(width/initial*100).toFixed(1)}%；${state}。轉折以收盤價、左右各3日確認，屬自動候選。`};
  }
  return null;
 }
