@@ -42,39 +42,47 @@ function structurePatterns(bars){
 }
 
 function fallingWedgePattern(bars){
- // Boundaries use confirmed OHLC extremes; the current close confirms a breakout.
  const a=bars.slice(-120),n=a.length;
  if(n<120||a.some(b=>![b.high,b.low,b.close].every(Number.isFinite)||b.low<=0||b.high<b.low||b.close<b.low||b.close>b.high))return null;
+ // Major confirmed extrema, including the left edge of the collection window.
  const highs=[],lows=[];
- for(let i=3;i<n-3;i++){
-  const near=a.slice(i-3,i).concat(a.slice(i+1,i+4));
-  if(near.every(b=>a[i].high>b.high))highs.push({i,price:a[i].high});
-  if(near.every(b=>a[i].low<b.low))lows.push({i,price:a[i].low});
+ for(let i=0;i<n-3;i++){
+  const before=a.slice(Math.max(0,i-5),i),after=a.slice(i+1,i+4);
+  if(before.concat(after).every(b=>a[i].high>b.high))highs.push({i,price:a[i].high});
+  if(before.concat(after).every(b=>a[i].low<b.low))lows.push({i,price:a[i].low});
  }
- const fit=points=>{
-  const x=points.reduce((s,p)=>s+p.i,0)/points.length,y=points.reduce((s,p)=>s+p.price,0)/points.length;
-  const den=points.reduce((s,p)=>s+(p.i-x)**2,0);
-  const m=points.reduce((s,p)=>s+(p.i-x)*(p.price-y),0)/den;
-  return {m,at:i=>y+m*(i-x)};
+ const lines=(ps,side)=>{
+  const out=[];
+  for(let j=0;j<ps.length;j++)for(let k=j+1;k<ps.length;k++){
+   const p=ps[j],q=ps[k],span=q.i-p.i;
+   if(span<10||q.price>=p.price||n-1-q.i>45)continue;
+   const m=(q.price-p.price)/span,at=i=>p.price+m*(i-p.i);
+   if(at(n-1)<=0)continue;
+   const section=a.slice(p.i),inside=section.filter((b,x)=>side==='upper'?b.close<=at(p.i+x)*1.04:b.close>=at(p.i+x)*.96).length/section.length;
+   if(inside<.85)continue;
+   const touches=ps.filter(t=>t.i>=p.i&&Math.abs(t.price/at(t.i)-1)<=.04).length;
+   out.push({m,at,start:p.i,end:q.i,touches,quality:inside+span/120+touches*.05});
+  }
+  return out.sort((x,y)=>y.quality-x.quality).slice(0,16);
  };
- // Search recent completed structures, without requiring every minor swing to be lower.
- for(let start=0;start<=n-20;start++){
-  const hs=highs.filter(p=>p.i>=start),ls=lows.filter(p=>p.i>=start);
-  if(hs.length<2||ls.length<2)continue;
-  const first=Math.min(hs[0].i,ls[0].i),last=Math.max(hs.at(-1).i,ls.at(-1).i);
-  const duration=n-first;
-  if(duration<20||duration>120||n-1-last>15)continue;
-  const u=fit(hs),d=fit(ls),upper=u.at(n-1),lower=d.at(n-1),initial=u.at(first)-d.at(first),width=upper-lower,close=a.at(-1).close;
-  if(!(u.m<d.m&&d.m<0&&lower>0&&initial>0&&width>0&&width<=initial*.8&&width/close>=.01))continue;
-  if(!(hs.at(-1).price<hs[0].price&&ls.at(-1).price<ls[0].price))continue;
-  if(!hs.every(p=>Math.abs(p.price/u.at(p.i)-1)<=.04)||!ls.every(p=>Math.abs(p.price/d.at(p.i)-1)<=.04))continue;
-  const contained=a.slice(first,-1).filter((b,j)=>b.high<=u.at(first+j)*1.04&&b.low>=d.at(first+j)*.96).length/(n-first-1);
-  if(contained<.8||close<lower*.98||close>upper*1.05)continue;
+ const us=lines(highs,'upper'),ds=lines(lows,'lower'),candidates=[];
+ for(const u of us)for(const d of ds){
+  const first=Math.max(u.start,d.start),duration=n-first;
+  if(duration<20||duration>120||!(u.m<d.m&&d.m<0))continue;
+  const upper=u.at(n-1),lower=d.at(n-1),initial=u.at(first)-d.at(first),width=upper-lower,close=a.at(-1).close;
+  if(!(lower>0&&initial>0&&width>0&&width<=initial*.8&&width/close>=.01))continue;
   const position=(close-lower)/width;
   if(position<.2-1e-9||position>1+1e-9)continue;
-  const completeness=hs.length>=3&&ls.length>=3?'較完整（高低點各至少3個）':'初步候選（高低點各至少2個）';
-  const state='楔形整理中';
-  return {state,upper,lower,position,duration,note:`近120交易日偵測，楔形跨度 ${n-first} 日；上緣 ${upper.toFixed(2)}／下緣 ${lower.toFixed(2)}；寬度縮至初期 ${(width/initial*100).toFixed(1)}%；收盤位於上下緣間 ${(position*100).toFixed(1)}%（下緣0%、上緣100%）；${state}／${completeness}。邊界採含影線的波段高低點、左右各3日確認，股價位置以收盤判斷，屬自動候選。`};
+  const section=a.slice(first),wickInside=section.filter((b,x)=>b.high<=u.at(first+x)*1.06&&b.low>=d.at(first+x)*.94).length/section.length;
+  const closeInside=section.filter((b,x)=>b.close<=u.at(first+x)*1.04&&b.close>=d.at(first+x)*.96).length/section.length;
+  if(wickInside<.75||closeInside<.85)continue;
+  // A brief historical pierce is allowed, persistent or extreme support failure is not.
+  if(section.some((b,x)=>b.close<d.at(first+x)*.9))continue;
+  let streak=0,failed=false;for(let x=0;x<section.length;x++){streak=section[x].close<d.at(first+x)*.96?streak+1:0;if(streak>2){failed=true;break;}}
+  if(failed)continue;
+  const state='楔形整理中',completeness=u.touches>=3&&d.touches>=3?'較完整':'初步候選';
+  candidates.push({state,upper,lower,position,duration,quality:closeInside+wickInside+duration/120,
+   note:`近120交易日偵測，主要波段連線，重疊期間 ${duration} 日；上緣 ${upper.toFixed(2)}／下緣 ${lower.toFixed(2)}；收斂 ${((1-width/initial)*100).toFixed(1)}%；收盤位置 ${(position*100).toFixed(1)}%（下緣0%、上緣100%）；${state}／${completeness}。高低點含影線、左側5日、右側3日確認；容許少量短暫穿線，非突破或買進保證。`});
  }
- return null;
+ return candidates.sort((x,y)=>y.quality-x.quality)[0]||null;
 }
