@@ -58,19 +58,22 @@ function fallingWedgePattern(bars){
   return {m,at:i=>y+m*(i-x)};
  };
  // Search recent completed structures, without requiring every minor swing to be lower.
- for(let start=0;start<=n-31;start++){
+ for(let start=0;start<=n-20;start++){
   const hs=highs.filter(p=>p.i>=start),ls=lows.filter(p=>p.i>=start);
   if(hs.length<3||ls.length<3)continue;
   const first=Math.min(hs[0].i,ls[0].i),last=Math.max(hs.at(-1).i,ls.at(-1).i);
-  if(n-1-first<30||n-1-last>15)continue;
+  const duration=n-first;
+  if(duration<20||duration>80||n-1-last>15)continue;
   const u=fit(hs),d=fit(ls),upper=u.at(n-1),lower=d.at(n-1),initial=u.at(first)-d.at(first),width=upper-lower,close=a.at(-1).close;
   if(!(u.m<d.m&&d.m<0&&lower>0&&initial>0&&width>0&&width<=initial*.7&&width/close>=.01))continue;
-  if(!(hs.at(-1).price<hs[0].price&&ls.at(-1).price<ls[0].price))continue;
+  if(!hs.every((p,i)=>i===0||p.price<hs[i-1].price)||!ls.every((p,i)=>i===0||p.price<ls[i-1].price))continue;
   if(!hs.every(p=>Math.abs(p.price/u.at(p.i)-1)<=.04)||!ls.every(p=>Math.abs(p.price/d.at(p.i)-1)<=.04))continue;
   const contained=a.slice(first,-1).filter((b,j)=>b.high<=u.at(first+j)*1.04&&b.low>=d.at(first+j)*.96).length/(n-first-1);
   if(contained<.8||close<lower*.98||close>upper*1.05)continue;
-  const state=close>upper?'收盤突破上緣':'楔形整理中';
-  return {state,upper,lower,note:`近120交易日偵測，楔形跨度 ${n-first} 日；上緣 ${upper.toFixed(2)}／下緣 ${lower.toFixed(2)}；寬度縮至初期 ${(width/initial*100).toFixed(1)}%；${state}。邊界採含影線的波段高低點、左右各3日確認，突破以收盤確認，屬自動候選。`};
+  const position=(close-lower)/width;
+  if(position<.6-1e-9||position>.95+1e-9)continue;
+  const state='楔形整理中';
+  return {state,upper,lower,position,duration,note:`近120交易日偵測，楔形跨度 ${n-first} 日；上緣 ${upper.toFixed(2)}／下緣 ${lower.toFixed(2)}；寬度縮至初期 ${(width/initial*100).toFixed(1)}%；收盤位於上下緣間 ${(position*100).toFixed(1)}%（下緣0%、上緣100%）；${state}。邊界採含影線的波段高低點、左右各3日確認，股價位置以收盤判斷，屬自動候選。`};
  }
  return null;
 }
