@@ -204,8 +204,8 @@ function matchesMa5Cross40(s){
  const a=s.bars,i=a.length-1;
  if(a.length<45||a.slice(-45).some(b=>!Number.isFinite(b.close)||b.close<=0))return false;
  const m5=ma(a,i,5),m40=ma(a,i,40),prior40=ma(a,i-5,40),close=a[i].close;
- if(!(m5>m40&&m40>=prior40&&close>m5&&close>m40&&close/m5-1<=.08+1e-9))return false;
- for(let j=i-4;j<=i;j++){
+ if(!(m5>m40&&(m40/prior40-1)>-.005&&close>m5&&close/m5-1<=.05+1e-9))return false;
+ for(let j=i-1;j<=i;j++){
   if(ma(a,j,5)>ma(a,j,40)&&ma(a,j-1,5)<=ma(a,j-1,40))return true;
  }
  return false;
