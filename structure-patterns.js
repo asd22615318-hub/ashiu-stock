@@ -44,6 +44,17 @@ function structurePatterns(bars){
 function fallingWedgePattern(bars){
  const a=bars.slice(-120),n=a.length;
  if(n<120||a.some(b=>![b.high,b.low,b.close].every(Number.isFinite)||b.low<=0||b.high<b.low||b.close<b.low||b.close>b.high))return null;
+ const volume5=a.slice(-5).reduce((sum,b)=>sum+b.volume,0)/5;
+ if(!a.slice(-5).every(b=>Number.isFinite(b.volume)&&b.volume>=0)||volume5<300)return null;
+ // Wilder ATR14, calculated chronologically with no future bars.
+ const atr=[];let running=0;
+ for(let i=0;i<n;i++){
+  const tr=i?Math.max(a[i].high-a[i].low,Math.abs(a[i].high-a[i-1].close),Math.abs(a[i].low-a[i-1].close)):a[i].high-a[i].low;
+  if(i<14)running+=tr;
+  if(i===13)atr[i]=running/14;
+  else if(i>13)atr[i]=(atr[i-1]*13+tr)/14;
+ }
+ const tolerance=i=>1.5*(atr[Math.max(13,i)]||0);
  // Major confirmed extrema, including the left edge of the collection window.
  const highs=[],lows=[];
  for(let i=0;i<n-3;i++){
@@ -55,12 +66,15 @@ function fallingWedgePattern(bars){
   const out=[];
   for(let j=0;j<ps.length;j++)for(let k=j+1;k<ps.length;k++){
    const p=ps[j],q=ps[k],span=q.i-p.i;
-   if(span<10||q.price>=p.price||n-1-q.i>45)continue;
+   if(span<3||q.price>p.price*1.02+1e-9)continue;
    const m=(q.price-p.price)/span,at=i=>p.price+m*(i-p.i);
-   if(at(n-1)<=0)continue;
-   const section=a.slice(p.i),inside=section.filter((b,x)=>side==='upper'?b.close<=at(p.i+x)*1.04:b.close>=at(p.i+x)*.96).length/section.length;
+   if(m>=0||at(n-1)<=0)continue;
+   const section=a.slice(p.i),inside=section.filter((b,x)=>side==='upper'?b.close<=at(p.i+x)+tolerance(p.i+x):b.close>=at(p.i+x)-tolerance(p.i+x)).length/section.length;
    if(inside<.85)continue;
-   const touches=ps.filter(t=>t.i>=p.i&&Math.abs(t.price/at(t.i)-1)<=.04).length;
+   const contacts=ps.filter(t=>t.i>=p.i&&Math.abs(t.price-at(t.i))<=tolerance(t.i));
+   const spaced=[];for(const t of contacts)if(!spaced.length||t.i-spaced.at(-1).i>=3)spaced.push(t);
+   if(spaced.length<2||spaced.some((t,i)=>i&&t.price>spaced[i-1].price*1.02+1e-9))continue;
+   const touches=spaced.length;
    out.push({m,at,start:p.i,end:q.i,touches,quality:inside+span/120+touches*.05});
   }
   return out.sort((x,y)=>y.quality-x.quality).slice(0,16);
@@ -68,21 +82,22 @@ function fallingWedgePattern(bars){
  const us=lines(highs,'upper'),ds=lines(lows,'lower'),candidates=[];
  for(const u of us)for(const d of ds){
   const first=Math.max(u.start,d.start),duration=n-first;
-  if(duration<20||duration>120||!(u.m<d.m&&d.m<0))continue;
+  if(duration<15||duration>100||!(u.m<d.m&&d.m<0))continue;
   const upper=u.at(n-1),lower=d.at(n-1),initial=u.at(first)-d.at(first),width=upper-lower,close=a.at(-1).close;
-  if(!(lower>0&&initial>0&&width>0&&width<=initial*.8&&width/close>=.01))continue;
+  if(!(lower>0&&initial>0&&width>0&&width<=initial*.9+1e-9))continue;
   const position=(close-lower)/width;
-  if(position<.2-1e-9||position>1+1e-9)continue;
-  const section=a.slice(first),wickInside=section.filter((b,x)=>b.high<=u.at(first+x)*1.06&&b.low>=d.at(first+x)*.94).length/section.length;
-  const closeInside=section.filter((b,x)=>b.close<=u.at(first+x)*1.04&&b.close>=d.at(first+x)*.96).length/section.length;
+  const upperDistance=(upper-close)/upper;
+  if(upperDistance< -1e-9||upperDistance>.15+1e-9||close<lower-tolerance(n-1))continue;
+  const section=a.slice(first),wickInside=section.filter((b,x)=>b.high<=u.at(first+x)+tolerance(first+x)&&b.low>=d.at(first+x)-tolerance(first+x)).length/section.length;
+  const closeInside=section.filter((b,x)=>b.close<=u.at(first+x)+tolerance(first+x)&&b.close>=d.at(first+x)-tolerance(first+x)).length/section.length;
   if(wickInside<.75||closeInside<.85)continue;
   // A brief historical pierce is allowed, persistent or extreme support failure is not.
-  if(section.some((b,x)=>b.close<d.at(first+x)*.9))continue;
-  let streak=0,failed=false;for(let x=0;x<section.length;x++){streak=section[x].close<d.at(first+x)*.96?streak+1:0;if(streak>2){failed=true;break;}}
+  if(section.some((b,x)=>b.close<d.at(first+x)-2*tolerance(first+x)))continue;
+  let streak=0,failed=false;for(let x=0;x<section.length;x++){streak=section[x].close<d.at(first+x)-tolerance(first+x)?streak+1:0;if(streak>2){failed=true;break;}}
   if(failed)continue;
   const state='楔形整理中',completeness=u.touches>=3&&d.touches>=3?'較完整':'初步候選';
-  candidates.push({state,upper,lower,position,duration,quality:closeInside+wickInside+duration/120,
-   note:`近120交易日偵測，主要波段連線，重疊期間 ${duration} 日；上緣 ${upper.toFixed(2)}／下緣 ${lower.toFixed(2)}；收斂 ${((1-width/initial)*100).toFixed(1)}%；收盤位置 ${(position*100).toFixed(1)}%（下緣0%、上緣100%）；${state}／${completeness}。高低點含影線、左側5日、右側3日確認；容許少量短暫穿線，非突破或買進保證。`});
+  candidates.push({state,upper,lower,position,duration,upperDistance,volume5,quality:closeInside+wickInside+duration/120,
+   note:`近120交易日偵測，主要波段連線，重疊期間 ${duration} 日；上緣 ${upper.toFixed(2)}／下緣 ${lower.toFixed(2)}；收斂 ${((1-width/initial)*100).toFixed(1)}%；收盤位置 ${(position*100).toFixed(1)}%（下緣0%、上緣100%）；距上緣 ${(upperDistance*100).toFixed(1)}%；5日均量 ${volume5.toFixed(0)} 張；${state}／${completeness}。高低點含影線、左側5日、右側3日確認；轉折間隔至少3日、相鄰高低點容許2%誤差，趨勢線容忍1.5 ATR14；非突破或買進保證。`});
  }
  return candidates.sort((x,y)=>y.quality-x.quality)[0]||null;
 }
