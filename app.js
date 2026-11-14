@@ -331,11 +331,19 @@ function fibonacciRetracement(bars){
  const low=a[li].low,high=a[hi].high,rise=li<hi;
  return {bars:a,low,high,li,hi,rise,levels:[0,.236,.382,.5,.618,.786,1].map(r=>({ratio:r,price:rise?high-(high-low)*r:low+(high-low)*r}))};
 }
+function fibonacciStrength(model){
+ const close=model.bars.at(-1).close;
+ const ratio=(model.rise?model.high-close:close-model.low)/(model.high-model.low);
+ const zone=ratio<=.236+1e-9?0:ratio<=.382+1e-9?1:ratio<=.5+1e-9?2:ratio<=.618+1e-9?3:ratio<=.786+1e-9?4:5;
+ const labels=model.rise?['淺回檔・較強','淺回檔・偏強','中度回檔','深回檔・偏弱','深回檔・較弱','接近波段起點・弱勢']:['反彈幅度小','初步反彈','中度反彈','反彈幅度較大','深度反彈','接近前高'];
+ return {ratio,zone,label:ratio<0?'超出波段終點':ratio>1?'超出原波段範圍':labels[zone],color:['#ffd66e','#ffb86e','#dce5ef','#8ed8ff','#b59be5','#f591a0'][zone]};
+}
 function renderFibonacci(s){
  const host=$('fibonacci-chart');if(!host)return;
  const model=fibonacciRetracement(s.bars);
  if(!model){host.innerHTML='<p>至少需要20筆完整日線及不同日期的波段高低點，暫無法計算。</p>';return;}
  const {bars:a,low,high,li,hi,rise,levels}=model;
+ const strength=fibonacciStrength(model),zoneNames=rise?['淺回檔・較強','淺回檔・偏強','中度回檔','深回檔・偏弱','深回檔・較弱','接近起點・弱勢']:['反彈幅度小','初步反彈','中度反彈','反彈幅度較大','深度反彈','接近前高'];
  const w=Math.max(760,a.length*9+140),h=340,left=16,right=w-125,top=24,bottom=280;
  const lo=Math.min(low,...a.map(b=>b.low)),up=Math.max(high,...a.map(b=>b.high)),pad=(up-lo)*.08;
  const y=p=>top+(up+pad-p)/(up-lo+2*pad)*(bottom-top),x=i=>left+i*(right-left)/(a.length-1);
@@ -346,8 +354,8 @@ function renderFibonacci(s){
  a.forEach((b,i)=>{const color=b.close>=b.open?'#ff647b':'#4dd5bd';svg+='<line x1="'+x(i)+'" x2="'+x(i)+'" y1="'+y(b.high)+'" y2="'+y(b.low)+'" stroke="'+color+'"/><rect x="'+(x(i)-2.5)+'" y="'+Math.min(y(b.open),y(b.close))+'" width="5" height="'+Math.max(1,Math.abs(y(b.open)-y(b.close)))+'" fill="'+color+'"/>';});
  svg+='<line x1="'+x(li)+'" y1="'+y(low)+'" x2="'+x(hi)+'" y2="'+y(high)+'" stroke="#dce5ef" stroke-dasharray="5 5"/>';
  for(const i of [...new Set([0,Math.floor(a.length/2),a.length-1])])svg+='<text x="'+x(i)+'" y="312" fill="#dce5ef" font-size="11" text-anchor="'+(i===0?'start':i===a.length-1?'end':'middle')+'">'+esc(a[i].date)+'</text>';
- svg+='</svg>';
- host.innerHTML='<p style="color:#dce5ef">自動取近 '+a.length+' 個交易日最高／最低價（含影線），依日期先後判定'+(rise?'上漲波段回撤':'下跌波段反彈')+'。<br>低點 '+esc(a[li].date)+' · '+fmt(low)+' ／高點 '+esc(a[hi].date)+' · '+fmt(high)+'</p><div style="overflow-x:auto;max-width:100%;border:1px solid #344958;border-radius:14px;background:#091825;touch-action:pan-x pan-y">'+svg+'</div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+levels.map((l,i)=>'<span style="padding:6px 9px;border:1px solid #344958;border-radius:8px;color:'+colors[i]+'">'+(l.ratio*100).toFixed(1)+'% <b>'+fmt(l.price)+'</b></span>').join('')+'</div><p style="color:#dce5ef;font-size:.85em">此處為價格回撤參考，並非策略勝率回測；高低點隨最新資料重算，不代表已確認的支撐、壓力或買賣訊號。</p>';
+ svg+='<line x1="'+left+'" x2="'+right+'" y1="'+y(a.at(-1).close)+'" y2="'+y(a.at(-1).close)+'" stroke="#ffffff" stroke-dasharray="3 4"/><circle cx="'+x(a.length-1)+'" cy="'+y(a.at(-1).close)+'" r="4" fill="#ffffff"/></svg>';
+ host.innerHTML='<p style="color:#dce5ef">自動取近 '+a.length+' 個交易日最高／最低價（含影線），依日期先後判定'+(rise?'上漲波段回撤':'下跌波段反彈')+'。<br>低點 '+esc(a[li].date)+' · '+fmt(low)+' ／高點 '+esc(a[hi].date)+' · '+fmt(high)+'</p><div style="border:1px solid '+strength.color+';border-radius:12px;padding:12px;margin:10px 0;color:'+strength.color+';overflow-wrap:anywhere"><strong>目前'+(rise?'回撤':'反彈')+' '+fmt(strength.ratio*100)+'% · '+strength.label+'</strong><br><small style="color:#dce5ef">以最新收盤價計算，僅比較此波段的回撤深淺；淺回檔不等於已止跌。</small></div><div style="overflow-x:auto;max-width:100%;border:1px solid #344958;border-radius:14px;background:#091825;touch-action:pan-x pan-y">'+svg+'</div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+levels.map((l,i)=>'<span style="padding:6px 9px;border:1px solid #344958;border-radius:8px;color:'+colors[i]+'">'+(l.ratio*100).toFixed(1)+'% <b>'+fmt(l.price)+'</b>'+(i?'<small style="display:block;color:#dce5ef">'+zoneNames[i-1]+'</small>':'<small style="display:block;color:#dce5ef">波段終點</small>')+'</span>').join('')+'</div><p style="color:#dce5ef;font-size:.85em">此處為價格回撤參考，並非策略勝率回測；高低點隨最新資料重算，不代表已確認的支撐、壓力或買賣訊號。</p>';
 }
 function showDetail(s){if(!s)return;renderInstitutional(s);renderStockHoldings(s);peerGroupKey='';renderPeers(s);$('history-load').hidden=true;$('history-load').textContent=s.bars.length>=361?'重新整理此股歷史':'補齊此股歷史日線';$('detail-name').textContent=s.code+' '+s.name+' · '+s.t.date+' 日 K';$('detail-industry').textContent=industryLabel(s)+' · '+Math.min(90,s.bars.length)+' 個交易日 · '+(s.score===null?s.known+' / 15（資料待齊）':s.score+' / 15 亮燈');$('detail-price').innerHTML=`<strong>${fmt(s.t.close)}</strong><small class="${s.change>=0?'up':'down'}">${s.change>=0?'+':''}${fmt(s.change)}%</small><span class="detail-volume">成交量 <b>${Number.isFinite(s.t.volume)&&s.t.volume>=0?fmt(s.t.volume,2)+' 張':'待補'}</b></span>`;
  $('detail-price-base').innerHTML=priceBaseHtml(s.bars);
