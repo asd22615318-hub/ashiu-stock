@@ -338,10 +338,45 @@ function fibonacciStrength(model){
  const labels=model.rise?['淺回檔・較強','淺回檔・偏強','中度回檔','深回檔・偏弱','深回檔・較弱','接近波段起點・弱勢']:['反彈幅度小','初步反彈','中度反彈','反彈幅度較大','深度反彈','接近前高'];
  return {ratio,zone,label:ratio<0?'超出波段終點':ratio>1?'超出原波段範圍':labels[zone],color:['#ffd66e','#ffb86e','#dce5ef','#8ed8ff','#b59be5','#f591a0'][zone]};
 }
-function renderFibonacci(s){
+let fibonacciPeriod='day',fibonacciRequest=0;
+const fibonacciPending=new Map();
+async function renderFibonacciPeriod(stock){
+ const request=++fibonacciRequest;
+ document.querySelectorAll('[data-fibonacci-period]').forEach(button=>{
+  const active=button.dataset.fibonacciPeriod===fibonacciPeriod;
+  button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
+  button.onclick=()=>{fibonacciPeriod=button.dataset.fibonacciPeriod;renderFibonacciPeriod(stock);};
+ });
+ if(fibonacciPeriod==='day'){renderFibonacci(stock);return;}
+ const host=$('fibonacci-chart');if(!host)return;
+ host.innerHTML='<p role="status">正在載入分K斐波資料…</p>';
+ const key=stock.code+':'+stock.market,period=Number(fibonacciPeriod);
+ try{
+  let data=smcMinuteCache.get(key);
+  if(!data||Date.now()-data.loaded>120000){
+   if(!fibonacciPending.has(key))fibonacciPending.set(key,(async()=>{
+    const response=await fetch('/api/intraday?code='+encodeURIComponent(stock.code)+'&market='+encodeURIComponent(stock.market),{credentials:'same-origin'});
+    const body=await response.json();if(!response.ok)throw Error(body.error||'分K讀取失敗');
+    const result={bars:smcClean(body.bars||[]).slice().sort((a,b)=>a.time-b.time),loaded:Date.now()};
+    smcMinuteCache.set(key,result);return result;
+   })().finally(()=>fibonacciPending.delete(key)));
+   data=await fibonacciPending.get(key);
+  }
+  if(request!==fibonacciRequest)return;
+  const now=Date.now()/1000;
+  const bars=smcMinutes(data.bars,period).filter(bar=>{
+   const local=new Date(bar.time*1000+8*3600000),minute=local.getUTCHours()*60+local.getUTCMinutes();
+   const dayStart=Math.floor((bar.time+8*3600)/86400)*86400-8*3600;
+   const start=540+Math.floor((minute-540)/period)*period;
+   return minute>=540&&minute<810&&now>=dayStart+Math.min(start+period,810)*60;
+  }).map(b=>({...b,date:smcStamp(b.time)}));
+  renderFibonacci({...stock,bars},period+'分K');
+ }catch(error){if(request===fibonacciRequest)host.innerHTML='<p role="status">'+esc(error.message||'分K資料暫時無法取得')+'；可切回日K查看。</p>';}
+}
+function renderFibonacci(s,periodLabel='日K'){
  const host=$('fibonacci-chart');if(!host)return;
  const model=fibonacciRetracement(s.bars);
- if(!model){host.innerHTML='<p>至少需要20筆完整日線及不同日期的波段高低點，暫無法計算。</p>';return;}
+ if(!model){host.innerHTML='<p>至少需要20根完整K棒及不同時間的波段高低點，此週期目前資料不足，暫無法計算。</p>';return;}
  const {bars:a,low,high,li,hi,rise,levels}=model;
  const strength=fibonacciStrength(model),zoneNames=rise?['淺回檔・較強','淺回檔・偏強','中度回檔','深回檔・偏弱','深回檔・較弱','接近起點・弱勢']:['反彈幅度小','初步反彈','中度反彈','反彈幅度較大','深度反彈','接近前高'];
  const w=Math.max(760,a.length*9+140),h=340,left=16,right=w-125,top=24,bottom=280;
@@ -355,7 +390,7 @@ function renderFibonacci(s){
  svg+='<line x1="'+x(li)+'" y1="'+y(low)+'" x2="'+x(hi)+'" y2="'+y(high)+'" stroke="#dce5ef" stroke-dasharray="5 5"/>';
  for(const i of [...new Set([0,Math.floor(a.length/2),a.length-1])])svg+='<text x="'+x(i)+'" y="312" fill="#dce5ef" font-size="11" text-anchor="'+(i===0?'start':i===a.length-1?'end':'middle')+'">'+esc(a[i].date)+'</text>';
  svg+='<line x1="'+left+'" x2="'+right+'" y1="'+y(a.at(-1).close)+'" y2="'+y(a.at(-1).close)+'" stroke="#ffffff" stroke-dasharray="3 4"/><circle cx="'+x(a.length-1)+'" cy="'+y(a.at(-1).close)+'" r="4" fill="#ffffff"/></svg>';
- host.innerHTML='<p style="color:#dce5ef">自動取近 '+a.length+' 個交易日最高／最低價（含影線），依日期先後判定'+(rise?'上漲波段回撤':'下跌波段反彈')+'。<br>低點 '+esc(a[li].date)+' · '+fmt(low)+' ／高點 '+esc(a[hi].date)+' · '+fmt(high)+'</p><div style="border:1px solid '+strength.color+';border-radius:12px;padding:12px;margin:10px 0;color:'+strength.color+';overflow-wrap:anywhere"><strong>目前'+(rise?'回撤':'反彈')+' '+fmt(strength.ratio*100)+'% · '+strength.label+'</strong><br><small style="color:#dce5ef">以最新收盤價計算，僅比較此波段的回撤深淺；淺回檔不等於已止跌。</small></div><div style="overflow-x:auto;max-width:100%;border:1px solid #344958;border-radius:14px;background:#091825;touch-action:pan-x pan-y">'+svg+'</div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+levels.map((l,i)=>'<span style="padding:6px 9px;border:1px solid #344958;border-radius:8px;color:'+colors[i]+'">'+(l.ratio*100).toFixed(1)+'% <b>'+fmt(l.price)+'</b>'+(i?'<small style="display:block;color:#dce5ef">'+zoneNames[i-1]+'</small>':'<small style="display:block;color:#dce5ef">波段終點</small>')+'</span>').join('')+'</div><p style="color:#dce5ef;font-size:.85em">此處為價格回撤參考，並非策略勝率回測；高低點隨最新資料重算，不代表已確認的支撐、壓力或買賣訊號。</p>';
+ host.innerHTML='<p style="color:#dce5ef">'+esc(periodLabel)+' · 自動取最近 '+a.length+' 根K棒最高／最低價（含影線），依日期先後判定'+(rise?'上漲波段回撤':'下跌波段反彈')+'。<br>低點 '+esc(a[li].date)+' · '+fmt(low)+' ／高點 '+esc(a[hi].date)+' · '+fmt(high)+'</p><div style="border:1px solid '+strength.color+';border-radius:12px;padding:12px;margin:10px 0;color:'+strength.color+';overflow-wrap:anywhere"><strong>目前'+(rise?'回撤':'反彈')+' '+fmt(strength.ratio*100)+'% · '+strength.label+'</strong><br><small style="color:#dce5ef">以最新收盤價計算，僅比較此波段的回撤深淺；淺回檔不等於已止跌。</small></div><div style="overflow-x:auto;max-width:100%;border:1px solid #344958;border-radius:14px;background:#091825;touch-action:pan-x pan-y">'+svg+'</div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+levels.map((l,i)=>'<span style="padding:6px 9px;border:1px solid #344958;border-radius:8px;color:'+colors[i]+'">'+(l.ratio*100).toFixed(1)+'% <b>'+fmt(l.price)+'</b>'+(i?'<small style="display:block;color:#dce5ef">'+zoneNames[i-1]+'</small>':'<small style="display:block;color:#dce5ef">波段終點</small>')+'</span>').join('')+'</div><p style="color:#dce5ef;font-size:.85em">此處為價格回撤參考，並非策略勝率回測；高低點隨最新資料重算，不代表已確認的支撐、壓力或買賣訊號。</p>';
 }
 function showDetail(s){if(!s)return;renderInstitutional(s);renderStockHoldings(s);peerGroupKey='';renderPeers(s);$('history-load').hidden=true;$('history-load').textContent=s.bars.length>=361?'重新整理此股歷史':'補齊此股歷史日線';$('detail-name').textContent=s.code+' '+s.name+' · '+s.t.date+' 日 K';$('detail-industry').textContent=industryLabel(s)+' · '+Math.min(90,s.bars.length)+' 個交易日 · '+(s.score===null?s.known+' / 15（資料待齊）':s.score+' / 15 亮燈');$('detail-price').innerHTML=`<strong>${fmt(s.t.close)}</strong><small class="${s.change>=0?'up':'down'}">${s.change>=0?'+':''}${fmt(s.change)}%</small><span class="detail-volume">成交量 <b>${Number.isFinite(s.t.volume)&&s.t.volume>=0?fmt(s.t.volume,2)+' 張':'待補'}</b></span>`;
  $('detail-price-base').innerHTML=priceBaseHtml(s.bars);
@@ -366,7 +401,7 @@ function showDetail(s){if(!s)return;renderInstitutional(s);renderStockHoldings(s
  $('explain').innerHTML+=`<p style="margin-top:14px">${candleType(s.t)} · 開盤 ${fmt(s.t.open)}<br>MA5 ${fmt(s.m5)} · MA10 ${fmt(s.m10)}<br>當日量 ${fmt(s.t.volume,0)} 張<br>${s.bars.length} 筆日線</p>`;
  $('detail-score').textContent=s.score===null?s.known+' / 15（待判定 '+s.missing+' 項）':s.score+' / 15';$('score-breakdown').innerHTML=[['站上均線',s.stand,''],['收盤創高',s.fresh,'high'],['均線排列',s.order,'order']].map(([label,v,k])=>`<div class="score-row"><span>${label}</span><div class="lights">${lights(v,k)}</div><span>${v.filter(Boolean).length} / ${v.length}</span></div>`).join('')+`<p>均線位置與創高均以收盤價確認，均線由收盤價計算。點亮項目為符合；待判定項目不算未符合。資料未齊時顯示已符合分數，暫不納入正式排名。<br>完整口徑見「型態與規則」。</p>`;
  $('explain').innerHTML+=nearCrossStatusHtml(s);
- renderDefenseChart(s);renderFibonacci(s);renderSmcZones(s);if(s.bars.length<21)$('explain').innerHTML='<p>目前僅 '+s.bars.length+' 筆日線。補齊歷史後才計算均線與型態；完整 15 分需 361 筆。</p>'+$('explain').innerHTML;}
+ renderDefenseChart(s);renderFibonacciPeriod(s);renderSmcZones(s);if(s.bars.length<21)$('explain').innerHTML='<p>目前僅 '+s.bars.length+' 筆日線。補齊歷史後才計算均線與型態；完整 15 分需 361 筆。</p>'+$('explain').innerHTML;}
 function makeDemo(){let seed=7351;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};const dates=[];let d=new Date('2025-01-01T00:00:00Z');while(dates.length<390){if(d.getUTCDay()!==0&&d.getUTCDay()!==6)dates.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+1);}return Array.from({length:12},(_,j)=>{let price=35+j*13;const bars=dates.map((date,k)=>{let o=price*(1+(rand()-.5)*.008),c=o*(1+.003+(rand()-.5)*.015);price=c;return {date,open:o,close:c,high:Math.max(o,c)*(1+rand()*.01),low:Math.min(o,c)*(1-rand()*.008),volume:Math.round(1000+rand()*1000)};});let t=bars.at(-1),prev=bars.at(-2),base=prev.close;
  if(j%6===0){Object.assign(t,{open:base*1.012,close:base*.998,high:base*1.02,low:base*.994,volume:450});}
  if(j%6===1){Object.assign(prev,{open:base*1.025,close:base,high:base*1.07,low:base*.993});Object.assign(t,{open:base*1.009,close:base*.998,high:base*1.015,low:base*.995,volume:550});}
