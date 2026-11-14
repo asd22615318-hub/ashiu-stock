@@ -322,6 +322,33 @@ async function loadValuation(){
  catch(error){valuationError='估值資料讀取失敗：'+error.message;}
  if(currentDetailStock&&!$('detail').hidden)$('detail-valuation').innerHTML=valuationHtml(currentDetailStock);
 }
+function fibonacciRetracement(bars){
+ const a=bars.slice(-120);
+ if(a.length<20||a.some(b=>![b.open,b.high,b.low,b.close].every(Number.isFinite)||b.low<=0||b.high<b.low||b.close>b.high||b.close<b.low))return null;
+ let li=0,hi=0;
+ a.forEach((b,i)=>{if(b.low<=a[li].low)li=i;if(b.high>=a[hi].high)hi=i;});
+ if(li===hi||a[hi].high<=a[li].low)return null;
+ const low=a[li].low,high=a[hi].high,rise=li<hi;
+ return {bars:a,low,high,li,hi,rise,levels:[0,.236,.382,.5,.618,.786,1].map(r=>({ratio:r,price:rise?high-(high-low)*r:low+(high-low)*r}))};
+}
+function renderFibonacci(s){
+ const host=$('fibonacci-chart');if(!host)return;
+ const model=fibonacciRetracement(s.bars);
+ if(!model){host.innerHTML='<p>至少需要20筆完整日線及不同日期的波段高低點，暫無法計算。</p>';return;}
+ const {bars:a,low,high,li,hi,rise,levels}=model;
+ const w=Math.max(760,a.length*9+140),h=340,left=16,right=w-125,top=24,bottom=280;
+ const lo=Math.min(low,...a.map(b=>b.low)),up=Math.max(high,...a.map(b=>b.high)),pad=(up-lo)*.08;
+ const y=p=>top+(up+pad-p)/(up-lo+2*pad)*(bottom-top),x=i=>left+i*(right-left)/(a.length-1);
+ const colors=['#ffd66e','#eab676','#a5d28b','#68c5a8','#66cbd9','#80b9f4','#b59be5'];
+ let svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" role="img" aria-label="斐波價格回撤圖"><rect width="100%" height="100%" fill="#091825"/>';
+ levels.forEach((l,i)=>{if(i<levels.length-1){const yy=y(levels[i+1].price),yy0=y(l.price);svg+='<rect x="'+left+'" y="'+Math.min(yy,yy0)+'" width="'+(right-left)+'" height="'+Math.abs(yy-yy0)+'" fill="'+colors[i]+'" opacity=".07"/>';}
+ svg+='<line x1="'+left+'" x2="'+right+'" y1="'+y(l.price)+'" y2="'+y(l.price)+'" stroke="'+colors[i]+'" opacity=".85"/><text x="'+(right+7)+'" y="'+(y(l.price)+4)+'" fill="'+colors[i]+'" font-size="12">'+(l.ratio*100).toFixed(1)+'% '+l.price.toFixed(2)+'</text>';});
+ a.forEach((b,i)=>{const color=b.close>=b.open?'#ff647b':'#4dd5bd';svg+='<line x1="'+x(i)+'" x2="'+x(i)+'" y1="'+y(b.high)+'" y2="'+y(b.low)+'" stroke="'+color+'"/><rect x="'+(x(i)-2.5)+'" y="'+Math.min(y(b.open),y(b.close))+'" width="5" height="'+Math.max(1,Math.abs(y(b.open)-y(b.close)))+'" fill="'+color+'"/>';});
+ svg+='<line x1="'+x(li)+'" y1="'+y(low)+'" x2="'+x(hi)+'" y2="'+y(high)+'" stroke="#dce5ef" stroke-dasharray="5 5"/>';
+ for(const i of [...new Set([0,Math.floor(a.length/2),a.length-1])])svg+='<text x="'+x(i)+'" y="312" fill="#dce5ef" font-size="11" text-anchor="'+(i===0?'start':i===a.length-1?'end':'middle')+'">'+esc(a[i].date)+'</text>';
+ svg+='</svg>';
+ host.innerHTML='<p style="color:#dce5ef">自動取近 '+a.length+' 個交易日最高／最低價（含影線），依日期先後判定'+(rise?'上漲波段回撤':'下跌波段反彈')+'。<br>低點 '+esc(a[li].date)+' · '+fmt(low)+' ／高點 '+esc(a[hi].date)+' · '+fmt(high)+'</p><div style="overflow-x:auto;max-width:100%;border:1px solid #344958;border-radius:14px;background:#091825;touch-action:pan-x pan-y">'+svg+'</div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+levels.map((l,i)=>'<span style="padding:6px 9px;border:1px solid #344958;border-radius:8px;color:'+colors[i]+'">'+(l.ratio*100).toFixed(1)+'% <b>'+fmt(l.price)+'</b></span>').join('')+'</div><p style="color:#dce5ef;font-size:.85em">此處為價格回撤參考，並非策略勝率回測；高低點隨最新資料重算，不代表已確認的支撐、壓力或買賣訊號。</p>';
+}
 function showDetail(s){if(!s)return;renderInstitutional(s);renderStockHoldings(s);peerGroupKey='';renderPeers(s);$('history-load').hidden=true;$('history-load').textContent=s.bars.length>=361?'重新整理此股歷史':'補齊此股歷史日線';$('detail-name').textContent=s.code+' '+s.name+' · '+s.t.date+' 日 K';$('detail-industry').textContent=industryLabel(s)+' · '+Math.min(90,s.bars.length)+' 個交易日 · '+(s.score===null?s.known+' / 15（資料待齊）':s.score+' / 15 亮燈');$('detail-price').innerHTML=`<strong>${fmt(s.t.close)}</strong><small class="${s.change>=0?'up':'down'}">${s.change>=0?'+':''}${fmt(s.change)}%</small><span class="detail-volume">成交量 <b>${Number.isFinite(s.t.volume)&&s.t.volume>=0?fmt(s.t.volume,2)+' 張':'待補'}</b></span>`;
  $('detail-price-base').innerHTML=priceBaseHtml(s.bars);
  $('detail-valuation').innerHTML=valuationHtml(s);
@@ -331,7 +358,7 @@ function showDetail(s){if(!s)return;renderInstitutional(s);renderStockHoldings(s
  $('explain').innerHTML+=`<p style="margin-top:14px">${candleType(s.t)} · 開盤 ${fmt(s.t.open)}<br>MA5 ${fmt(s.m5)} · MA10 ${fmt(s.m10)}<br>當日量 ${fmt(s.t.volume,0)} 張<br>${s.bars.length} 筆日線</p>`;
  $('detail-score').textContent=s.score===null?s.known+' / 15（待判定 '+s.missing+' 項）':s.score+' / 15';$('score-breakdown').innerHTML=[['站上均線',s.stand,''],['收盤創高',s.fresh,'high'],['均線排列',s.order,'order']].map(([label,v,k])=>`<div class="score-row"><span>${label}</span><div class="lights">${lights(v,k)}</div><span>${v.filter(Boolean).length} / ${v.length}</span></div>`).join('')+`<p>均線位置與創高均以收盤價確認，均線由收盤價計算。點亮項目為符合；待判定項目不算未符合。資料未齊時顯示已符合分數，暫不納入正式排名。<br>完整口徑見「型態與規則」。</p>`;
  $('explain').innerHTML+=nearCrossStatusHtml(s);
- renderDefenseChart(s);renderSmcZones(s);if(s.bars.length<21)$('explain').innerHTML='<p>目前僅 '+s.bars.length+' 筆日線。補齊歷史後才計算均線與型態；完整 15 分需 361 筆。</p>'+$('explain').innerHTML;}
+ renderDefenseChart(s);renderFibonacci(s);renderSmcZones(s);if(s.bars.length<21)$('explain').innerHTML='<p>目前僅 '+s.bars.length+' 筆日線。補齊歷史後才計算均線與型態；完整 15 分需 361 筆。</p>'+$('explain').innerHTML;}
 function makeDemo(){let seed=7351;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};const dates=[];let d=new Date('2025-01-01T00:00:00Z');while(dates.length<390){if(d.getUTCDay()!==0&&d.getUTCDay()!==6)dates.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+1);}return Array.from({length:12},(_,j)=>{let price=35+j*13;const bars=dates.map((date,k)=>{let o=price*(1+(rand()-.5)*.008),c=o*(1+.003+(rand()-.5)*.015);price=c;return {date,open:o,close:c,high:Math.max(o,c)*(1+rand()*.01),low:Math.min(o,c)*(1-rand()*.008),volume:Math.round(1000+rand()*1000)};});let t=bars.at(-1),prev=bars.at(-2),base=prev.close;
  if(j%6===0){Object.assign(t,{open:base*1.012,close:base*.998,high:base*1.02,low:base*.994,volume:450});}
  if(j%6===1){Object.assign(prev,{open:base*1.025,close:base,high:base*1.07,low:base*.993});Object.assign(t,{open:base*1.009,close:base*.998,high:base*1.015,low:base*.995,volume:550});}
