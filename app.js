@@ -325,11 +325,43 @@ async function loadValuation(){
 function fibonacciRetracement(bars){
  const a=bars.slice(-120);
  if(a.length<20||a.some(b=>![b.open,b.high,b.low,b.close].every(Number.isFinite)||b.low<=0||b.high<b.low||b.close>b.high||b.close<b.low))return null;
- let li=0,hi=0;
- a.forEach((b,i)=>{if(b.low<=a[li].low)li=i;if(b.high>=a[hi].high)hi=i;});
+ const pivots=[];
+ for(let i=3;i<a.length-3;i++){
+  const near=a.slice(i-3,i).concat(a.slice(i+1,i+4));
+  const high=near.every(b=>a[i].high>b.high),low=near.every(b=>a[i].low<b.low);
+  if(high===low)continue;
+  const p={i,type:high?'H':'L',price:high?a[i].high:a[i].low},last=pivots.at(-1);
+  if(last?.type===p.type){if(high?p.price>last.price:p.price<last.price)pivots[pivots.length-1]=p;}else pivots.push(p);
+ }
+ let li=null,hi=null,confirmed=false;
+ for(let j=pivots.length-1;j>=1;j--){
+  const p=pivots[j-1],q=pivots[j];
+  if(p.type==='L'&&q.type==='H'&&q.i-p.i>=5&&q.price/p.price>=1.05){
+   li=p.i;hi=q.i;confirmed=true;break;
+  }
+ }
+ if(!confirmed){
+  li=0;hi=0;a.forEach((b,i)=>{if(b.low<=a[li].low)li=i;if(b.high>=a[hi].high)hi=i;});
+ }
  if(li===hi||a[hi].high<=a[li].low)return null;
  const low=a[li].low,high=a[hi].high,rise=li<hi;
- return {bars:a,low,high,li,hi,rise,levels:[0,.236,.382,.5,.618,.786,1].map(r=>({ratio:r,price:rise?high-(high-low)*r:low+(high-low)*r}))};
+ return {bars:a,low,high,li,hi,rise,confirmed,levels:[0,.236,.382,.5,.618,.786,1].map(r=>({ratio:r,price:rise?high-(high-low)*r:low+(high-low)*r}))};
+}
+function fibonacciEvidence(model){
+ const a=model.bars,t=a.at(-1),p=a.at(-2),tolerance=.01;
+ const means=[20,60].map(n=>({n,value:a.length>=n?a.slice(-n).reduce((sum,b)=>sum+b.close,0)/n:null}));
+ const confluence=model.levels.filter(l=>l.ratio>0&&l.ratio<1).flatMap(l=>means.filter(m=>m.value!==null&&Math.abs(l.price/m.value-1)<=.02).map(m=>({ratio:l.ratio,price:l.price,period:m.n,ma:m.value})));
+ if(!model.confirmed||!model.rise)return {state:'波段待確認',level:null,confluence,means,note:'尚未找到符合門檻的近期上漲波段，暫不判定止跌。'};
+ // Observe the first retracement support at or below the previous close.
+ const level=model.levels.filter(l=>l.ratio>0).find(l=>p.close>=l.price)||model.levels.at(-1);
+ let state='回測中',note='觀察收盤是否守住支撐，並突破前一根K棒高點。';
+ if(t.close<model.low){state='支撐失守';note='最新收盤跌破此波段起點。';}
+ else if(t.close>model.high){state='突破波段高點';note='最新收盤超過原波段高點，等待新波段確認後重算。';}
+ else if(t.close<level.price){state='支撐失守';note='最新收盤低於本次觀察斐波價位。';}
+ else if(model.hi<a.length-2&&Math.min(p.low,t.low)<=level.price*(1+tolerance)&&t.close>level.price&&t.close>p.high){
+  state='止跌確認';note='前一根或本根低點接近觀察價位1%內，最新收盤站回價位並突破前一根高點。';
+ }
+ return {state,level,confluence,means,note};
 }
 function fibonacciStrength(model){
  const close=model.bars.at(-1).close;
@@ -378,6 +410,8 @@ function renderFibonacci(s,periodLabel='日K'){
  const model=fibonacciRetracement(s.bars);
  if(!model){host.innerHTML='<p>至少需要20根完整K棒及不同時間的波段高低點，此週期目前資料不足，暫無法計算。</p>';return;}
  const {bars:a,low,high,li,hi,rise,levels}=model;
+ const evidence=fibonacciEvidence(model);
+ const evidenceHtml='<div style="border:1px solid #536978;border-radius:12px;padding:12px;margin:10px 0;overflow-wrap:anywhere;color:#dce5ef"><strong style="color:'+(evidence.state==='支撐失守'?'#f591a0':evidence.state==='止跌確認'?'#ffd66e':'#8ed8ff')+'">'+evidence.state+'</strong>'+(evidence.level?' · 觀察 '+fmt(evidence.level.ratio*100)+'% ／ '+fmt(evidence.level.price):'')+'<p style="color:#dce5ef">'+evidence.note+'</p><strong style="color:#ffd66e">均線共振</strong><p style="color:#dce5ef">'+(evidence.confluence.length?evidence.confluence.map(c=>fmt(c.ratio*100)+'% '+fmt(c.price)+' ≈ MA'+c.period+' '+fmt(c.ma)).join('<br>'):'目前無距MA20／MA60在2%內的斐波價位')+'</p><small>'+evidence.means.filter(m=>m.value===null).map(m=>'MA'+m.n+'資料不足').join(' · ')+'</small></div>';
  const strength=fibonacciStrength(model),zoneNames=rise?['淺回檔・較強','淺回檔・偏強','中度回檔','深回檔・偏弱','深回檔・較弱','接近起點・弱勢']:['反彈幅度小','初步反彈','中度反彈','反彈幅度較大','深度反彈','接近前高'];
  const w=Math.max(760,a.length*9+140),h=340,left=16,right=w-125,top=24,bottom=280;
  const lo=Math.min(low,...a.map(b=>b.low)),up=Math.max(high,...a.map(b=>b.high)),pad=(up-lo)*.08;
@@ -390,7 +424,7 @@ function renderFibonacci(s,periodLabel='日K'){
  svg+='<line x1="'+x(li)+'" y1="'+y(low)+'" x2="'+x(hi)+'" y2="'+y(high)+'" stroke="#dce5ef" stroke-dasharray="5 5"/>';
  for(const i of [...new Set([0,Math.floor(a.length/2),a.length-1])])svg+='<text x="'+x(i)+'" y="312" fill="#dce5ef" font-size="11" text-anchor="'+(i===0?'start':i===a.length-1?'end':'middle')+'">'+esc(a[i].date)+'</text>';
  svg+='<line x1="'+left+'" x2="'+right+'" y1="'+y(a.at(-1).close)+'" y2="'+y(a.at(-1).close)+'" stroke="#ffffff" stroke-dasharray="3 4"/><circle cx="'+x(a.length-1)+'" cy="'+y(a.at(-1).close)+'" r="4" fill="#ffffff"/></svg>';
- host.innerHTML='<p style="color:#dce5ef">'+esc(periodLabel)+' · 自動取最近 '+a.length+' 根K棒最高／最低價（含影線），依日期先後判定'+(rise?'上漲波段回撤':'下跌波段反彈')+'。<br>低點 '+esc(a[li].date)+' · '+fmt(low)+' ／高點 '+esc(a[hi].date)+' · '+fmt(high)+'</p><div style="border:1px solid '+strength.color+';border-radius:12px;padding:12px;margin:10px 0;color:'+strength.color+';overflow-wrap:anywhere"><strong>目前'+(rise?'回撤':'反彈')+' '+fmt(strength.ratio*100)+'% · '+strength.label+'</strong><br><small style="color:#dce5ef">以最新收盤價計算，僅比較此波段的回撤深淺；淺回檔不等於已止跌。</small></div><div style="overflow-x:auto;max-width:100%;border:1px solid #344958;border-radius:14px;background:#091825;touch-action:pan-x pan-y">'+svg+'</div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+levels.map((l,i)=>'<span style="padding:6px 9px;border:1px solid #344958;border-radius:8px;color:'+colors[i]+'">'+(l.ratio*100).toFixed(1)+'% <b>'+fmt(l.price)+'</b>'+(i?'<small style="display:block;color:#dce5ef">'+zoneNames[i-1]+'</small>':'<small style="display:block;color:#dce5ef">波段終點</small>')+'</span>').join('')+'</div><p style="color:#dce5ef;font-size:.85em">此處為價格回撤參考，並非策略勝率回測；高低點隨最新資料重算，不代表已確認的支撐、壓力或買賣訊號。</p>';
+ host.innerHTML='<p style="color:#dce5ef">'+esc(periodLabel)+' · 最近 '+a.length+' 根K棒內'+(model.confirmed?'最近已確認上漲波段（含影線）':'最高／最低價備援參考，波段待確認')+'，依日期先後判定'+(rise?'上漲波段回撤':'下跌波段反彈')+'。<br>低點 '+esc(a[li].date)+' · '+fmt(low)+' ／高點 '+esc(a[hi].date)+' · '+fmt(high)+'</p>'+evidenceHtml+'<div style="border:1px solid '+strength.color+';border-radius:12px;padding:12px;margin:10px 0;color:'+strength.color+';overflow-wrap:anywhere"><strong>目前'+(rise?'回撤':'反彈')+' '+fmt(strength.ratio*100)+'% · '+strength.label+'</strong><br><small style="color:#dce5ef">以最新收盤價計算，僅比較此波段的回撤深淺；淺回檔不等於已止跌。</small></div><div style="overflow-x:auto;max-width:100%;border:1px solid #344958;border-radius:14px;background:#091825;touch-action:pan-x pan-y">'+svg+'</div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+levels.map((l,i)=>'<span style="padding:6px 9px;border:1px solid #344958;border-radius:8px;color:'+colors[i]+'">'+(l.ratio*100).toFixed(1)+'% <b>'+fmt(l.price)+'</b>'+(i?'<small style="display:block;color:#dce5ef">'+zoneNames[i-1]+'</small>':'<small style="display:block;color:#dce5ef">波段終點</small>')+'</span>').join('')+'</div><p style="color:#dce5ef;font-size:.85em">此處為價格回撤參考，並非策略勝率回測；波段轉折須左右各3根確認，上漲至少5%且相隔至少5根；資料不足則使用區間高低點備援並標待確認。共振容許2%，均線使用目前週期。支撐觀察依前根收盤所處區間選取；狀態隨資料重算，非買賣或勝率保證。</p>';
 }
 function showDetail(s){if(!s)return;renderInstitutional(s);renderStockHoldings(s);peerGroupKey='';renderPeers(s);$('history-load').hidden=true;$('history-load').textContent=s.bars.length>=361?'重新整理此股歷史':'補齊此股歷史日線';$('detail-name').textContent=s.code+' '+s.name+' · '+s.t.date+' 日 K';$('detail-industry').textContent=industryLabel(s)+' · '+Math.min(90,s.bars.length)+' 個交易日 · '+(s.score===null?s.known+' / 15（資料待齊）':s.score+' / 15 亮燈');$('detail-price').innerHTML=`<strong>${fmt(s.t.close)}</strong><small class="${s.change>=0?'up':'down'}">${s.change>=0?'+':''}${fmt(s.change)}%</small><span class="detail-volume">成交量 <b>${Number.isFinite(s.t.volume)&&s.t.volume>=0?fmt(s.t.volume,2)+' 張':'待補'}</b></span>`;
  $('detail-price-base').innerHTML=priceBaseHtml(s.bars);
