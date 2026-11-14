@@ -339,3 +339,8 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 #featured-radar>details>summary:focus-visible{outline:2px solid #ffe298;outline-offset:-4px;border-radius:10px}
 #featured-radar>details>summary .ghost{flex-shrink:0;white-space:nowrap}
 #featured-radar .chipburst-info{margin:0;padding:0 20px 18px;border:0;background:transparent}
+
+/* Match the Fibonacci heading to the other stock-detail sections. */
+.detail-modal #detail > .fibonacci-card > h3{color:#ffe08b;font-family:inherit;font-size:19px;font-weight:700;line-height:1.4}
+.detail-modal #detail > .fibonacci-card > h3 .detail-collapse-toggle{font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit}
+@media(max-width:600px){.detail-modal #detail > .fibonacci-card > h3{font-size:17px}}
