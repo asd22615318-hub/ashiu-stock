@@ -53,3 +53,10 @@
 - [Ventec PTFE 材料型錄](https://www.ventec-group.com/media/114524/231010-ventec_tecthermal-a5-brochure_final.pdf)
 - [南亞微波材料與 PTFE 產品](https://ccl.npc.com.tw/ccl/zh_TW/Product/Microwave.do)
 - [台郡產品路線圖中的 PTFE](https://www.flexium.com.tw/UploadFiles/csrEn/2023ESGEN.pdf)
+
+
+## 2026-11-14 工具機
+
+新增工具機觀察族群，含整機、控制器與主軸供應鏈：東台4526、程泰1583、亞崴1530、高鋒4510、福裕4513、百德4563、瀧澤科6609、喬福1540、協易機4533、建德工業6606、新代7750、榮田7709、健椿4561。共13檔；依既有去重、行情有效性與排名流程計算，並非整個電機機械產業。
+
+參考：[工具機名單](https://finlab.finance/stocks/themes/machine-tools)、[新代主要產品官方公告](https://www.twse.com.tw/staticFiles/news/news/tsecnews/8a8216d693f2cafc019401ec7331007c.pdf)、[政府工具機產業計畫](https://join.gov.tw/acts/detail/8e52c91a-a918-4768-a1d4-235a1686c227)。
