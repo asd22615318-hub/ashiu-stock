@@ -197,13 +197,56 @@ function denseTradingHtml(s){
  return '<strong style="color:#f4dc94;white-space:nowrap">'+fmt(zone.low)+'～'+fmt(zone.high)+'</strong><small style="display:block">近'+Math.min(120,s.bars.length)+'日估算</small>';
 }
 function cdpNearLow(previous){if(!previous||![previous.high,previous.low,previous.close].every(Number.isFinite)||previous.low<=0||previous.high<previous.low||previous.close<previous.low||previous.close>previous.high)return null;return (previous.high+previous.low+2*previous.close)/2-previous.high;}
+const intradayPeakCache=new Map();
+let intradayPeakObserver=null,intradayPeakBusy=0;
+const intradayPeakQueue=[];
+function intradayPeakEstimate(bars,date){
+ const selected=smcClean(bars).filter(b=>Number.isFinite(b.time)&&new Date(b.time*1000+8*3600000).toISOString().slice(0,10)===date).sort((a,b)=>a.time-b.time);
+ const session=selected.filter(b=>{const d=new Date(b.time*1000+8*3600000),m=d.getUTCHours()*60+d.getUTCMinutes();return m>=540&&m<810&&b.time+300<=Date.now()/1000;});
+ const unique=[...new Map(session.map(b=>[b.time,b])).values()];
+ if(!unique.length)return null;
+ const zone=cumulativeVolumeZone(unique);
+ return zone?{...zone,count:unique.length,last:unique.at(-1).time}:null;
+}
+function loadVisibleIntradayPeaks(){
+ intradayPeakObserver?.disconnect();intradayPeakQueue.length=0;
+ const run=()=>{
+  while(intradayPeakBusy<2&&intradayPeakQueue.length){
+   const el=intradayPeakQueue.shift();if(!el.isConnected)continue;
+   intradayPeakBusy++;
+   (async()=>{
+    const stock=analyses.find(s=>s.code===el.dataset.peakCode);
+    if(!stock)return;
+    const date=el.dataset.peakDate,key=stock.code+':'+stock.market;
+    const saved=intradayPeakCache.get(key+':'+date);
+    if(saved&&Date.now()-saved.loaded<120000){el.innerHTML=saved.html;return;}
+    el.textContent='當天最大成交量價位：分K載入中…';
+    let data=smcMinuteCache.get(key);
+    if(!data||Date.now()-data.loaded>120000){
+     const response=await fetch('/api/intraday?code='+encodeURIComponent(stock.code)+'&market='+encodeURIComponent(stock.market),{credentials:'same-origin',signal:AbortSignal.timeout(20000)});
+     const body=await response.json();if(!response.ok)throw Error(body.error||'分K讀取失敗');
+     data={bars:smcClean(body.bars||[]),loaded:Date.now()};smcMinuteCache.set(key,data);
+    }
+    const zone=intradayPeakEstimate(data.bars,date);
+    const html=zone?'當天最大成交量價位（分K估算） <b style="color:#f4dc94">'+fmt(zone.mid)+'</b><small style="display:block">密集區 '+fmt(zone.low)+'～'+fmt(zone.high)+' · '+esc(date)+'<br>'+zone.count+' 根5分K · 最後一根起始 '+esc(smcStamp(zone.last))+'<br>僅依來源已提供且完成的K棒估算，非逐價實際最大成交價。</small>':'當天最大成交量價位（分K估算）：'+esc(date)+' 分K資料未提供';
+    intradayPeakCache.set(key+':'+date,{html,loaded:Date.now()});
+    if(el.isConnected)el.innerHTML=html;
+   })().catch(()=>{if(el.isConnected)el.textContent='當天最大成交量價位（分K估算）：暫時無法載入';}).finally(()=>{intradayPeakBusy--;run();});
+  }
+ };
+ const enqueue=el=>{intradayPeakQueue.push(el);run();};
+ const elements=document.querySelectorAll('[data-peak-code]');
+ if(typeof IntersectionObserver==='undefined'){elements.forEach(enqueue);return;}
+ intradayPeakObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){intradayPeakObserver.unobserve(entry.target);enqueue(entry.target);}}),{rootMargin:'100px'});
+ elements.forEach(el=>intradayPeakObserver.observe(el));
+}
 function backtestReference(s){
  const prior=s.bars.slice(-3);
  const day=(b,label,previous)=>{
   if(!b)return `<div class="backtest-day"><span>${label}</span><small>資料不足</small></div>`;
   const hasPrice=Number.isFinite(b.amount)&&b.amount>0&&Number.isFinite(b.volume)&&b.volume>0;
   const nl=cdpNearLow(previous);
-  return `<div class="backtest-day"><span>${label}${b.date?` · ${esc(b.date)}`:''}</span><strong>成交量加權均價 ${hasPrice?fmt(b.amount/(b.volume*1000)):'待補'}</strong><span>低點 ${Number.isFinite(b.low)?fmt(b.low):'待補'}</span><span title="CDP＝（前日高＋前日低＋2×前日收）÷4；NL＝2×CDP－前日高">CDP-NL <b>${nl===null?'待補':fmt(nl)}</b>${previous?.date?`<small>依 ${esc(previous.date)} 計算</small>`:''}</span></div>`;
+  return `<div class="backtest-day"><span>${label}${b.date?` · ${esc(b.date)}`:''}</span><strong>成交量加權均價 ${hasPrice?fmt(b.amount/(b.volume*1000)):'待補'}</strong><span>低點 ${Number.isFinite(b.low)?fmt(b.low):'待補'}</span>${b===prior.at(-1)?`<span data-peak-code="${esc(s.code)}" data-peak-date="${esc(b.date)}" style="display:block;min-width:0;overflow-wrap:anywhere">當天最大成交量價位（分K估算）：待載入</span>`:''}<span title="CDP＝（前日高＋前日低＋2×前日收）÷4；NL＝2×CDP－前日高">CDP-NL <b>${nl===null?'待補':fmt(nl)}</b>${previous?.date?`<small>依 ${esc(previous.date)} 計算</small>`:''}</span></div>`;
  };
  return `<div class="backtest-reference">${day(prior.at(-1),'本交易日',prior.at(-2))}${day(prior.at(-2),'前一交易日',prior.at(-3))}</div>`;
 }
@@ -239,6 +282,7 @@ function render(event){updatePriceRanges();const p=params();if(!validParams(p)){
  $('result-sub').textContent=`${filtered.length} 檔符合${emaCrossOn?' · EMA5 上穿 EMA23':''}${$('launch-stocks').checked?' · 剛起漲個股':''}${$('ma5-cross40')?.checked?' · 5MA交叉40MA':''}${$('featured-stocks').checked?' · 強勢股':''}${$('trend-stocks')?.checked?' · 趨勢股（MA5 > MA40、MA40向上）':''}${$('stronger-than-market').checked?' · 比大盤強勢股（RS20 > 8、RS5 > 0）':''} · 成交量 > 500 張${$('price-range').value==='all'?'':' · 股價 '+$('price-range').selectedOptions[0].textContent} · 已具完整分數 ${analyses.filter(s=>s.t.volume>500&&s.score!==null).length}/${analyses.filter(s=>s.t.volume>500).length} 檔`;
  if(!$('detail-modal').open&&!filtered.some(s=>s.code===selected))selected=filtered[0]?.code??null;
  $('rows').innerHTML=filtered.map(s=>`<tr data-code="${esc(s.code)}" class="${s.code===selected?'selected':''}"><td><button aria-label="查看 ${esc(s.name)} 詳情"><span class="observation-stock-heading"><strong>${esc(s.code)} ${esc(s.name)}</strong>${s.score===null?`<span class="stock-score partial-score">均線已符合 ${s.known} / 15 · 待判定 ${s.missing} 項</span>`:`<span class="stock-score">均線分數 ${s.score} / 15</span>`}</span>${regulatoryBadges(s.code)}${chipMetrics(s.code)}${window.overnightStockBadge?.(s)||''}${featuredEvidenceHtml(s)}${launchEvidenceHtml(s)}${emaCrossOn&&emaSectorBonus(s)?`<small style="color:#ffcf70">族群加分 · ${esc(emaSectorBonus(s).name)}（近5日前20%）</small>`:''}<small class="industry-label">${esc(industryLabel(s))}<br>${esc(s.market)} · ${s.rank?(mode==='live'?'已補歷史排名 #':'均線排名 #')+s.rank:'待補歷史'}<br>${esc(s.t.date)}</small></button></td><td class="numeric"><strong>${fmt(s.t.close)}</strong><span class="candle-badge ${s.t.close>s.t.open?'up':s.t.close<s.t.open?'down':'flat'}">${candleType(s.t)}</span><small class="${s.change>=0?'up':'down'}">${s.change===null?'漲跌資料缺漏':s.change===0?'平盤 0.00%':(s.change>0?'+':'')+fmt(s.change)+'%'}</small></td><td>${TYPES.filter(([k])=>s.signals[k]).map(([k,name])=>`<span class="tag ${k==='panther'?'amber':''}">${name.replace('候選','')}</span>`).join('')||(s.bars.length<21?'<small>待補歷史日線</small>':'<small>暫無型態</small>')}</td><td>${backtestReference(s)}</td><td>${denseTradingHtml(s)}</td><td>${ma20Deduction(s)}</td><td>${secondWaveTargetHtml(s)}</td></tr>`).join('');
+ loadVisibleIntradayPeaks();
  $('empty').hidden=filtered.length!==0;$('detail').hidden=detailClosed||!selected;
  document.querySelectorAll('#rows tr').forEach(row=>{row.addEventListener('click',()=>{openStockDetail(analyses.find(x=>x.code===row.dataset.code),row.querySelector('button'));});});if(selected&&$('detail-modal').open)showDetail(analyses.find(s=>s.code===selected));}
 const INCLUDE_FOREIGN=true;
