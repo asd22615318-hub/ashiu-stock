@@ -247,7 +247,7 @@ function loadVisibleIntradayPeaks(){
      data={bars:smcClean(body.bars||[]),loaded:Date.now()};smcMinuteCache.set(key,data);
     }
     const zone=intradayPeakEstimate(data.bars,date);
-    const html=zone?'<strong style="color:#d8adff;font-weight:800">當天最大成交量價位（分K估算） <b style="color:#d8adff;font-weight:800">'+fmt(zone.mid)+'</b></strong><span style="display:block" title="當日分K量均勻分攤至24個價位格，從最大量格向相鄰量較大側擴張至累計至少70%；同量先向下擴張。非實際逐價資料。"><strong style="color:#8ed8ff;font-weight:800">VAL（70%價值區下緣・估算） <b style="color:#8ed8ff;font-weight:800">'+fmt(zone.val)+'</b></strong></span><small style="display:block"><b style="color:#ffad66;font-weight:800">密集區 '+fmt(zone.low)+'～'+fmt(zone.high)+'</b></small>':'當天最大成交量價位（分K估算）：'+esc(date)+' 分K資料未提供';
+    const html=zone?'<strong style="color:#d8adff;font-weight:800">當天最大成交量價位（分K估算） <b style="color:#d8adff;font-weight:800">'+fmt(zone.mid)+'</b></strong><span style="display:block" title="當日分K量均勻分攤至24個價位格，從最大量格向相鄰量較大側擴張至累計至少70%；同量先向下擴張。非實際逐價資料。"><strong style="color:#8ed8ff;font-weight:800">VAL（70%價值區下緣・估算） <b style="color:#8ed8ff;font-weight:800">'+fmt(zone.val)+'</b></strong></span><span style="display:block;font-size:inherit"><b style="color:#ffad66;font-weight:800;font-size:inherit">密集區 '+fmt(zone.low)+'～'+fmt(zone.high)+'</b></span>':'當天最大成交量價位（分K估算）：'+esc(date)+' 分K資料未提供';
     intradayPeakCache.set(key+':'+date,{html,loaded:Date.now()});
     if(el.isConnected)el.innerHTML=html;
    })().catch(()=>{if(el.isConnected)el.textContent='當天最大成交量價位（分K估算）：暫時無法載入';}).finally(()=>{intradayPeakBusy--;run();});
