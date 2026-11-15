@@ -196,14 +196,16 @@ function denseTradingHtml(s){
  if(!zone)return '<small>資料不足</small>';
  return '<strong style="color:#f4dc94;white-space:nowrap">'+fmt(zone.low)+'～'+fmt(zone.high)+'</strong><small style="display:block">近'+Math.min(120,s.bars.length)+'日估算</small>';
 }
+function cdpNearLow(previous){if(!previous||![previous.high,previous.low,previous.close].every(Number.isFinite)||previous.low<=0||previous.high<previous.low||previous.close<previous.low||previous.close>previous.high)return null;return (previous.high+previous.low+2*previous.close)/2-previous.high;}
 function backtestReference(s){
- const prior=s.bars.slice(-2);
- const day=(b,label)=>{
+ const prior=s.bars.slice(-3);
+ const day=(b,label,previous)=>{
   if(!b)return `<div class="backtest-day"><span>${label}</span><small>資料不足</small></div>`;
   const hasPrice=Number.isFinite(b.amount)&&b.amount>0&&Number.isFinite(b.volume)&&b.volume>0;
-  return `<div class="backtest-day"><span>${label}${b.date?` · ${esc(b.date)}`:''}</span><strong>成交量加權均價 ${hasPrice?fmt(b.amount/(b.volume*1000)):'待補'}</strong><span>低點 ${Number.isFinite(b.low)?fmt(b.low):'待補'}</span></div>`;
+  const nl=cdpNearLow(previous);
+  return `<div class="backtest-day"><span>${label}${b.date?` · ${esc(b.date)}`:''}</span><strong>成交量加權均價 ${hasPrice?fmt(b.amount/(b.volume*1000)):'待補'}</strong><span>低點 ${Number.isFinite(b.low)?fmt(b.low):'待補'}</span><span title="CDP＝（前日高＋前日低＋2×前日收）÷4；NL＝2×CDP－前日高">CDP-NL <b>${nl===null?'待補':fmt(nl)}</b>${previous?.date?`<small>依 ${esc(previous.date)} 計算</small>`:''}</span></div>`;
  };
- return `<div class="backtest-reference">${day(prior.at(-1),'本交易日')}${day(prior.at(-2),'前一交易日')}</div>`;
+ return `<div class="backtest-reference">${day(prior.at(-1),'本交易日',prior.at(-2))}${day(prior.at(-2),'前一交易日',prior.at(-3))}</div>`;
 }
 function matchesTrendStock(s){
  const bars=s.bars,i=bars.length-1;
