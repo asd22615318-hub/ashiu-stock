@@ -194,7 +194,7 @@ function denseTradingHtml(s){
   denseTradingCache.set(s.bars,zone);
  }
  if(!zone)return '<small>資料不足</small>';
- return '<strong style="color:#f4dc94;white-space:nowrap">'+fmt(zone.low)+'～'+fmt(zone.high)+'</strong><small style="display:block">近'+Math.min(120,s.bars.length)+'日估算</small>';
+ return '<strong style="color:#ffad66;font-weight:800;white-space:nowrap">'+fmt(zone.low)+'～'+fmt(zone.high)+'</strong><small style="display:block">近'+Math.min(120,s.bars.length)+'日估算</small>';
 }
 function cdpNearLow(previous){if(!previous||![previous.high,previous.low,previous.close].every(Number.isFinite)||previous.low<=0||previous.high<previous.low||previous.close<previous.low||previous.close>previous.high)return null;return (previous.high+previous.low+2*previous.close)/2-previous.high;}
 const intradayPeakCache=new Map();
@@ -247,7 +247,7 @@ function loadVisibleIntradayPeaks(){
      data={bars:smcClean(body.bars||[]),loaded:Date.now()};smcMinuteCache.set(key,data);
     }
     const zone=intradayPeakEstimate(data.bars,date);
-    const html=zone?'當天最大成交量價位（分K估算） <b style="color:#f4dc94">'+fmt(zone.mid)+'</b><span style="display:block" title="當日分K量均勻分攤至24個價位格，從最大量格向相鄰量較大側擴張至累計至少70%；同量先向下擴張。非實際逐價資料。">VAL（70%價值區下緣・估算） <b style="color:#8ed8ff">'+fmt(zone.val)+'</b></span><small style="display:block">密集區 '+fmt(zone.low)+'～'+fmt(zone.high)+' · '+esc(date)+'<br>'+zone.count+' 根5分K · 最後一根起始 '+esc(smcStamp(zone.last))+'<br>僅依來源已提供且完成的K棒估算，非逐價實際最大成交價。</small>':'當天最大成交量價位（分K估算）：'+esc(date)+' 分K資料未提供';
+    const html=zone?'當天最大成交量價位（分K估算） <b style="color:#f4dc94">'+fmt(zone.mid)+'</b><span style="display:block" title="當日分K量均勻分攤至24個價位格，從最大量格向相鄰量較大側擴張至累計至少70%；同量先向下擴張。非實際逐價資料。">VAL（70%價值區下緣・估算） <b style="color:#8ed8ff">'+fmt(zone.val)+'</b></span><small style="display:block"><b style="color:#ffad66;font-weight:800">密集區 '+fmt(zone.low)+'～'+fmt(zone.high)+'</b> · '+esc(date)+'<br>'+zone.count+' 根5分K · 最後一根起始 '+esc(smcStamp(zone.last))+'<br>僅依來源已提供且完成的K棒估算，非逐價實際最大成交價。</small>':'當天最大成交量價位（分K估算）：'+esc(date)+' 分K資料未提供';
     intradayPeakCache.set(key+':'+date,{html,loaded:Date.now()});
     if(el.isConnected)el.innerHTML=html;
    })().catch(()=>{if(el.isConnected)el.textContent='當天最大成交量價位（分K估算）：暫時無法載入';}).finally(()=>{intradayPeakBusy--;run();});
