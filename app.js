@@ -200,13 +200,32 @@ function cdpNearLow(previous){if(!previous||![previous.high,previous.low,previou
 const intradayPeakCache=new Map();
 let intradayPeakObserver=null,intradayPeakBusy=0;
 const intradayPeakQueue=[];
+function intradayValueArea(bars,count=24){
+ if(!bars.length)return null;
+ const floor=Math.min(...bars.map(b=>b.low)),ceiling=Math.max(...bars.map(b=>b.high));
+ if(!Number.isFinite(floor)||!Number.isFinite(ceiling)||floor<=0||ceiling<floor)return null;
+ if(ceiling===floor)return bars.some(b=>b.volume>0)?{val:floor,vah:floor,coverage:1}:null;
+ const size=(ceiling-floor)/count,volumes=Array(count).fill(0);
+ for(const b of bars){
+  if(!Number.isFinite(b.volume)||b.volume<=0)continue;
+  if(b.high===b.low){volumes[Math.min(count-1,Math.max(0,Math.floor((b.close-floor)/size)))]+=b.volume;continue;}
+  for(let k=0;k<count;k++)volumes[k]+=b.volume*Math.max(0,Math.min(b.high,floor+(k+1)*size)-Math.max(b.low,floor+k*size))/(b.high-b.low);
+ }
+ const total=volumes.reduce((sum,v)=>sum+v,0);if(total<=0)return null;
+ let left=volumes.indexOf(Math.max(...volumes)),right=left,covered=volumes[left];
+ while(covered<total*.7-1e-9&&(left>0||right<count-1)){
+  const below=left>0?volumes[left-1]:-1,above=right<count-1?volumes[right+1]:-1;
+  if(below>=above){left--;covered+=volumes[left];}else{right++;covered+=volumes[right];}
+ }
+ return {val:floor+left*size,vah:floor+(right+1)*size,coverage:covered/total};
+}
 function intradayPeakEstimate(bars,date){
  const selected=smcClean(bars).filter(b=>Number.isFinite(b.time)&&new Date(b.time*1000+8*3600000).toISOString().slice(0,10)===date).sort((a,b)=>a.time-b.time);
  const session=selected.filter(b=>{const d=new Date(b.time*1000+8*3600000),m=d.getUTCHours()*60+d.getUTCMinutes();return m>=540&&m<810&&b.time+300<=Date.now()/1000;});
  const unique=[...new Map(session.map(b=>[b.time,b])).values()];
  if(!unique.length)return null;
- const zone=cumulativeVolumeZone(unique);
- return zone?{...zone,count:unique.length,last:unique.at(-1).time}:null;
+ const zone=cumulativeVolumeZone(unique),area=intradayValueArea(unique);
+ return zone?{...zone,...area,count:unique.length,last:unique.at(-1).time}:null;
 }
 function loadVisibleIntradayPeaks(){
  intradayPeakObserver?.disconnect();intradayPeakQueue.length=0;
@@ -228,7 +247,7 @@ function loadVisibleIntradayPeaks(){
      data={bars:smcClean(body.bars||[]),loaded:Date.now()};smcMinuteCache.set(key,data);
     }
     const zone=intradayPeakEstimate(data.bars,date);
-    const html=zone?'當天最大成交量價位（分K估算） <b style="color:#f4dc94">'+fmt(zone.mid)+'</b><small style="display:block">密集區 '+fmt(zone.low)+'～'+fmt(zone.high)+' · '+esc(date)+'<br>'+zone.count+' 根5分K · 最後一根起始 '+esc(smcStamp(zone.last))+'<br>僅依來源已提供且完成的K棒估算，非逐價實際最大成交價。</small>':'當天最大成交量價位（分K估算）：'+esc(date)+' 分K資料未提供';
+    const html=zone?'當天最大成交量價位（分K估算） <b style="color:#f4dc94">'+fmt(zone.mid)+'</b><span style="display:block" title="當日分K量均勻分攤至24個價位格，從最大量格向相鄰量較大側擴張至累計至少70%；同量先向下擴張。非實際逐價資料。">VAL（70%價值區下緣・估算） <b style="color:#8ed8ff">'+fmt(zone.val)+'</b></span><small style="display:block">密集區 '+fmt(zone.low)+'～'+fmt(zone.high)+' · '+esc(date)+'<br>'+zone.count+' 根5分K · 最後一根起始 '+esc(smcStamp(zone.last))+'<br>僅依來源已提供且完成的K棒估算，非逐價實際最大成交價。</small>':'當天最大成交量價位（分K估算）：'+esc(date)+' 分K資料未提供';
     intradayPeakCache.set(key+':'+date,{html,loaded:Date.now()});
     if(el.isConnected)el.innerHTML=html;
    })().catch(()=>{if(el.isConnected)el.textContent='當天最大成交量價位（分K估算）：暫時無法載入';}).finally(()=>{intradayPeakBusy--;run();});
