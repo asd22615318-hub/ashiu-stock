@@ -265,7 +265,7 @@ function backtestReference(s){
   if(!b)return `<div class="backtest-day"><span>${label}</span><small>資料不足</small></div>`;
   const hasPrice=Number.isFinite(b.amount)&&b.amount>0&&Number.isFinite(b.volume)&&b.volume>0;
   const nl=cdpNearLow(previous);
-  return `<div class="backtest-day"><span>${label}${b.date?` · ${esc(b.date)}`:''}</span><strong>成交量加權均價 ${hasPrice?fmt(b.amount/(b.volume*1000)):'待補'}</strong><span>低點 ${Number.isFinite(b.low)?fmt(b.low):'待補'}</span>${b===prior.at(-1)?`<span data-peak-code="${esc(s.code)}" data-peak-date="${esc(b.date)}" style="display:block;min-width:0;overflow-wrap:anywhere">當天最大成交量價位（分K估算）：待載入</span>`:''}<span title="CDP＝（前日高＋前日低＋2×前日收）÷4；NL＝2×CDP－前日高">CDP-NL <b>${nl===null?'待補':fmt(nl)}</b>${previous?.date?`<small>依 ${esc(previous.date)} 計算</small>`:''}</span></div>`;
+  return `<div class="backtest-day"><span>${label}${b.date?` · ${esc(b.date)}`:''}</span><strong>成交量加權均價 ${hasPrice?fmt(b.amount/(b.volume*1000)):'待補'}</strong><span style="color:#73e6b1;font-weight:800;font-size:inherit">低點 <b style="font-weight:800">${Number.isFinite(b.low)?fmt(b.low):'待補'}</b></span>${b===prior.at(-1)?`<span data-peak-code="${esc(s.code)}" data-peak-date="${esc(b.date)}" style="display:block;min-width:0;overflow-wrap:anywhere">當天最大成交量價位（分K估算）：待載入</span>`:''}<span title="CDP＝（前日高＋前日低＋2×前日收）÷4；NL＝2×CDP－前日高">CDP-NL <b>${nl===null?'待補':fmt(nl)}</b>${previous?.date?`<small>依 ${esc(previous.date)} 計算</small>`:''}</span></div>`;
  };
  return `<div class="backtest-reference">${day(prior.at(-1),'本交易日',prior.at(-2))}${day(prior.at(-2),'前一交易日',prior.at(-3))}</div>`;
 }
