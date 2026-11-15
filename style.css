@@ -344,3 +344,6 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 .detail-modal #detail > .fibonacci-card > h3{color:#ffe08b;font-family:inherit;font-size:19px;font-weight:700;line-height:1.4}
 .detail-modal #detail > .fibonacci-card > h3 .detail-collapse-toggle{font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit}
 @media(max-width:600px){.detail-modal #detail > .fibonacci-card > h3{font-size:17px}}
+
+/* Keep every reference-price label, value and date at one readable size. */
+#rows .backtest-reference,#rows .backtest-reference *{font-size:14px!important;line-height:1.6}
