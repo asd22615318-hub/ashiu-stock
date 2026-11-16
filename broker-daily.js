@@ -69,11 +69,13 @@
     }
     if (selected.includes('broker')) {
       const sessions = new Map((sources.brokers?.sessions || []).map(session => [session.date, session]));
-      const reports = dates.map((date, i) => {
-        const row = validated(sessions.get(date)?.stocks?.[stock.code], date);
-        return row && Math.abs(row.volume_lots - bars[i].volume) <= .01 ? row : null;
+      const brokerDates = sources.brokerDates || dates;
+      const stockBars = new Map(stock.bars.map(bar => [bar.date,bar]));
+      const reports = brokerDates.map(date => {
+        const row = validated(sessions.get(date)?.stocks?.[stock.code], date),bar=stockBars.get(date);
+        return row && bar && Number.isFinite(bar.volume) && Math.abs(row.volume_lots - bar.volume) <= .01 ? row : null;
       });
-      values.broker = barsMatch && reports.length === 5 && reports.every(Boolean)
+      values.broker = brokerDates.length === 5 && reports.length === 5 && reports.every(Boolean)
         ? reports.reduce((sum, row) => sum + row.net_lots, 0) > 0
         : null;
     }
@@ -103,7 +105,10 @@
       chipDates = [...new Set(stocks.flatMap(stock => stock.bars.slice(-5).map(bar => bar.date)))].sort().slice(-5);
       const asOf = chipDates.at(-1);
       const institutionDates = [...new Set(institutional?.report_dates || [])].filter(date => date <= asOf).sort().slice(-5);
-      chipSources = {brokers:snapshot, institutions:institutional, holders:ownership, institutionDates};
+      const brokerEnd = (snapshot?.sessions || []).map(session=>session.date).filter(date=>date<=asOf).sort().at(-1);
+      const calendar = [...new Set(stocks.flatMap(stock=>stock.bars.map(bar=>bar.date)))].sort();
+      const brokerDates = brokerEnd ? calendar.filter(date=>date<=brokerEnd).slice(-5) : [];
+      chipSources = {brokers:snapshot, institutions:institutional, holders:ownership, institutionDates, brokerDates};
     },
     matches(stock) {
       if (!selectedChipFilters.length) return true;
@@ -118,6 +123,13 @@
         if (selectedChipFilters.some(key => ['trust','foreign','combined'].includes(key))) {
           const days = chipSources.institutionDates || [];
           notes.push(days.length === 5 ? '法人近5交易日：' + days[0] + '～' + days.at(-1) + (days.at(-1) < chipDates.at(-1) ? '（最新已公布；股價截至 ' + chipDates.at(-1) + '）' : '') : '法人近5交易日資料尚未齊全');
+        }
+        if (selectedChipFilters.includes('broker')) {
+          const days=chipSources.brokerDates||[], available=new Set((snapshot?.sessions||[]).map(session=>session.date));
+          const missingDays=days.filter(date=>!available.has(date));
+          notes.push(days.length===5?'分點近5交易日：'+days[0]+'～'+days.at(-1)+(days.at(-1)<chipDates.at(-1)?'（股價截至 '+chipDates.at(-1)+'）':''):'分點近5交易日資料尚未齊全');
+          if(missingDays.length)notes.push('缺少報表日期：'+missingDays.join('、')+'，補齊後自動重算，不以0取代');
+          notes.push('分點採每日前15大買賣超淨額，非可識別的主力帳戶');
         }
         if (selectedChipFilters.length && chipMissing.size) notes.push(chipMissing.size + ' 檔籌碼資料待補');
         status.textContent = notes.join(' · ');
