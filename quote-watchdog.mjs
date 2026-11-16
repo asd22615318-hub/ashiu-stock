@@ -64,11 +64,6 @@ export async function checkClosingQuotes(scheduledTime, env, request = fetch) {
       return snapshot?.date >= day ? 'already-current' :
         dispatchIfIdle('overnight.yml', [], headers, request);
     };
-    checks.warrants = async () => {
-      const snapshot = await readSnapshot(env, 'warrant-data.json');
-      return snapshot?.date >= day ? 'already-current' :
-        dispatchIfIdle('warrants.yml', [], headers, request);
-    };
   }
   const results = await Promise.allSettled(Object.values(checks).map(check => check()));
   const outcomes = Object.fromEntries(Object.keys(checks).map((name, i) => [
