@@ -40,7 +40,7 @@
   root.innerHTML=scoreChart(rows)+`<details><summary class="ownership-search-summary">每日前 15 大分點集中度</summary><p>最新交易日 ${esc(latest?.date||'—')} · ${latest?.row?'集中度 <strong style="color:'+(latest.row.ratio>=0?'#ff647b':'#4dd5bd')+'">'+signed(latest.row.ratio)+'%</strong> · 集中淨額 '+signed(latest.row.net_lots)+' 張':esc(missing(latest?.session,selectedCode))}</p><div>${rows.slice().reverse().map(({date,session,row})=>`<div class="ownership-flow-row"><span>${esc(date)}</span>${row?`<div class="ownership-flow-bar" role="img" aria-label="${esc(date)} 集中度 ${signed(row.ratio)}%"><span class="ownership-flow-track" style="position:relative;height:12px"><i style="position:absolute;left:${row.ratio>=0?50:50-Math.abs(row.ratio)/scale*50}%;width:${Math.abs(row.ratio)/scale*50}%;background:${row.ratio>=0?'#ff647b':'#4dd5bd'}"></i><span style="position:absolute;left:50%;height:100%;border-left:1px solid #dce5ef"></span></span><strong style="color:${row.ratio>0?'#ff647b':row.ratio<0?'#4dd5bd':'#dce5ef'}">${signed(row.ratio)}%</strong></div><small class="ownership-flow-period">買超合計 ${fmt(row.buy_lots)} 張 · 賣超合計 ${fmt(row.sell_lots)} 張 · 集中淨額 ${signed(row.net_lots)} 張 · 當日量 ${fmt(row.volume_lots)} 張 · <a href="${esc(row.source)}" target="_blank" rel="noopener">單日報表</a></small>`:`<span class="ownership-flow-missing">${esc(missing(session,selectedCode))}</span>`}</div>`).join('')||'<p>尚無交易日資料。</p>'}</div><p class="ownership-note">每日集中度＝（當日前 15 大買超分點淨買超合計－前 15 大賣超分點淨賣超合計）÷ 當日成交量 × 100%。漲紅、跌綠，長條中心為 0；前 15 大依淨買賣超排序，並非成交量前 15 名。分點代表券商通路，無法識別大戶身份。單日資料與集保週資料分開，不納入原有週區間分數；另與當日法人及最新週集保配成上方每日綜合強度。從 ${esc(first||'—')} 起逐日累積，最多顯示最近 20 個交易日；缺漏不當成 0%，不以週報替代。</p></details>`;
  }
  window.renderOwnershipDailyConcentration=render;
- fetch('broker-daily-data.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('每日分點資料讀取失敗，請稍後重新整理');return r.json();}).then(data=>{if(data.version!==1||!Array.isArray(data.sessions))throw Error('每日分點資料格式錯誤');data.sessions.sort((a,b)=>a.date.localeCompare(b.date));snapshot=data;scoreCache.clear();render();renderScreen();}).catch(e=>{error=e.message;render();renderScreen();});
+ fetch('broker-daily-data.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('每日分點資料讀取失敗，請稍後重新整理');return r.json();}).then(data=>{if(data.version!==1||!Array.isArray(data.sessions))throw Error('每日分點資料格式錯誤');data.sessions.sort((a,b)=>a.date.localeCompare(b.date));snapshot=data;scoreCache.clear();render();renderScreen();window.dispatchEvent(new Event('broker-data-ready'));}).catch(e=>{error=e.message;render();renderScreen();});
   function chipFilterValues(stock, dates, sources, selected) {
     const values = {};
     const bars = stock.bars.slice(-5);
@@ -91,6 +91,14 @@
     }
     return values;
   }
+
+window.brokerFiveSession = (stock,dates) => {
+ const sessions=new Map((snapshot?.sessions||[]).map(s=>[s.date,s]));
+ const bars=new Map(stock.bars.map(b=>[b.date,b]));
+ if(dates.length!==5)return {net:null,dates};
+ const rows=dates.map(date=>{const r=validated(sessions.get(date)?.stocks?.[stock.code],date),bar=bars.get(date);return r&&bar&&Math.abs(r.volume_lots-bar.volume)<=.01?r:null;});
+ return {net:rows.every(Boolean)?rows.reduce((sum,r)=>sum+r.net_lots,0):null,dates,missing:dates.filter((date,i)=>!rows[i])};
+};
 
   const chipInputs = [...document.querySelectorAll('[data-chip-filter]')];
   let selectedChipFilters = [];
