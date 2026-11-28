@@ -73,8 +73,8 @@
     return '<p style="color:#dce5ef">族群近5日漲幅排名 · '+esc(strength.start||'—')+'～'+esc(strength.end||'—')+'</p>'+
       buckets.map(([key,label,color])=>{
         const selected=entries.filter(e=>e.bucket===key);
-        return '<section style="grid-column:1/-1;min-width:0"><h3 style="color:'+color+';margin:14px 0;font-weight:800">'+label+' · '+selected.length+' 檔</h3><div class="revenue-members">'+
-          selected.map(({stock,all})=>'<div style="min-width:0">'+card(stock)+'<p style="color:#dce5ef;overflow-wrap:anywhere">'+(all.length?all.map(g=>esc(g.name)+(Number.isFinite(g.rank)?' #'+Number(g.rank.toFixed(1))+'/'+g.total+' · 5日 '+percent(g.value*100):' · 資料不足')).join('<br>'):'尚無對應細分族群')+'</p></div>').join('')+'</div></section>';
+        return '<details open style="grid-column:1/-1;min-width:0;border:1px solid #746346;border-radius:10px;padding:12px;margin-top:10px"><summary style="color:'+color+';font-size:17px;font-weight:800;cursor:pointer">'+label+' · '+selected.length+' 檔<span style="font-size:13px;margin-left:10px;color:#dce5ef">展開／收合</span></summary><div class="revenue-members" style="margin-top:12px">'+
+          selected.map(({stock,all})=>'<div style="min-width:0">'+card(stock)+'<p style="color:#dce5ef;overflow-wrap:anywhere">'+(all.length?all.map(g=>esc(g.name)+(Number.isFinite(g.rank)?' #'+Number(g.rank.toFixed(1))+'/'+g.total+' · 5日 '+percent(g.value*100):' · 資料不足')).join('<br>'):'尚無對應細分族群')+'</p></div>').join('')+'</div></details>';
       }).join('');
   }
   window.renderRevenue = function renderRevenueRadar() {
