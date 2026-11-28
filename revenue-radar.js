@@ -22,12 +22,30 @@
     const annual=bars.slice(-240).reduce((sum,b)=>sum+b.close,0)/240,gap=bars.at(-1).close/annual-1;
     return Math.abs(gap)<=.10+1e-9?{annual,gap,route:turnaround?'由負轉正':'正成長加速'}:null;
   }
+  function sustainedPositive(revenue,quote){
+    if(!revenue||!quote)return null;
+    const [year,month]=revenue.month.split('-').map(Number),history=revenue.yoy_history||{};
+    let streak=0,first=month;
+    for(let m=month;m>=1;m--){
+      const key=year+'-'+String(m).padStart(2,'0');
+      if(!Number.isFinite(history[key])||history[key]<=0)break;
+      streak++;first=m;
+    }
+    if(streak<2)return null;
+    const before=first===1?(year-1)+'-12':year+'-'+String(first-1).padStart(2,'0');
+    if(!Number.isFinite(history[before])||history[before]>=0)return null;
+    const bars=quote.bars;
+    if(bars.length<240||!Number.isFinite(bars.at(-1).volume)||bars.at(-1).volume<500||bars.slice(-240).some(b=>!Number.isFinite(b.close)||b.close<=0))return null;
+    const annual=bars.slice(-240).reduce((sum,b)=>sum+b.close,0)/240,gap=bars.at(-1).close/annual-1;
+    return Math.abs(gap)<=.10+1e-9?{annual,gap,streak,turned:year+'-'+String(first).padStart(2,'0')}:null;
+  }
   window.renderRevenue = function renderRevenueRadar() {
     const root = $('revenue');
     if (!root) return;
     const groups = window.getHotSectorGroups?.() || new Map();
     const stockIndex = new Map(analyses.map(stock => [stock.code, stock]));
     const turns=Object.entries(report?.stocks||{}).filter(([,r])=>market==='all'||r.market===market).map(([code,revenue])=>({code,revenue,quote:stockIndex.get(code),name:revenue.name,result:revenueTurnaround(revenue,stockIndex.get(code))})).filter(s=>s.result&&(!query|| (s.code+' '+s.name).toLowerCase().includes(query.toLowerCase()))).sort((a,b)=>(b.quote.score??-1)-(a.quote.score??-1)||a.code.localeCompare(b.code));
+    const sustained=Object.entries(report?.stocks||{}).filter(([,r])=>market==='all'||r.market===market).map(([code,revenue])=>({code,revenue,quote:stockIndex.get(code),name:revenue.name,result:sustainedPositive(revenue,stockIndex.get(code))})).filter(s=>s.result&&(!query||(s.code+' '+s.name).toLowerCase().includes(query.toLowerCase()))).sort((a,b)=>(b.quote.score??-1)-(a.quote.score??-1)||a.code.localeCompare(b.code));
     const sectors = [...groups].map(([name, codes]) => {
       const members = [...codes].map(code => {
         const quote = stockIndex.get(code);
@@ -53,6 +71,7 @@
     root.innerHTML = `<div class="sector-heading"><h1>營收成長雷達</h1><p>最新官方月報 ${esc(report?.month || '載入中')} · 沿用族群輪動雷達的細分族群 · 按成員平均年增率排序</p></div>
       <div class="revenue-note">${report ? `涵蓋 ${Object.keys(report.stocks).length} 檔上市、上櫃公司；比較同一資料月份。族群平均採有公布成員的簡單平均，同一族群內的個股代號只計一次；同股可屬於不同主題。` : esc(error || '正在讀取官方月營收…')}</div>
       <details class="revenue-turns" open><summary style="color:#ffe298;font-size:20px;font-weight:800;line-height:1.5">營收轉強・年線附近 <small>${turns.length} 檔</small></summary><div class="revenue-members">${turns.length?turns.map(s=>'<article style="border:1px solid #746346;border-radius:10px;padding:12px;min-width:0;overflow-wrap:anywhere"><button type="button" class="revenue-stock-open" data-code="'+esc(s.code)+'" style="background:none;border:0;color:#ffe298;font-weight:700">'+esc(s.code)+' '+esc(s.name)+' ↗</button><p style="color:#dce5ef">營收月份 '+esc(s.revenue.month)+' · <strong style="color:#ffe298">'+esc(s.result.route)+'</strong>'+' · <strong style="color:#8ed8ff;font-weight:800">前月 '+percent(s.revenue.previous_yoy)+'</strong> → <strong style="color:#8ed8ff;font-weight:800">'+percent(s.revenue.yoy)+'</strong><br>收盤 '+fmt(s.quote.t.close)+' · MA240 '+fmt(s.result.annual)+' · <strong style="color:#ffb36e;font-weight:800">年線乖離 '+percent(s.result.gap*100)+'</strong><br>均線 '+(s.quote.score??'待補')+'／15 · 行情 '+esc(s.quote.t.date)+'</p></article>').join(''):'<p>目前沒有資料齊全且符合的個股；缺少前月營收或240日線不列入。</p>'}</div></details>
+      <details class="revenue-turns" open><summary style="color:#ffe298;font-size:20px;font-weight:800;line-height:1.5">今年轉正後持續正成長 <small>${sustained.length} 檔</small></summary><div class="revenue-members">${sustained.length?sustained.map(s=>'<article style="border:1px solid #746346;border-radius:10px;padding:12px;min-width:0;overflow-wrap:anywhere"><button type="button" class="revenue-stock-open" data-code="'+esc(s.code)+'" style="background:none;border:0;color:#ffe298;font-weight:700">'+esc(s.code)+' '+esc(s.name)+' ↗</button><p style="color:#dce5ef"><strong style="color:#8ed8ff">'+esc(s.result.turned)+' 轉正 · 連續 '+s.result.streak+' 個月年增為正</strong><br>最新營收 '+esc(s.revenue.month)+' · <strong style="color:#8ed8ff">'+percent(s.revenue.yoy)+'</strong><br>收盤 '+fmt(s.quote.t.close)+' · MA240 '+fmt(s.result.annual)+' · <strong style="color:#ffb36e">年線乖離 '+percent(s.result.gap*100)+'</strong><br>均線 '+(s.quote.score??'待補')+'／15 · 行情 '+esc(s.quote.t.date)+'</p></article>').join(''):'<p>目前沒有資料齊全且符合的個股；須今年曾由負轉正、連續至少2個月直到最新月年增率皆＞0、年線±10%、成交量≥500張。缺月不跨月補算。</p>'}</div></details>
       ${report ? `<details class="revenue-leaders" ${leadersOpen ? 'open' : ''}><summary>營收成長前五名族群 <small>依平均年增率排序</small></summary><div class="revenue-leader-grid">${ranked.map((sector, rank) => `<div><small>第 ${rank + 1} 名</small><strong>${esc(sector.name)}</strong><span>平均年增 <b>${percent(sector.avg)}</b></span><span>平均月增 <b>${percent(sector.avgMom)}</b></span><span>${sector.coverage} 家公布 · ${sector.positiveShare.toFixed(0)}% 年增為正</span></div>`).join('')}</div></details>` : ''}
       <div class="revenue-toolbar"><button type="button" id="revenue-positive" class="${positiveOnly ? 'active' : ''}">${positiveOnly ? '只看年增為正' : '顯示全部已公布'}</button><label>市場 <select id="revenue-market"><option value="all">上市＋上櫃</option><option value="上市">上市</option><option value="上櫃">上櫃</option></select></label><form id="revenue-search-form" class="revenue-search-form"><label for="revenue-search">搜尋</label><input id="revenue-search" type="search" placeholder="族群、股號或名稱" value="${esc(query)}"><button type="submit" id="revenue-search-confirm">確認</button></form></div>
       <dialog id="revenue-search-dialog" class="revenue-search-dialog" aria-labelledby="revenue-search-title"><div class="revenue-search-dialog-head"><div><h2 id="revenue-search-title">個股營收資訊</h2><p>官方月報 ${esc(report?.month || '—')} · ${matchingStocks.length} 筆結果</p></div><button type="button" id="revenue-search-close" aria-label="關閉營收資訊">× 返回</button></div><div class="revenue-members">${matchingStocks.length ? matchingStocks.map(searchCard).join('') : `<p>${report ? `目前官方月報沒有符合「${esc(query)}」的營收資料。` : '正在讀取官方月營收…'}</p>`}</div></dialog>
