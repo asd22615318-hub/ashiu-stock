@@ -68,6 +68,13 @@ def update(root: Path, public: Path, offline=False):
         prev_month = f'{year if mon > 1 else year - 1}-{mon - 1 if mon > 1 else 12:02d}'
         for code, stock in stocks.items():
             old = previous.get('stocks', {}).get(code, {})
+            history = dict(old.get('yoy_history', {}))
+            if old.get('month') and isinstance(old.get('yoy'), (int, float)):
+                history[old['month']] = old['yoy']
+            if old.get('previous_month') and isinstance(old.get('previous_yoy'), (int, float)):
+                history[old['previous_month']] = old['previous_yoy']
+            history[latest] = stock['yoy']
+            stock['yoy_history'] = {key: value for key, value in history.items() if str(year - 1) + '-12' <= key <= latest}
             if old.get('month') == prev_month:
                 stock['previous_month'] = prev_month
                 stock['previous_yoy'] = old.get('yoy')
