@@ -349,3 +349,9 @@ header nav{min-width:0;overflow-x:auto;flex-shrink:1}header .nav{white-space:now
 #rows .backtest-reference,#rows .backtest-reference *{font-size:14px!important;line-height:1.6}
 
 #rows .backtest-reference,#rows .backtest-reference *{font-weight:700!important}
+
+/* Revenue turnaround uses the same bordered disclosure presentation as peer sections. */
+#revenue .revenue-turns{border:1px solid #746346;border-radius:14px;background:#202120;padding:18px 20px;margin:16px 0;min-width:0}
+#revenue .revenue-turns>summary{cursor:pointer;padding:4px 0;overflow-wrap:anywhere}
+#revenue .revenue-turns>.revenue-members{margin-top:14px}
+@media(max-width:600px){#revenue .revenue-turns{padding:14px 16px;margin:12px 0}}
