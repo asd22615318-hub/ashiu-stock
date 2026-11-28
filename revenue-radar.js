@@ -11,6 +11,67 @@
   const stockCard = stock => `<button class="revenue-stock" type="button" data-code="${esc(stock.code)}" ${stock.quote ? '' : 'disabled'}><span class="revenue-stock-name"><strong>${esc(stock.name)}</strong><small>${esc(stock.code)} · ${esc(stock.revenue.market)}</small></span><span class="revenue-stock-metric revenue-stock-score"><small>均線分數</small><b>${stock.quote?.score == null ? '待補' : `${stock.quote.score}/15`}</b></span><span class="revenue-stock-metric revenue-stock-yoy"><small>年增</small><b>${percent(stock.revenue.yoy)}</b></span><span class="revenue-stock-metric revenue-stock-mom"><small>月增</small><b>${percent(stock.revenue.mom)}</b></span><span class="revenue-stock-metric"><small>累計年增</small><b class="${stock.revenue.ytd_yoy >= 0 ? 'up' : 'down'}">${percent(stock.revenue.ytd_yoy)}</b></span></button>`;
   const searchCard = stock => `<article class="revenue-stock revenue-search-card"><span class="revenue-stock-name">${stock.quote ? `<button type="button" class="revenue-stock-open" data-code="${esc(stock.code)}">${esc(stock.name)} ↗</button>` : `<strong>${esc(stock.name)}</strong>`}<small>${esc(stock.code)} · ${esc(stock.revenue.market)}${stock.quote ? ' · 點名稱看完整個股資訊' : ' · 暫無日線個股資訊'}</small></span><span class="revenue-stock-metric revenue-stock-score"><small>均線分數</small><b>${stock.quote?.score == null ? '待補' : `${stock.quote.score}/15`}</b></span><span class="revenue-stock-metric revenue-stock-yoy"><small>年增</small><b>${percent(stock.revenue.yoy)}</b></span><span class="revenue-stock-metric revenue-stock-mom"><small>月增</small><b>${percent(stock.revenue.mom)}</b></span><span class="revenue-stock-metric"><small>累計年增</small><b>${percent(stock.revenue.ytd_yoy)}</b></span></article>`;
 
+
+  function revenueMonthOffset(month,offset){
+    if(!/^\d{4}-\d{2}$/.test(month||''))return '';
+    const [year,m]=month.split('-').map(Number);
+    if(m<1||m>12)return '';
+    const date=new Date(Date.UTC(year,m-1+offset,1));
+    return date.getUTCFullYear()+'-'+String(date.getUTCMonth()+1).padStart(2,'0');
+  }
+  function revenueGrowthHistory(revenue){
+    if(!revenue||!revenueMonthOffset(revenue.month,0))return null;
+    const prior=revenueMonthOffset(revenue.month,-1),before=revenueMonthOffset(revenue.month,-2);
+    const current=revenue.yoy;
+    const previous=revenue.previous_month===prior&&Number.isFinite(revenue.previous_yoy)?revenue.previous_yoy:revenue.yoy_history?.[prior];
+    const earlier=revenue.yoy_history?.[before];
+    if(!Number.isFinite(current)||!Number.isFinite(previous))return null;
+    return {current,previous,earlier,prior,before};
+  }
+  function revenueEarlyBase(quote){
+    const last=quote?.bars?.at(-1);
+    return last&&Number.isFinite(last.volume)&&last.volume>=500?{}:null;
+  }
+  function revenueLeaderSignal(revenue,quote){
+    const history=revenueGrowthHistory(revenue),base=revenueEarlyBase(quote);
+    if(!history||!base||!Number.isFinite(history.earlier)||!Number.isFinite(revenue.mom))return null;
+    const {current,previous,earlier}=history;
+    if(!(current>0&&current>previous&&previous>earlier&&revenue.mom>0&&(current>=20||revenue.mom>=10)))return null;
+    return {...base,...history};
+  }
+  function revenuePeerConfirmation(groups,stocks,revenues,strength,month){
+    const confirmed=new Map();
+    for(const [name,codes] of groups){
+      const ranking=[...codes].flatMap(code=>strength.members.get(code)||[]).find(g=>g.name===name&&Number.isFinite(g.rank));
+      if(!ranking||ranking.bucket!=='strong'||ranking.value<=0)continue;
+      const peers=[...new Set(codes)].filter(code=>{
+        const revenue=revenues[code],quote=stocks.get(code),h=revenueGrowthHistory(revenue);
+        return quote?.bars?.at(-1)?.date===strength.end&&revenue?.month===month&&h&&h.current>0&&h.current>h.previous&&Number.isFinite(revenue.mom)&&revenue.mom>0;
+      });
+      if(peers.length>=2)confirmed.set(name,{...ranking,peers});
+    }
+    return confirmed;
+  }
+  function revenueEarlySignal(revenue,quote,confirmations,strength){
+    const history=revenueGrowthHistory(revenue),base=revenueEarlyBase(quote);
+    if(!history||!base||!Number.isFinite(revenue.mom)||!(history.current>=-10&&history.current>history.previous&&revenue.mom>0))return null;
+    if(revenueLeaderSignal(revenue,quote))return null;
+    const groups=(strength.members.get(quote.code)||[]).flatMap(g=>{
+      const confirmed=confirmations.get(g.name);
+      if(!confirmed)return [];
+      const peers=confirmed.peers.filter(code=>code!==quote.code);
+      return peers.length>=2?[{...confirmed,peers}]:[];
+    }).sort((a,b)=>a.rank-b.rank);
+    return groups.length?{...base,...history,group:groups[0]}:null;
+  }
+  function revenueCycleCard(stock){
+    const r=stock.revenue,h=stock.result;
+    return '<article style="border:1px solid #746346;border-radius:10px;padding:12px;min-width:0;overflow-wrap:anywhere"><button type="button" class="revenue-stock-open" data-code="'+esc(stock.code)+'" style="background:none;border:0;color:#ffe298;font-size:16px;font-weight:800">'+esc(stock.code)+' '+esc(stock.name)+'</button><p style="color:#dce5ef">營收月份 '+esc(r.month)+' · <strong style="color:#8ed8ff">年增 '+percent(r.yoy)+' · 月增 '+percent(r.mom)+'</strong><br>前月年增 '+percent(h.previous)+(Number.isFinite(h.earlier)?' · 前兩月年增 '+percent(h.earlier):'')+'<br>收盤 '+fmt(stock.quote.bars.at(-1).close)+'<br>成交量 '+fmt(stock.quote.bars.at(-1).volume,0)+' 張<br>均線 '+(stock.quote.score??'待補')+'／15 · 行情 '+esc(stock.quote.bars.at(-1).date)+(h.group?'<br><strong style="color:#ffe298">'+esc(h.group.name)+' · 其他 '+h.group.peers.length+' 檔營收改善</strong>':'')+'</p></article>';
+  }
+  function revenueCyclePanel(title,rows,rules,strength){
+    return '<details class="revenue-turns" open><summary style="color:#ffe298;font-size:20px;font-weight:800;line-height:1.5">'+title+' <small>'+rows.length+' 檔</small></summary><details style="margin:10px 0;color:#dce5ef"><summary style="cursor:pointer">查看篩選條件</summary><p>'+rules+'</p><p>共同條件：當日量≥500張；不限制股價、均線位置或近期漲幅。缺少必要資料不列入。依最新已載入月報觀察，非歷史勝率回測；營收月份不代表當時已公告。</p></details><div class="revenue-members">'+(rows.length?revenueGroupedCards(rows,revenueCycleCard,strength):'<p>目前沒有資料齊全且符合條件的個股。</p>')+'</div></details>';
+  }
+
   function revenueTurnaround(revenue,quote){
     if(!revenue||!quote||!Number.isFinite(revenue.yoy)||!Number.isFinite(revenue.previous_yoy))return null;
     const [year,month]=revenue.month.split('-').map(Number),expected=(month===1?year-1:year)+'-'+String(month===1?12:month-1).padStart(2,'0');
@@ -101,6 +162,11 @@
     const turns=Object.entries(report?.stocks||{}).filter(([,r])=>market==='all'||r.market===market).map(([code,revenue])=>({code,revenue,quote:stockIndex.get(code),name:revenue.name,result:revenueTurnaround(revenue,stockIndex.get(code))})).filter(s=>s.result&&(!query|| (s.code+' '+s.name).toLowerCase().includes(query.toLowerCase()))).sort((a,b)=>(b.quote.score??-1)-(a.quote.score??-1)||a.code.localeCompare(b.code));
     const sustained=Object.entries(report?.stocks||{}).filter(([,r])=>market==='all'||r.market===market).map(([code,revenue])=>({code,revenue,quote:stockIndex.get(code),name:revenue.name,result:sustainedPositive(revenue,stockIndex.get(code))})).filter(s=>s.result&&(!query||(s.code+' '+s.name).toLowerCase().includes(query.toLowerCase()))).sort((a,b)=>(b.quote.score??-1)-(a.quote.score??-1)||a.code.localeCompare(b.code));
     const sectorStrength=revenueSectorStrength(groups,stockIndex);
+    const peerConfirmation=revenuePeerConfirmation(groups,stockIndex,report?.stocks||{},sectorStrength,report?.month);
+    const cycleRows=Object.entries(report?.stocks||{}).filter(([,r])=>r.month===report.month&&(market==='all'||r.market===market)).map(([code,revenue])=>({code,revenue,quote:stockIndex.get(code),name:revenue.name})).filter(s=>s.quote?.bars?.at(-1)?.date===sectorStrength.end&&(!query||(s.code+' '+s.name).toLowerCase().includes(query.toLowerCase())));
+    const cycleSort=(a,b)=>(b.quote.score??-1)-(a.quote.score??-1)||a.code.localeCompare(b.code);
+    const revenueLeaders=cycleRows.map(s=>({...s,result:revenueLeaderSignal(s.revenue,s.quote)})).filter(s=>s.result).sort(cycleSort);
+    const revenueEarly=cycleRows.map(s=>({...s,result:revenueEarlySignal(s.revenue,s.quote,peerConfirmation,sectorStrength)})).filter(s=>s.result).sort(cycleSort);
     const sectors = [...groups].map(([name, codes]) => {
       const members = [...codes].map(code => {
         const quote = stockIndex.get(code);
@@ -125,6 +191,8 @@
     const ranked = sectors.filter(sector => sector.coverage >= 3).slice(0, 5);
     root.innerHTML = `<div class="sector-heading"><h1>營收成長雷達</h1><p>最新官方月報 ${esc(report?.month || '載入中')} · 沿用族群輪動雷達的細分族群 · 按成員平均年增率排序</p></div>
       <div class="revenue-note">${report ? `涵蓋 ${Object.keys(report.stocks).length} 檔上市、上櫃公司；比較同一資料月份。族群平均採有公布成員的簡單平均，同一族群內的個股代號只計一次；同股可屬於不同主題。` : esc(error || '正在讀取官方月營收…')}</div>
+      ${revenueCyclePanel('營收加速領先股',revenueLeaders,'最新月年增＞前月＞前兩月、最新月年增＞0且月增＞0，另須年增≥20%或月增≥10%。',sectorStrength)}
+      ${revenueCyclePanel('族群轉強觀察股',revenueEarly,'最新月年增較前月改善且≥−10%、月增＞0；所屬族群近5日漲幅＞0且排名前20%，並至少有2檔其他成員在同一營收月年增＞0、年增改善且月增＞0。已列入營收加速領先股者不重複列入。族群行情至少3檔具完整起訖價格。',sectorStrength)}
       <details class="revenue-turns" open><summary style="color:#ffe298;font-size:20px;font-weight:800;line-height:1.5">營收轉強・年線附近 <small>${turns.length} 檔</small></summary><div class="revenue-members">${turns.length?revenueGroupedCards(turns,s=>'<article style="border:1px solid #746346;border-radius:10px;padding:12px;min-width:0;overflow-wrap:anywhere"><button type="button" class="revenue-stock-open" data-code="'+esc(s.code)+'" style="background:none;border:0;color:#ffe298;font-weight:700">'+esc(s.code)+' '+esc(s.name)+' ↗</button><p style="color:#dce5ef">營收月份 '+esc(s.revenue.month)+' · <strong style="color:#ffe298">'+esc(s.result.route)+'</strong>'+' · <strong style="color:#8ed8ff;font-weight:800">前月 '+percent(s.revenue.previous_yoy)+'</strong> → <strong style="color:#8ed8ff;font-weight:800">'+percent(s.revenue.yoy)+'</strong><br>收盤 '+fmt(s.quote.t.close)+' · MA240 '+fmt(s.result.annual)+' · <strong style="color:#ffb36e;font-weight:800">年線乖離 '+percent(s.result.gap*100)+'</strong><br>均線 '+(s.quote.score??'待補')+'／15 · 行情 '+esc(s.quote.t.date)+'</p></article>',sectorStrength):'<p>目前沒有資料齊全且符合的個股；缺少前月營收或240日線不列入。</p>'}</div></details>
       <details class="revenue-turns" open><summary style="color:#ffe298;font-size:20px;font-weight:800;line-height:1.5">今年轉正後持續正成長 <small>${sustained.length} 檔</small></summary><div class="revenue-members">${sustained.length?revenueGroupedCards(sustained,s=>'<article style="border:1px solid #746346;border-radius:10px;padding:12px;min-width:0;overflow-wrap:anywhere"><button type="button" class="revenue-stock-open" data-code="'+esc(s.code)+'" style="background:none;border:0;color:#ffe298;font-weight:700">'+esc(s.code)+' '+esc(s.name)+' ↗</button><p style="color:#dce5ef"><strong style="color:#8ed8ff">'+esc(s.result.turned)+' 轉正 · 連續 '+s.result.streak+' 個月年增為正</strong><br>最新營收 '+esc(s.revenue.month)+' · <strong style="color:#8ed8ff">'+percent(s.revenue.yoy)+'</strong><br>收盤 '+fmt(s.quote.t.close)+' · MA240 '+fmt(s.result.annual)+' · <strong style="color:#ffb36e">年線乖離 '+percent(s.result.gap*100)+'</strong><br>均線 '+(s.quote.score??'待補')+'／15 · 行情 '+esc(s.quote.t.date)+'</p></article>',sectorStrength):'<p>目前沒有資料齊全且符合的個股；須今年曾由負轉正、連續至少2個月直到最新月年增率皆＞0、年線±10%、成交量≥500張。缺月不跨月補算。</p>'}</div></details>
       ${report ? `<details class="revenue-leaders" ${leadersOpen ? 'open' : ''}><summary>營收成長前五名族群 <small>依平均年增率排序</small></summary><div class="revenue-leader-grid">${ranked.map((sector, rank) => `<div><small>第 ${rank + 1} 名</small><strong>${esc(sector.name)}</strong><span>平均年增 <b>${percent(sector.avg)}</b></span><span>平均月增 <b>${percent(sector.avgMom)}</b></span><span>${sector.coverage} 家公布 · ${sector.positiveShare.toFixed(0)}% 年增為正</span></div>`).join('')}</div></details>` : ''}
