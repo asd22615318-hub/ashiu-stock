@@ -62,10 +62,18 @@
       if(!members.has(code))members.set(code,[]);
       members.get(code).push(ranking.get(name)||{name,bucket:'unknown'});
     }
+    // Enrich unmapped candidates with existing taxonomy without changing the hot-sector universe.
+    for(const [code,stock] of stocks){
+      if(members.get(code)?.length)continue;
+      const taxonomy=typeof STOCK_GROUPS==='undefined'?[]:STOCK_GROUPS.filter(g=>g.theme!=='自訂族群'&&g.codes.includes(code));
+      const names=[...new Set(taxonomy.map(g=>g.sub))];
+      if(names.length)members.set(code,names.map(name=>({name,bucket:'unknown',classification:'既有產業鏈分類'})));
+      else if(stock.industry)members.set(code,[{name:stock.industry,bucket:'unknown',classification:'官方產業'}]);
+    }
     return {members,start,end};
   }
   function revenueGroupedCards(rows,card,strength){
-    const buckets=[['strong','強勢族群','#ffd66e'],['normal','一般族群','#dce5ef'],['weak','弱勢族群','#8ed8ff'],['unknown','未分類／資料不足','#b9c4d0']];
+    const buckets=[['strong','強勢族群','#ffd66e'],['normal','一般族群','#dce5ef'],['weak','弱勢族群','#8ed8ff'],['unknown','其他族群／強弱待補','#b9c4d0']];
     const entries=rows.map(stock=>{
       const all=(strength.members.get(stock.code)||[]).slice().sort((a,b)=>(a.rank??Infinity)-(b.rank??Infinity));
       return {stock,all,bucket:all.find(g=>Number.isFinite(g.rank))?.bucket||'unknown'};
@@ -74,7 +82,7 @@
       buckets.map(([key,label,color])=>{
         const selected=entries.filter(e=>e.bucket===key);
         return '<details open style="grid-column:1/-1;min-width:0;border:1px solid #746346;border-radius:10px;padding:12px;margin-top:10px"><summary style="color:'+color+';font-size:17px;font-weight:800;cursor:pointer">'+label+' · '+selected.length+' 檔<span style="font-size:13px;margin-left:10px;color:#dce5ef">展開／收合</span></summary><div class="revenue-members" style="margin-top:12px">'+
-          selected.map(({stock,all})=>'<div style="min-width:0">'+card(stock)+'<p style="color:#dce5ef;overflow-wrap:anywhere">'+(all.length?all.map(g=>esc(g.name)+(Number.isFinite(g.rank)?' #'+Number(g.rank.toFixed(1))+'/'+g.total+' · 5日 '+percent(g.value*100):' · 資料不足')).join('<br>'):'尚無對應細分族群')+'</p></div>').join('')+'</div></details>';
+          selected.map(({stock,all})=>'<div style="min-width:0">'+card(stock)+'<p style="color:#dce5ef;overflow-wrap:anywhere">'+(all.length?all.map(g=>esc(g.name)+(Number.isFinite(g.rank)?' #'+Number(g.rank.toFixed(1))+'/'+g.total+' · 5日 '+percent(g.value*100):' · '+(g.classification||'族群強弱資料不足'))).join('<br>'):'尚無對應細分族群')+'</p></div>').join('')+'</div></details>';
       }).join('');
   }
   window.renderRevenue = function renderRevenueRadar() {
